@@ -466,7 +466,11 @@ async function processMaterialOperation(input: {
       planning = await replanMaterialSkills({
       userId: input.operation.userId,
       now: input.now,
-      input: { batchId, instruction: planningInstruction },
+      input: {
+        batchId,
+        instruction: planningInstruction,
+        ...(sectionIds.length > 0 ? { sectionIds } : {}),
+      },
     });
     } else {
       planning = await planMaterialSkills({
@@ -477,6 +481,7 @@ async function processMaterialOperation(input: {
         materialRevisionId: input.operation.materialRevisionId,
         instruction: planningInstruction,
         idempotencyKey: `agent-${input.operation.id}`,
+        ...(sectionIds.length > 0 ? { sectionIds } : {}),
       },
     });
     }

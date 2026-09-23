@@ -22,6 +22,7 @@ import {
   getMaterialDraftBatch,
   MaterialDraftGenerationError,
   planMaterialSkills,
+  replanMaterialSkills,
   queueMaterialBatchActivation as queueMaterialBatchActivationService,
   retryMaterialBatchActivationItem,
   retryMaterialDraftItem,
@@ -1323,6 +1324,212 @@ describeDatabase("material multi-skill drafting", () => {
     expect(planningInput?.chunks.map((chunk) => chunk.id)).toEqual(
       expect.arrayContaining([directChunkId, indirectChunkId]),
     );
+  });
+
+  async function createDuplicateLessonFixture(label: string) {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: `Duplicate lesson fixture ${label}`,
+      kind: StudyMaterialKind.PDF,
+    });
+    const firstLesson = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Lesson L",
+        normalizedTitle: "lesson l",
+        pageStart: 30,
+        pageEnd: 70,
+        headingPath: ["Lesson L"],
+      },
+    });
+    const selectedLesson = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 1,
+        level: 1,
+        title: "Lesson L",
+        normalizedTitle: "lesson l",
+        pageStart: 369,
+        pageEnd: 424,
+        headingPath: ["Lesson L"],
+      },
+    });
+    const selectedSubsection = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        parentId: selectedLesson.id,
+        ordinal: 2,
+        level: 2,
+        title: "Affirmative tú commands",
+        normalizedTitle: "affirmative tu commands",
+        pageStart: 411,
+        pageEnd: 424,
+        headingPath: ["Lesson L", "Affirmative tú commands"],
+      },
+    });
+    const firstChunk = `${runId}_${label}_first_chunk`;
+    const selectedChunk = `${runId}_${label}_selected_chunk`;
+    await prisma.materialChunk.createMany({
+      data: [
+        {
+          id: firstChunk,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: firstLesson.id,
+          ordinal: 0,
+          text: "Noun gender and plural article forms use matching endings.",
+          tokenEstimate: 10,
+          contentHash: `sha256:${firstChunk}`,
+          headingText: firstLesson.title,
+          locator: { kind: "pdf", pageRange: { start: 30, end: 30 } },
+        },
+        {
+          id: selectedChunk,
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: selectedSubsection.id,
+          ordinal: 1,
+          text: "Affirmative tú reflexive commands attach the pronoun and accent the command; irse is the exception.",
+          tokenEstimate: 14,
+          contentHash: `sha256:${selectedChunk}`,
+          headingText: selectedSubsection.title,
+          locator: { kind: "pdf", pageRange: { start: 411, end: 414 } },
+        },
+      ],
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:${label}`,
+      byteSize: 32_768,
+      pageCount: 628,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/${label}.pdf`,
+    });
+    return {
+      material,
+      revision,
+      firstLesson,
+      selectedLesson,
+      selectedSubsection,
+      firstChunk,
+      selectedChunk,
+    };
+  }
+
+  it("uses the selected section ID when duplicate lesson titles exist", async () => {
+    const fixture = await createDuplicateLessonFixture("explicit-section-plan");
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Affirmative tú reflexive commands",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "affirmative-tu-reflexive-command",
+          title: "Affirmative tú reflexive commands",
+          objective: "Form affirmative tú reflexive commands with correct accent placement, including irse.",
+          materialSectionIds: [fixture.selectedSubsection.id],
+          evidenceChunkIds: [fixture.selectedChunk],
+        },
+      ],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: fixture.material.id,
+        materialRevisionId: fixture.revision.id,
+        instruction:
+          "Create one skill from Lesson L about affirmative tú reflexive commands, accent placement, and the irse exception.",
+        idempotencyKey: `${runId}_explicit_section_plan`,
+        sectionIds: [fixture.selectedLesson.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([
+      fixture.selectedLesson.id,
+      fixture.selectedSubsection.id,
+    ]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toContain(fixture.selectedChunk);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(fixture.firstChunk);
+  });
+
+  it("preserves selected section IDs when replanning a material batch", async () => {
+    const fixture = await createDuplicateLessonFixture("explicit-section-replan");
+    const needsScope = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: fixture.material.id,
+        materialRevisionId: fixture.revision.id,
+        instruction: "Choose a section for a Spanish grammar skill.",
+        idempotencyKey: `${runId}_explicit_section_replan`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "ambiguous",
+          resolvedScopeLabel: "Choose a lesson",
+          clarification: "Select one lesson.",
+          clarificationOptions: [],
+          warnings: [],
+          items: [],
+        }),
+      }),
+      embeddingGenerator: null,
+    });
+    expect(needsScope.status).toBe("needs-scope");
+    if (needsScope.status !== "needs-scope") {
+      throw new Error("expected an editable material scope");
+    }
+
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Affirmative tú reflexive commands",
+      clarification: null,
+      warnings: [],
+      items: [
+        {
+          key: "affirmative-tu-reflexive-command",
+          title: "Affirmative tú reflexive commands",
+          objective: "Form affirmative tú reflexive commands with correct accent placement, including irse.",
+          materialSectionIds: [fixture.selectedSubsection.id],
+          evidenceChunkIds: [fixture.selectedChunk],
+        },
+      ],
+    }));
+    const result = await replanMaterialSkills({
+      userId,
+      input: {
+        batchId: needsScope.batchId,
+        instruction:
+          "Create one skill from Lesson L about affirmative tú reflexive commands, accent placement, and the irse exception.",
+        sectionIds: [fixture.selectedLesson.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+
+    expect(result.status).toBe("planned");
+    const planningInput = planScope.mock.calls[0]?.[0];
+    expect(planningInput?.sections.map((section) => section.id)).toEqual([
+      fixture.selectedLesson.id,
+      fixture.selectedSubsection.id,
+    ]);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).toContain(fixture.selectedChunk);
+    expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(fixture.firstChunk);
   });
 
   it("retrieves the reflexive-verb lesson when semantic search is unavailable", async () => {

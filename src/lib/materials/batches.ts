@@ -50,6 +50,7 @@ import {
   buildMaterialTopicRecoveryQuery,
   getMaterialTopicRecoveryGroupCount,
   resolveMaterialTopicSearchQuery,
+  resolveExplicitMaterialSectionScope,
   resolveStructuralMaterialScope,
   selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
@@ -208,6 +209,7 @@ export async function planMaterialSkills(input: {
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
     ocrStorage: input.ocrStorage,
+    sectionIds: parsed.data.sectionIds,
   });
 }
 
@@ -259,6 +261,7 @@ export async function replanMaterialSkills(input: {
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
     ocrStorage: input.ocrStorage,
+    sectionIds: parsed.data.sectionIds,
   });
 }
 
@@ -3432,6 +3435,7 @@ async function planExistingMaterialBatch(input: {
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
   ocrStorage?: SourceObjectStorage;
+  sectionIds?: string[];
 }) {
   const prisma = getPrisma();
   const batch = await prisma.skillDraftBatch.findFirst({
@@ -3482,10 +3486,9 @@ async function planExistingMaterialBatch(input: {
     return { status: "not-found" as const, message: "Ready material batch was not found." };
   }
   const sections = batch.materialRevision.sections satisfies MaterialPlanningSection[];
-  const structural = resolveStructuralMaterialScope({
-    instruction: batch.instruction,
-    sections,
-  });
+  const structural = input.sectionIds
+    ? resolveExplicitMaterialSectionScope({ sectionIds: input.sectionIds, sections })
+    : resolveStructuralMaterialScope({ instruction: batch.instruction, sections });
   if (structural.missingReferences.length > 0) {
     const plan = materialScopeResolutionSchema.parse({
       version: 1,

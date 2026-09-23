@@ -727,6 +727,30 @@ export function resolveStructuralMaterialScope(input: {
   };
 }
 
+export function resolveExplicitMaterialSectionScope(input: {
+  sectionIds: readonly string[];
+  sections: readonly MaterialPlanningSection[];
+}): ReturnType<typeof resolveStructuralMaterialScope> {
+  const orderedSections = [...input.sections].sort(
+    (left, right) => left.ordinal - right.ordinal || left.id.localeCompare(right.id),
+  );
+  const sectionsById = new Map(orderedSections.map((section) => [section.id, section]));
+  const missingSectionIds = input.sectionIds.filter((sectionId) => !sectionsById.has(sectionId));
+
+  return {
+    references: [],
+    missingReferences: missingSectionIds.length ? ["one or more selected sections"] : [],
+    candidateSectionIds: missingSectionIds.length
+      ? []
+      : unique(
+          input.sectionIds.flatMap((sectionId) => {
+            const root = sectionsById.get(sectionId);
+            return root ? collectSectionScope(root, orderedSections) : [];
+          }),
+        ),
+  };
+}
+
 export function validateMaterialScopePlannerResponse(input: {
   materialRevisionId: string;
   instruction: string;
