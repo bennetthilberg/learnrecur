@@ -199,21 +199,6 @@ export async function planMaterialSkills(input: {
 
   const existingPlan = materialScopeResolutionSchema.safeParse(batch.proposedPlan);
   if (existingPlan.success) {
-    const persistedSectionIds = readPersistedMaterialSectionIds(batch.planningMetadata);
-    const requestedSectionIds = [...(parsed.data.sectionIds ?? [])].sort();
-    if (
-      (persistedSectionIds === null && requestedSectionIds.length > 0) ||
-      (persistedSectionIds !== null &&
-        (persistedSectionIds.length !== requestedSectionIds.length ||
-          persistedSectionIds.some(
-            (sectionId, index) => sectionId !== requestedSectionIds[index],
-          )))
-    ) {
-      return {
-        status: "invalid" as const,
-        message: "This idempotency key was already used for a different selected section scope.",
-      };
-    }
     return planResult(batch.id, existingPlan.data);
   }
 
@@ -4271,14 +4256,6 @@ function readTargetRepairContext(value: unknown) {
   const repair = readJsonObject(readJsonObject(value).targetRepair);
   return repair.required === true && typeof repair.verificationNote === "string"
     ? { verificationNote: repair.verificationNote }
-    : null;
-}
-
-function readPersistedMaterialSectionIds(value: unknown) {
-  const sectionIds = readJsonObject(value).selectedSectionIds;
-  return Array.isArray(sectionIds) &&
-    sectionIds.every((sectionId): sectionId is string => typeof sectionId === "string")
-    ? [...sectionIds].sort()
     : null;
 }
 

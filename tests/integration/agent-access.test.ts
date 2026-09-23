@@ -22,6 +22,7 @@ import {
   GenerationJobStatus,
   SourceFileKind,
   SourceFileStatus,
+  StudyMaterialKind,
   SkillStatus,
 } from "@/generated/prisma/client";
 import {
@@ -38,6 +39,9 @@ import {
 import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
 import { listAgentMaterials } from "@/lib/agent-access/materials";
 import { reserveAgentActivation, runAgentSkillOperationJob } from "@/lib/agent-access/worker";
+import * as materialBatches from "@/lib/materials/batches";
+import { createMaterialWithInitialRevision } from "@/lib/materials/lifecycle";
+import { materialScopeResolutionSchema } from "@/lib/materials/contracts";
 import {
   sendAgentConnectionRevocationRequested,
   sendAgentSkillOperationRequested,
@@ -375,6 +379,88 @@ describeDatabase("agent access persistence", () => {
         maxSkills: 3,
       },
     });
+  });
+
+  it("clears an unusable explicit section selection before requesting scope clarification", async () => {
+    const fixture = await createConnection("material-scope-clarification");
+    const { revision } = await createMaterialWithInitialRevision({
+      userId: fixture.userId,
+      title: "Scope clarification fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId: fixture.userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Selected section",
+        normalizedTitle: "selected section",
+        headingPath: ["Selected section"],
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.MATERIAL_BATCH,
+        toolName: "skills.add_from_material",
+        status: AgentOperationStatus.PLANNING,
+        idempotencyKey: `material-scope-clarification-${runId}`,
+        payloadHash: "f".repeat(64),
+        materialRevisionId: revision.id,
+        requestPayload: {
+          instruction: "Create one skill from this section.",
+          sectionIds: [section.id],
+          maxSkills: 1,
+        },
+        requestedCount: 1,
+      },
+    });
+    const planningResult = {
+      status: "needs-scope" as const,
+      batchId: `${runId}_scope_clarification_batch`,
+      plan: materialScopeResolutionSchema.parse({
+        version: 1,
+        materialRevisionId: revision.id,
+        instruction: "Create one skill from this section.",
+        resolutionStatus: "ambiguous",
+        resolvedScopeLabel: "The selected section does not identify instructional content.",
+        warnings: [],
+        clarification: "Select an instructional section.",
+        items: [],
+      }),
+    };
+    const planSpy = vi.spyOn(materialBatches, "planMaterialSkills").mockResolvedValue(planningResult);
+
+    try {
+      await expect(
+        runAgentSkillOperationJob({
+          userId: fixture.userId,
+          operationId: operation.id,
+          now: new Date("2026-09-23T12:00:00.000Z"),
+        }),
+      ).resolves.toMatchObject({ status: "processed", operationId: operation.id });
+      expect(planSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ input: expect.objectContaining({ sectionIds: [section.id] }) }),
+      );
+      await expect(
+        prisma.agentSkillOperation.findUniqueOrThrow({
+          where: { id: operation.id },
+          select: { status: true, requestPayload: true },
+        }),
+      ).resolves.toEqual({
+        status: AgentOperationStatus.NEEDS_INPUT,
+        requestPayload: {
+          instruction: "Create one skill from this section.",
+          originalSectionIds: [section.id],
+          maxSkills: 1,
+          materialBatchId: planningResult.batchId,
+        },
+      });
+    } finally {
+      planSpy.mockRestore();
+    }
   });
 
   it("cancels expired upload operations and removes their draft sources", async () => {

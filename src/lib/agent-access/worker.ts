@@ -486,15 +486,23 @@ async function processMaterialOperation(input: {
     });
     }
     if (planning.status === "needs-scope") {
-    await prisma.agentSkillOperation.update({
-      where: { id: input.operation.id },
-      data: {
-        status: AgentOperationStatus.NEEDS_INPUT,
-        requestPayload: toJson({ ...payload, materialBatchId: planning.batchId }),
-        errorCode: "MATERIAL_SCOPE_NEEDS_INPUT",
-        errorMessage: "Clarify the chapters, sections, or concepts to cover.",
-      },
-    });
+      const clarificationPayload: Record<string, unknown> = {
+        ...payload,
+        materialBatchId: planning.batchId,
+      };
+      if (sectionIds.length > 0) {
+        clarificationPayload.originalSectionIds ??= sectionIds;
+        delete clarificationPayload.sectionIds;
+      }
+      await prisma.agentSkillOperation.update({
+        where: { id: input.operation.id },
+        data: {
+          status: AgentOperationStatus.NEEDS_INPUT,
+          requestPayload: toJson(clarificationPayload),
+          errorCode: "MATERIAL_SCOPE_NEEDS_INPUT",
+          errorMessage: "Clarify the chapters, sections, or concepts to cover.",
+        },
+      });
       return false;
     }
     if (planning.status !== "planned") {
