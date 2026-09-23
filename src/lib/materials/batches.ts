@@ -202,9 +202,12 @@ export async function planMaterialSkills(input: {
     const persistedSectionIds = readPersistedMaterialSectionIds(batch.planningMetadata);
     const requestedSectionIds = [...(parsed.data.sectionIds ?? [])].sort();
     if (
-      !persistedSectionIds ||
-      persistedSectionIds.length !== requestedSectionIds.length ||
-      persistedSectionIds.some((sectionId, index) => sectionId !== requestedSectionIds[index])
+      (persistedSectionIds === null && requestedSectionIds.length > 0) ||
+      (persistedSectionIds !== null &&
+        (persistedSectionIds.length !== requestedSectionIds.length ||
+          persistedSectionIds.some(
+            (sectionId, index) => sectionId !== requestedSectionIds[index],
+          )))
     ) {
       return {
         status: "invalid" as const,
