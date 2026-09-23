@@ -809,6 +809,230 @@ describeDatabase("agent access persistence", () => {
     ).resolves.toMatchObject({ status: AgentOperationStatus.SUCCEEDED, activeCount: 1 });
   });
 
+  it("keeps concurrent deliveries waiting on one running activation without duplicating records", async () => {
+    const fixture = await createConnection("concurrent-worker-wait");
+    const now = new Date("2026-08-13T13:00:00.000Z");
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Concurrent activation draft",
+        objective: "Wait for a single existing activation before publishing.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const job = await prisma.generationJob.create({
+      data: {
+        userId: fixture.userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        stage: GenerationJobStage.PUBLISHING,
+        provider: "google",
+        model: "recovery-test-gemini",
+        promptVersion: "recovery-test-v1",
+        requestedCount: 5,
+        startedAt: now,
+        updatedAt: now,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.QUEUED,
+        idempotencyKey: "concurrent-worker-wait-" + runId,
+        payloadHash: "5".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "concurrent-wait-item",
+            status: AgentOperationItemStatus.QUEUED,
+            createdSkillId: skill.id,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    const updateMany = prisma.agentSkillOperationItem.updateMany.bind(
+      prisma.agentSkillOperationItem,
+    );
+    let claimAttempts = 0;
+    let releaseClaims!: () => void;
+    const bothClaimsReached = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error("Both deliveries did not reach the item claim.")),
+        10_000,
+      );
+      releaseClaims = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+    });
+    const claimSpy = vi
+      .spyOn(prisma.agentSkillOperationItem, "updateMany")
+      .mockImplementation((args) => {
+        if (
+          args.where?.id === operation.items[0].id &&
+          args.where?.status === AgentOperationItemStatus.QUEUED
+        ) {
+          claimAttempts += 1;
+          if (claimAttempts === 2) releaseClaims();
+          return (async () => {
+            await bothClaimsReached;
+            return updateMany(args);
+          })() as unknown as ReturnType<typeof updateMany>;
+        }
+        return updateMany(args);
+      });
+
+    try {
+      await expect(
+        Promise.all([
+          runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
+          runAgentSkillOperationJob({ userId: fixture.userId, operationId: operation.id, now }),
+        ]),
+      ).resolves.toEqual([
+        { status: "processed", operationId: operation.id },
+        { status: "processed", operationId: operation.id },
+      ]);
+      expect(claimAttempts).toBe(2);
+    } finally {
+      releaseClaims();
+      claimSpy.mockRestore();
+    }
+
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVATING,
+      errorCode: "ACTIVATION_WAITING",
+      workerClaimToken: null,
+      workerClaimedAt: null,
+      activationReservedAt: now,
+      retryCount: 0,
+    });
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationStatus.ACTIVATING,
+      activeCount: 0,
+      reusedCount: 0,
+      failedCount: 0,
+      completedAt: null,
+    });
+    await expect(
+      prisma.generationJob.count({
+        where: { userId: fixture.userId, skillId: skill.id, kind: GenerationJobKind.SKILL_ACTIVATION },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: job.id } }),
+    ).resolves.toMatchObject({ status: GenerationJobStatus.RUNNING });
+    await expect(prisma.skill.count({ where: { userId: fixture.userId } })).resolves.toBe(1);
+    await expect(prisma.exercise.count({ where: { userId: fixture.userId } })).resolves.toBe(0);
+  });
+
+  it("recovers stale legacy ACTIVATION_IN_PROGRESS failures and reconciles reservations", async () => {
+    const fixture = await createConnection("legacy-activation-wait");
+    const now = new Date("2026-08-13T14:00:00.000Z");
+    const staleAt = new Date(now.getTime() - 10 * 60_000);
+    const skill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Legacy activation draft",
+        objective: "Resume a draft whose older worker marked activation as failed.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const job = await prisma.generationJob.create({
+      data: {
+        userId: fixture.userId,
+        skillId: skill.id,
+        kind: GenerationJobKind.SKILL_ACTIVATION,
+        status: GenerationJobStatus.RUNNING,
+        stage: GenerationJobStage.PUBLISHING,
+        provider: "google",
+        model: "recovery-test-gemini",
+        promptVersion: "recovery-test-v1",
+        requestedCount: 5,
+        startedAt: staleAt,
+        updatedAt: staleAt,
+      },
+    });
+    const operation = await prisma.agentSkillOperation.create({
+      data: {
+        userId: fixture.userId,
+        connectionId: fixture.connection.id,
+        kind: AgentOperationKind.SPEC_BATCH,
+        toolName: "skills.add_from_specs",
+        status: AgentOperationStatus.QUEUED,
+        idempotencyKey: "legacy-activation-wait-" + runId,
+        payloadHash: "6".repeat(64),
+        requestedCount: 1,
+        items: {
+          create: {
+            ordinal: 0,
+            clientReference: "legacy-wait-item",
+            status: AgentOperationItemStatus.FAILED,
+            errorCode: "ACTIVATION_IN_PROGRESS",
+            errorMessage: "The previous worker observed another activation in progress.",
+            createdSkillId: skill.id,
+            activationReservedAt: staleAt,
+            updatedAt: staleAt,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    await expect(
+      recoverStaleAgentOperationItems({
+        userId: fixture.userId,
+        operationId: operation.id,
+        now,
+      }),
+    ).resolves.toMatchObject({ scanned: 1, requeued: 1, continuations: 1 });
+
+    await expect(
+      prisma.generationJob.findUniqueOrThrow({ where: { id: job.id } }),
+    ).resolves.toMatchObject({
+      status: GenerationJobStatus.FAILED,
+      stage: GenerationJobStage.FAILED,
+      failureCategory: GenerationFailureCategory.TIMEOUT,
+      completedAt: now,
+    });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.QUEUED,
+      errorCode: "TRANSIENT_WORKER_FAILURE",
+      activationReservedAt: null,
+      workerClaimToken: null,
+      workerClaimedAt: null,
+      retryCount: 1,
+      completedAt: null,
+    });
+    await expect(
+      prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: operation.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationStatus.QUEUED,
+      activeCount: 0,
+      failedCount: 0,
+      completedAt: null,
+    });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith({
+      userId: fixture.userId,
+      operationId: operation.id,
+      requestedAt: now.toISOString(),
+    });
+    await expect(prisma.skill.count({ where: { userId: fixture.userId } })).resolves.toBe(1);
+    await expect(prisma.exercise.count({ where: { userId: fixture.userId } })).resolves.toBe(0);
+  });
+
   it("does not reopen a stale child of a terminal operation", async () => {
     const fixture = await createConnection("terminal-recovery");
     const claimedAt = new Date("2026-08-13T13:45:00.000Z");

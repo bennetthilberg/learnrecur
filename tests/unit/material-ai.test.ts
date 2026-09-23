@@ -178,6 +178,31 @@ function parseMetaMuseRequest(init: RequestInit | undefined) {
 }
 
 describe("material AI MetaMuse fallback", () => {
+  it("uses the Vertex response schema while retaining the server batch limit", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    geminiGenerateContentMock.mockResolvedValue({
+      text: JSON.stringify(rawScopePlan),
+    });
+
+    const setup = createMaterialDraftAiSetup({ gemini, metaMuseFallback: null });
+    await setup.planScope(plannerInput);
+    await setup.reviewScope?.({ ...plannerInput, candidatePlan });
+
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(2);
+    for (const [request] of geminiGenerateContentMock.mock.calls) {
+      const config = (request as { config: Record<string, unknown> }).config;
+      const responseSchema = config.responseSchema as {
+        properties: { items: Record<string, unknown> };
+      };
+
+      expect(config.responseMimeType).toBe("application/json");
+      expect(config.responseJsonSchema).toBeUndefined();
+      expect(responseSchema.properties.items).not.toHaveProperty("maxItems");
+    }
+    expect(materialScopePlannerJsonSchema.properties.items.maxItems).toBe(25);
+  });
+
   it("falls back to MetaMuse when Gemini scope planning is rate limited", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
