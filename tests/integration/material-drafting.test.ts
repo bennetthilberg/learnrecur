@@ -1457,6 +1457,40 @@ describeDatabase("material multi-skill drafting", () => {
     });
 
     expect(result.status).toBe("planned");
+    const sameSelectionRetry = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: fixture.material.id,
+        materialRevisionId: fixture.revision.id,
+        instruction:
+          "Create one skill from Lesson L about affirmative tú reflexive commands, accent placement, and the irse exception.",
+        idempotencyKey: `${runId}_explicit_section_plan`,
+        sectionIds: [fixture.selectedLesson.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    const changedSelectionRetry = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: fixture.material.id,
+        materialRevisionId: fixture.revision.id,
+        instruction:
+          "Create one skill from Lesson L about affirmative tú reflexive commands, accent placement, and the irse exception.",
+        idempotencyKey: `${runId}_explicit_section_plan`,
+        sectionIds: [fixture.firstLesson.id],
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope }),
+      embeddingGenerator: null,
+    });
+    expect(sameSelectionRetry).toEqual(result);
+    expect(changedSelectionRetry).toMatchObject({
+      status: "invalid",
+      message: expect.stringContaining("different selected section scope"),
+    });
+    expect(planScope).toHaveBeenCalledTimes(1);
     const planningInput = planScope.mock.calls[0]?.[0];
     expect(planningInput?.sections.map((section) => section.id)).toEqual([
       fixture.selectedLesson.id,

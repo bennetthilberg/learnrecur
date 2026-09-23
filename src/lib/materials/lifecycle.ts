@@ -309,9 +309,11 @@ export async function createIdempotentDraftBatch(input: {
   materialRevisionId: string;
   instruction: string;
   idempotencyKey: string;
+  selectedSectionIds?: readonly string[];
 }) {
   const prisma = getPrisma();
   const normalizedInstruction = input.instruction.trim();
+  const selectedSectionIds = [...(input.selectedSectionIds ?? [])].sort();
 
   return prisma.$transaction(async (tx) => {
     const lockedMaterials = await tx.$queryRaw<Array<{ materialId: string }>>`
@@ -356,6 +358,7 @@ export async function createIdempotentDraftBatch(input: {
         materialRevisionId: input.materialRevisionId,
         instruction: normalizedInstruction,
         idempotencyKey: input.idempotencyKey,
+        planningMetadata: { selectedSectionIds },
         status: SkillDraftBatchStatus.PLANNING,
       },
     });
@@ -367,7 +370,38 @@ export async function createIdempotentDraftBatch(input: {
       throw new Error("This idempotency key was already used for a different material request.");
     }
 
-    return batch;
+    const metadata =
+      batch.planningMetadata &&
+      typeof batch.planningMetadata === "object" &&
+      !Array.isArray(batch.planningMetadata)
+        ? (batch.planningMetadata as Record<string, unknown>)
+        : {};
+    const persistedSectionIds = metadata.selectedSectionIds;
+    if (
+      Array.isArray(persistedSectionIds) &&
+      persistedSectionIds.every((sectionId): sectionId is string => typeof sectionId === "string")
+    ) {
+      const normalizedPersistedSectionIds = [...persistedSectionIds].sort();
+      if (
+        normalizedPersistedSectionIds.length !== selectedSectionIds.length ||
+        normalizedPersistedSectionIds.some(
+          (sectionId, index) => sectionId !== selectedSectionIds[index],
+        )
+      ) {
+        throw new Error("This idempotency key was already used for a different selected section scope.");
+      }
+      return batch;
+    }
+
+    if (batch.proposedPlan !== null && selectedSectionIds.length > 0) {
+      throw new Error("This idempotency key was already used for a different selected section scope.");
+    }
+
+    const updatedBatch = await tx.skillDraftBatch.update({
+      where: { id: batch.id },
+      data: { planningMetadata: { ...metadata, selectedSectionIds } },
+    });
+    return { ...batch, planningMetadata: updatedBatch.planningMetadata };
   });
 }
 

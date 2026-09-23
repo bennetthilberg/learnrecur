@@ -188,6 +188,7 @@ export async function planMaterialSkills(input: {
       materialRevisionId: parsed.data.materialRevisionId,
       instruction: parsed.data.instruction,
       idempotencyKey: parsed.data.idempotencyKey,
+      selectedSectionIds: parsed.data.sectionIds,
     });
   } catch (error) {
     return {
@@ -198,6 +199,18 @@ export async function planMaterialSkills(input: {
 
   const existingPlan = materialScopeResolutionSchema.safeParse(batch.proposedPlan);
   if (existingPlan.success) {
+    const persistedSectionIds = readPersistedMaterialSectionIds(batch.planningMetadata);
+    const requestedSectionIds = [...(parsed.data.sectionIds ?? [])].sort();
+    if (
+      !persistedSectionIds ||
+      persistedSectionIds.length !== requestedSectionIds.length ||
+      persistedSectionIds.some((sectionId, index) => sectionId !== requestedSectionIds[index])
+    ) {
+      return {
+        status: "invalid" as const,
+        message: "This idempotency key was already used for a different selected section scope.",
+      };
+    }
     return planResult(batch.id, existingPlan.data);
   }
 
@@ -3508,6 +3521,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: null,
       structural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -3530,6 +3544,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: null,
       structural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -3591,6 +3606,7 @@ async function planExistingMaterialBatch(input: {
         plan,
         model: null,
         structural,
+        selectedSectionIds: input.sectionIds ?? [],
         now: input.now,
         expectedInstruction: batch.instruction,
         expectedUpdatedAt: batch.updatedAt,
@@ -3633,6 +3649,7 @@ async function planExistingMaterialBatch(input: {
         plan,
         model: null,
         structural,
+        selectedSectionIds: input.sectionIds ?? [],
         now: input.now,
         expectedInstruction: batch.instruction,
         expectedUpdatedAt: batch.updatedAt,
@@ -3736,6 +3753,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: ai.model,
       structural: planningStructural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -4245,6 +4263,14 @@ function readTargetRepairContext(value: unknown) {
     : null;
 }
 
+function readPersistedMaterialSectionIds(value: unknown) {
+  const sectionIds = readJsonObject(value).selectedSectionIds;
+  return Array.isArray(sectionIds) &&
+    sectionIds.every((sectionId): sectionId is string => typeof sectionId === "string")
+    ? [...sectionIds].sort()
+    : null;
+}
+
 function readScopeBoundaries(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return { includeConcepts: [] as string[], excludeConcepts: [] as string[] };
@@ -4273,6 +4299,7 @@ async function saveProposedMaterialPlan(input: {
   plan: MaterialScopeResolution;
   model: string | null;
   structural: ReturnType<typeof resolveStructuralMaterialScope>;
+  selectedSectionIds: string[];
   now: Date;
   expectedInstruction: string;
   expectedUpdatedAt: Date;
@@ -4290,6 +4317,7 @@ async function saveProposedMaterialPlan(input: {
       proposedPlan: toInputJson(input.plan),
       planningMetadata: {
         model: input.model,
+        selectedSectionIds: input.selectedSectionIds,
         structuralReferences: input.structural.references.map((reference) => reference.label),
         candidateSectionCount: input.structural.candidateSectionIds.length,
         plannedAt: input.now.toISOString(),
