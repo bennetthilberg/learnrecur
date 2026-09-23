@@ -151,7 +151,7 @@ export async function runAgentSkillOperationJob(
 ) {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
-  const deadlineAt = input.deadlineAt ?? new Date(now.getTime() + AGENT_OPERATION_SOFT_DEADLINE_MS);
+  const deadlineAt = input.deadlineAt ?? new Date(Date.now() + AGENT_OPERATION_SOFT_DEADLINE_MS);
   const clock = input.now ? () => now : () => new Date();
   const operation = await prisma.agentSkillOperation.findFirst({
     where: { id: input.operationId, userId: input.userId },

@@ -124,7 +124,8 @@ symptoms. AWS queue receipts and CloudWatch logs were not available because the
 local AWS session had expired, so this branch does not claim a confirmed queue
 diagnosis or a production fix.
 
-The fix is in progress on `a/activation-worker-deadline` and is not deployed:
+The fix is under review in PR #154 on `a/activation-worker-deadline` and is not
+deployed to production:
 
 - Agent operation deliveries now have an eight-minute soft deadline, below
   Lambda's ten-minute hard timeout, with reserved cleanup time.
@@ -146,10 +147,12 @@ Local verification for this branch:
 - `npm run test:unit`: 146 files and 1,271 tests passed;
 - `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
 - `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
-- focused integration cases cover a verifier that never resolves, sibling
+- `npm run test:db` passed all 46 files and 553 tests against a fresh temporary
+  local PostgreSQL 18 database with `pgvector`; the tracked migrations applied
+  successfully. The configured Neon branch remains read-only (`25006`);
+- the integration suite covers a verifier that never resolves, sibling
   progress, activation-publication timeout, preservation of verified
-  candidates, and stable recovery event IDs. They could not run against the
-  configured Neon branch because it rejects test writes with SQLSTATE `25006`;
+  candidates, stable recovery event IDs, and upload-expiry isolation;
 - AWS credentials remain expired. Production queue behavior, production
   deployment, duplicate-activation checks under a live mixed batch, and the
   requested production smoke acceptance remain unverified.

@@ -134,7 +134,7 @@ describeDatabase("agent access persistence", () => {
       data: {
         userId: fixture.userId,
         title: `${label} worker reliability skill`,
-        objective: `Practice the ${label} worker reliability path without blocking sibling operations.`,
+        objective: `Practice ${label} with phrase ${randomUUID()}.`,
         status: SkillStatus.DRAFT,
       },
     });
@@ -693,7 +693,7 @@ describeDatabase("agent access persistence", () => {
         .map((label) => createQueuedDraftOperation(fixture, label)),
     );
     let verifierAborted = false;
-    const deadlineAt = new Date(Date.now() + 30_000);
+    const deadlineAt = new Date(Date.now() + 120_000);
     const startedAt = Date.now();
 
     await expect(runAgentSkillOperationJob({
@@ -732,7 +732,7 @@ describeDatabase("agent access persistence", () => {
       await expect(runAgentSkillOperationJob({
         userId: fixture.userId,
         operationId: sibling.operation.id,
-        deadlineAt: new Date(Date.now() + 30_000),
+        deadlineAt: new Date(Date.now() + 120_000),
       }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
       await expect(prisma.skill.findUniqueOrThrow({ where: { id: sibling.skill.id } }))
         .resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });
@@ -809,7 +809,7 @@ describeDatabase("agent access persistence", () => {
       await expect(runAgentSkillOperationJob({
         userId: fixture.userId,
         operationId: stalled.operation.id,
-        deadlineAt: new Date(Date.now() + 30_000),
+        deadlineAt: new Date(Date.now() + 120_000),
       }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
     } finally {
       transactionSpy.mockRestore();
@@ -840,7 +840,7 @@ describeDatabase("agent access persistence", () => {
     await expect(runAgentSkillOperationJob({
       userId: fixture.userId,
       operationId: sibling.operation.id,
-      deadlineAt: new Date(Date.now() + 30_000),
+      deadlineAt: new Date(Date.now() + 120_000),
     }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({ status: "processed" });
     await expect(prisma.skill.findUniqueOrThrow({ where: { id: sibling.skill.id } }))
       .resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });

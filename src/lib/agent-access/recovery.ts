@@ -97,7 +97,12 @@ export async function recoverStaleAgentOperationItems(input: {
       ...(input.operationId ? { operationId: input.operationId } : {}),
       operation: {
         kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
       OR: [
         {
@@ -138,6 +143,7 @@ export async function recoverStaleAgentOperationItems(input: {
   }));
 
   const changedOperations = new Set<string>();
+  const immediateContinuationItemIds = new Set<string>();
   const counts = {
     scanned: candidates.length,
     requeued: 0,
@@ -151,7 +157,10 @@ export async function recoverStaleAgentOperationItems(input: {
 
   for (const candidate of candidates) {
     const result = await recoverCandidate({ candidate, now: input.now });
-    if (result === "requeued") counts.requeued += 1;
+    if (result === "requeued") {
+      counts.requeued += 1;
+      immediateContinuationItemIds.add(candidate.id);
+    }
     if (result === "finalized") counts.finalized += 1;
     if (result === "waiting") counts.waiting += 1;
     if (result === "promoted") {
@@ -195,7 +204,12 @@ export async function recoverStaleAgentOperationItems(input: {
       where: {
         id: owner.operationId,
         userId: owner.userId,
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
       select: { id: true },
     });
@@ -213,7 +227,10 @@ export async function recoverStaleAgentOperationItems(input: {
       },
       select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
     });
-    const eligible = queued.filter((item) => isAgentOperationRetryReady({ ...item, now: input.now }));
+    const eligible = queued.filter((item) =>
+      immediateContinuationItemIds.has(item.id) ||
+      isAgentOperationRetryReady({ ...item, now: input.now }),
+    );
     if (eligible.length > 0) {
       const cursor = buildAgentOperationContinuationCursor({
         operationId: owner.operationId,
