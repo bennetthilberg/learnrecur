@@ -25,6 +25,45 @@ export type JobClaim =
 
 export type JobExecutionContext = { attempt: number; maxAttempts: number; deadlineAt?: Date };
 
+const MAINTENANCE_LOG_FIELDS = [
+  "purgedPayloads",
+  "purgedRateBuckets",
+  "expiredUploadOperations",
+  "revocationsAttempted",
+  "revocationsFailed",
+  "refillEventsAttempted",
+  "refillEventsDelivered",
+  "refillEventsFailed",
+  "activationItemsScanned",
+  "activationItemsRequeued",
+  "activationItemsFinalized",
+  "activationItemsWaiting",
+  "activationLegacyItemsPromoted",
+  "activationContinuations",
+] as const;
+
+type MaintenanceLogFields = { [Field in typeof MAINTENANCE_LOG_FIELDS[number]]: number };
+
+function maintenanceLogFields(value: unknown): MaintenanceLogFields | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return undefined;
+  const result = {} as MaintenanceLogFields;
+  const summary = value as Record<string, unknown>;
+  for (const field of MAINTENANCE_LOG_FIELDS) {
+    const count = summary[field];
+    if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) return undefined;
+    result[field] = count;
+  }
+  return result;
+}
+
+type JobWorkerLogEvent = {
+  outcome: string;
+  name?: string;
+  id?: string;
+  attempt?: number;
+  durationMs?: number;
+} & Partial<MaintenanceLogFields>;
+
 export type JobWorkerDependencies = {
   environment: JobEnvironment;
   queueArn: string;
@@ -34,7 +73,7 @@ export type JobWorkerDependencies = {
   execute(job: JobEnvelope, context: JobExecutionContext): Promise<unknown>;
   deadLetter(record: SQSRecord, reason: JobFailureCode): Promise<unknown>;
   retry(record: SQSRecord, delaySeconds: number): Promise<unknown>;
-  log(event: { outcome: string; name?: string; id?: string; attempt?: number; durationMs?: number }): void;
+  log(event: JobWorkerLogEvent): void;
   now(): Date;
 };
 
@@ -82,8 +121,9 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
 
     const maxAttempts = getJobDefinition(job.name).maxAttempts;
     const startedAt = dependencies.now().getTime();
+    let executionResult: unknown;
     try {
-      await dependencies.execute(job, {
+      executionResult = await dependencies.execute(job, {
         attempt: claim.attempt - 1,
         maxAttempts,
         deadlineAt: new Date(startedAt + JOB_SOFT_DEADLINE_MS),
@@ -104,7 +144,14 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
     // Completion storage failures must keep the lease. Do not treat them as
     // execution failures and immediately rerun an already-applied side effect.
     await dependencies.complete(job, claim.token);
-    log({ outcome: "completed", name: job.name, id: job.id, attempt: claim.attempt, durationMs: dependencies.now().getTime() - startedAt });
+    log({
+      outcome: "completed",
+      name: job.name,
+      id: job.id,
+      attempt: claim.attempt,
+      durationMs: dependencies.now().getTime() - startedAt,
+      ...(job.name === "learnrecur/agent-access.maintenance" ? maintenanceLogFields(executionResult) : {}),
+    });
     return true;
   }
 

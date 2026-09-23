@@ -466,7 +466,11 @@ async function processMaterialOperation(input: {
       planning = await replanMaterialSkills({
       userId: input.operation.userId,
       now: input.now,
-      input: { batchId, instruction: planningInstruction },
+      input: {
+        batchId,
+        instruction: planningInstruction,
+        ...(sectionIds.length > 0 ? { sectionIds } : {}),
+      },
     });
     } else {
       planning = await planMaterialSkills({
@@ -477,19 +481,28 @@ async function processMaterialOperation(input: {
         materialRevisionId: input.operation.materialRevisionId,
         instruction: planningInstruction,
         idempotencyKey: `agent-${input.operation.id}`,
+        ...(sectionIds.length > 0 ? { sectionIds } : {}),
       },
     });
     }
     if (planning.status === "needs-scope") {
-    await prisma.agentSkillOperation.update({
-      where: { id: input.operation.id },
-      data: {
-        status: AgentOperationStatus.NEEDS_INPUT,
-        requestPayload: toJson({ ...payload, materialBatchId: planning.batchId }),
-        errorCode: "MATERIAL_SCOPE_NEEDS_INPUT",
-        errorMessage: "Clarify the chapters, sections, or concepts to cover.",
-      },
-    });
+      const clarificationPayload: Record<string, unknown> = {
+        ...payload,
+        materialBatchId: planning.batchId,
+      };
+      if (sectionIds.length > 0) {
+        clarificationPayload.originalSectionIds ??= sectionIds;
+        delete clarificationPayload.sectionIds;
+      }
+      await prisma.agentSkillOperation.update({
+        where: { id: input.operation.id },
+        data: {
+          status: AgentOperationStatus.NEEDS_INPUT,
+          requestPayload: toJson(clarificationPayload),
+          errorCode: "MATERIAL_SCOPE_NEEDS_INPUT",
+          errorMessage: "Clarify the chapters, sections, or concepts to cover.",
+        },
+      });
       return false;
     }
     if (planning.status !== "planned") {

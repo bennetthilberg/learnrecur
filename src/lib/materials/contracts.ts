@@ -336,6 +336,7 @@ export const planMaterialSkillsInputSchema = z.object({
   materialRevisionId: identifierSchema,
   instruction: z.string().trim().min(3).max(4_000),
   idempotencyKey: z.string().trim().min(8).max(200),
+  sectionIds: uniqueIdentifiersSchema(24).optional(),
 });
 
 export const confirmMaterialPlanInputSchema = z
@@ -368,6 +369,7 @@ export const confirmMaterialPlanInputSchema = z
 export const replanMaterialSkillsInputSchema = z.object({
   batchId: identifierSchema,
   instruction: z.string().trim().min(3).max(4_000),
+  sectionIds: uniqueIdentifiersSchema(24).optional(),
 });
 
 export const materialProgressInputSchema = z.object({

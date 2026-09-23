@@ -50,6 +50,7 @@ import {
   buildMaterialTopicRecoveryQuery,
   getMaterialTopicRecoveryGroupCount,
   resolveMaterialTopicSearchQuery,
+  resolveExplicitMaterialSectionScope,
   resolveStructuralMaterialScope,
   selectFocusedMaterialTopicRecoveryChunks,
   selectMaterialTopicRetrievalChunks,
@@ -187,6 +188,7 @@ export async function planMaterialSkills(input: {
       materialRevisionId: parsed.data.materialRevisionId,
       instruction: parsed.data.instruction,
       idempotencyKey: parsed.data.idempotencyKey,
+      selectedSectionIds: parsed.data.sectionIds,
     });
   } catch (error) {
     return {
@@ -208,6 +210,7 @@ export async function planMaterialSkills(input: {
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
     ocrStorage: input.ocrStorage,
+    sectionIds: parsed.data.sectionIds,
   });
 }
 
@@ -259,6 +262,7 @@ export async function replanMaterialSkills(input: {
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
     ocrStorage: input.ocrStorage,
+    sectionIds: parsed.data.sectionIds,
   });
 }
 
@@ -3432,6 +3436,7 @@ async function planExistingMaterialBatch(input: {
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
   ocrStorage?: SourceObjectStorage;
+  sectionIds?: string[];
 }) {
   const prisma = getPrisma();
   const batch = await prisma.skillDraftBatch.findFirst({
@@ -3482,10 +3487,9 @@ async function planExistingMaterialBatch(input: {
     return { status: "not-found" as const, message: "Ready material batch was not found." };
   }
   const sections = batch.materialRevision.sections satisfies MaterialPlanningSection[];
-  const structural = resolveStructuralMaterialScope({
-    instruction: batch.instruction,
-    sections,
-  });
+  const structural = input.sectionIds
+    ? resolveExplicitMaterialSectionScope({ sectionIds: input.sectionIds, sections })
+    : resolveStructuralMaterialScope({ instruction: batch.instruction, sections });
   if (structural.missingReferences.length > 0) {
     const plan = materialScopeResolutionSchema.parse({
       version: 1,
@@ -3505,6 +3509,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: null,
       structural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -3527,6 +3532,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: null,
       structural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -3588,6 +3594,7 @@ async function planExistingMaterialBatch(input: {
         plan,
         model: null,
         structural,
+        selectedSectionIds: input.sectionIds ?? [],
         now: input.now,
         expectedInstruction: batch.instruction,
         expectedUpdatedAt: batch.updatedAt,
@@ -3611,17 +3618,25 @@ async function planExistingMaterialBatch(input: {
           anchorChunkIds,
         }),
     });
-    if (recoveredScope.status === "ambiguous") {
+    if (
+      recoveredScope.status === "ambiguous" ||
+      (input.sectionIds !== undefined && recoveredScope.status === "recovered")
+    ) {
+      const explicitSelection = input.sectionIds !== undefined;
       const plan = materialScopeResolutionSchema.parse({
         version: 1,
         materialRevisionId: batch.materialRevisionId,
         instruction: batch.instruction,
         resolutionStatus: "ambiguous",
-        resolvedScopeLabel:
-          "The requested chapter was found only in answer-key or back-matter pages.",
-        warnings: ["LearnRecur could not confidently locate the instructional chapter."],
-        clarification:
-          "Choose the instructional page range or name a more specific section from the material.",
+        resolvedScopeLabel: explicitSelection
+          ? "The selected section appears to contain answer-key or back-matter content."
+          : "The requested chapter was found only in answer-key or back-matter pages.",
+        warnings: explicitSelection
+          ? ["The selected source scope does not contain confidently identified instructional content."]
+          : ["LearnRecur could not confidently locate the instructional chapter."],
+        clarification: explicitSelection
+          ? "Select an instructional section from this material before planning skills."
+          : "Choose the instructional page range or name a more specific section from the material.",
         items: [],
       });
       return saveProposedMaterialPlan({
@@ -3630,6 +3645,7 @@ async function planExistingMaterialBatch(input: {
         plan,
         model: null,
         structural,
+        selectedSectionIds: input.sectionIds ?? [],
         now: input.now,
         expectedInstruction: batch.instruction,
         expectedUpdatedAt: batch.updatedAt,
@@ -3733,6 +3749,7 @@ async function planExistingMaterialBatch(input: {
       plan,
       model: ai.model,
       structural: planningStructural,
+      selectedSectionIds: input.sectionIds ?? [],
       now: input.now,
       expectedInstruction: batch.instruction,
       expectedUpdatedAt: batch.updatedAt,
@@ -4270,6 +4287,7 @@ async function saveProposedMaterialPlan(input: {
   plan: MaterialScopeResolution;
   model: string | null;
   structural: ReturnType<typeof resolveStructuralMaterialScope>;
+  selectedSectionIds: string[];
   now: Date;
   expectedInstruction: string;
   expectedUpdatedAt: Date;
@@ -4287,6 +4305,7 @@ async function saveProposedMaterialPlan(input: {
       proposedPlan: toInputJson(input.plan),
       planningMetadata: {
         model: input.model,
+        selectedSectionIds: input.selectedSectionIds,
         structuralReferences: input.structural.references.map((reference) => reference.label),
         candidateSectionCount: input.structural.candidateSectionIds.length,
         plannedAt: input.now.toISOString(),
