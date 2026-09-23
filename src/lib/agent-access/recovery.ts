@@ -47,7 +47,9 @@ const IN_FLIGHT_ITEM_STATUSES = [
 // narrow compatibility branch for those rows; all newly produced wait states
 // remain ACTIVATING and are handled by the in-flight branch above.
 const LEGACY_ACTIVATION_WAIT_ERROR = "ACTIVATION_IN_PROGRESS";
-const STALE_RECOVERY_ERROR = "TRANSIENT_WORKER_FAILURE";
+// Stale claims already waited past their lease; keep their immediate retry
+// distinct from ordinary worker timeouts, which continue to honor backoff.
+const STALE_RECOVERY_ERROR = "STALE_WORKER_RECOVERY";
 const STALE_RECOVERY_MESSAGE =
   "The activation worker stopped before completion. The item was returned to the queue.";
 const STALE_GENERATION_MESSAGE =
@@ -143,7 +145,6 @@ export async function recoverStaleAgentOperationItems(input: {
   }));
 
   const changedOperations = new Set<string>();
-  const immediateContinuationItemIds = new Set<string>();
   const counts = {
     scanned: candidates.length,
     requeued: 0,
@@ -159,7 +160,6 @@ export async function recoverStaleAgentOperationItems(input: {
     const result = await recoverCandidate({ candidate, now: input.now });
     if (result === "requeued") {
       counts.requeued += 1;
-      immediateContinuationItemIds.add(candidate.id);
     }
     if (result === "finalized") counts.finalized += 1;
     if (result === "waiting") counts.waiting += 1;
@@ -242,7 +242,6 @@ export async function recoverStaleAgentOperationItems(input: {
       select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
     });
     const eligible = queued.filter((item) =>
-      immediateContinuationItemIds.has(item.id) ||
       isAgentOperationRetryReady({ ...item, now: input.now }),
     );
     if (eligible.length > 0) {

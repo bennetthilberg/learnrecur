@@ -983,6 +983,7 @@ export function isRetryableAgentItemError(errorCode: string | null) {
     "QUOTA_EXCEEDED",
     "SOURCE_NOT_READY",
     "SKILL_NOT_DRAFT",
+    "STALE_WORKER_RECOVERY",
     "TRANSIENT_WORKER_FAILURE",
     "VERIFICATION_FAILED",
   ].includes(normalizedErrorCode);

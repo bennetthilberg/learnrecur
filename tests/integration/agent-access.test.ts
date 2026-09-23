@@ -1112,7 +1112,7 @@ describeDatabase("agent access persistence", () => {
       createdSkillId: staleSkill.id,
       activationReservedAt: null,
       workerClaimToken: null,
-      errorCode: "TRANSIENT_WORKER_FAILURE",
+      errorCode: "STALE_WORKER_RECOVERY",
       retryCount: 1,
     });
     expect(sendAgentSkillOperationRequested).toHaveBeenCalledWith(
@@ -1129,6 +1129,28 @@ describeDatabase("agent access persistence", () => {
     await expect(
       prisma.agentSkillOperation.findUniqueOrThrow({ where: { id: staleOperation.id } }),
     ).resolves.toMatchObject({ status: AgentOperationStatus.QUEUED });
+
+    await expect(runAgentSkillOperationJob({
+      userId: staleFixture.userId,
+      operationId: staleOperation.id,
+      now: staleNow,
+    }, { activationOptions: quickActivationOptions() })).resolves.toMatchObject({
+      status: "processed",
+      operationId: staleOperation.id,
+    });
+    await expect(
+      prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: staleItem.id } }),
+    ).resolves.toMatchObject({
+      status: AgentOperationItemStatus.ACTIVE,
+      resultSkillId: staleSkill.id,
+      errorCode: null,
+      retryCount: 1,
+    });
+    await expect(
+      prisma.skill.findUniqueOrThrow({ where: { id: staleSkill.id } }),
+    ).resolves.toMatchObject({ status: SkillStatus.ACTIVE, firstIntroducedAt: null });
+    await expect(prisma.exercise.count({ where: { skillId: staleSkill.id } })).resolves.toBe(3);
+    await expect(prisma.exerciseAttempt.count({ where: { skillId: staleSkill.id } })).resolves.toBe(0);
 
     await expect(
       prisma.agentSkillOperationItem.updateMany({
@@ -1470,7 +1492,7 @@ describeDatabase("agent access persistence", () => {
       prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: operation.items[0].id } }),
     ).resolves.toMatchObject({
       status: AgentOperationItemStatus.QUEUED,
-      errorCode: "TRANSIENT_WORKER_FAILURE",
+      errorCode: "STALE_WORKER_RECOVERY",
       activationReservedAt: null,
       workerClaimToken: null,
       workerClaimedAt: null,

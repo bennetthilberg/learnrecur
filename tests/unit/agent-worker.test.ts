@@ -87,12 +87,24 @@ describe("selectAgentOperationItemsForDelivery", () => {
         retryCount: 0,
         updatedAt: now,
       },
+      {
+        id: "stale-recovered",
+        status: AgentOperationItemStatus.QUEUED,
+        errorCode: "STALE_WORKER_RECOVERY",
+        retryCount: 2,
+        updatedAt: now,
+      },
     ];
 
     expect(selectAgentOperationItemsForDelivery(items, AgentOperationKind.SPEC_BATCH, now).map(({ id }) => id))
       .toEqual(["ready"]);
+    expect(selectAgentOperationItemsForDelivery(
+      [items[3]],
+      AgentOperationKind.SPEC_BATCH,
+      now,
+    ).map(({ id }) => id)).toEqual(["stale-recovered"]);
     expect(selectAgentOperationItemsForDelivery(items, AgentOperationKind.MATERIAL_BATCH, now).map(({ id }) => id))
-      .toEqual(["ready", "ordinary"]);
+      .toEqual(["ready", "ordinary", "stale-recovered"]);
   });
 });
 
