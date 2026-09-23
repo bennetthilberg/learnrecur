@@ -50,7 +50,14 @@ describeDatabase("material reader and source references", () => {
     await prisma.$disconnect();
   });
 
-  async function createFixture(label: string) {
+  async function createFixture(
+    label: string,
+    options: {
+      childPageEnd?: number;
+      pageCount?: number;
+      rootChunkMissingPageRange?: boolean;
+    } = {},
+  ) {
     const userId = `${runId}_${label}`;
     userIds.push(userId);
     await prisma.user.create({
@@ -97,7 +104,7 @@ describeDatabase("material reader and source references", () => {
         title: "Capítulo repetido",
         normalizedTitle: "capitulo repetido",
         pageStart: 2,
-        pageEnd: 2,
+        pageEnd: options.childPageEnd ?? 2,
         headingPath: ["Capítulo repetido", "Capítulo repetido"],
       },
     });
@@ -141,7 +148,9 @@ describeDatabase("material reader and source references", () => {
         text: "El capítulo introduce el sistema de pronombres y sus funciones.",
         tokenEstimate: 10,
         contentHash: `${runId}:${label}:root-chunk`,
-        locator: { kind: "pdf", pageRange: { start: 1, end: 3 } },
+        locator: options.rootChunkMissingPageRange
+          ? { kind: "pdf" }
+          : { kind: "pdf", pageRange: { start: 1, end: 3 } },
         headingText: "Capítulo repetido",
       },
     });
@@ -160,7 +169,7 @@ describeDatabase("material reader and source references", () => {
       materialRevisionId: revision.id,
       contentHash: `${runId}:${label}:revision`,
       byteSize: 10,
-      pageCount: 3,
+      pageCount: options.pageCount ?? 3,
       storageBucket: "test-materials",
       storageKey: `${runId}/${label}.pdf`,
     });
@@ -293,7 +302,11 @@ describeDatabase("material reader and source references", () => {
   });
 
   it("derives canonical locators, validates selected scope, merges compatible links, and exposes them in skill reads", async () => {
-    const fixture = await createFixture("linking");
+    const fixture = await createFixture("linking", {
+      childPageEnd: 60,
+      pageCount: 60,
+      rootChunkMissingPageRange: true,
+    });
     const valid = {
       material_id: fixture.material.id,
       expected_revision_id: fixture.revision.id,
@@ -308,9 +321,24 @@ describeDatabase("material reader and source references", () => {
         materialRevisionId: fixture.revision.id,
         materialSectionIds: [fixture.child.id],
         evidenceChunkIds: [fixture.chunks[1].id],
-        source: { kind: "pdf", pageRanges: [{ start: 2, end: 2 }] },
+        source: { kind: "pdf", pageRanges: [{ start: 2, end: 60 }] },
       },
     });
+
+    const chunkOnly = await resolveMaterialSourceReferences({
+      userId: fixture.userId,
+      sourceRefs: [{
+        material_id: fixture.material.id,
+        expected_revision_id: fixture.revision.id,
+        evidence_chunk_ids: [fixture.chunks[1].id, fixture.rootChunk.id],
+      }],
+    });
+    expect(chunkOnly[0].locator).toMatchObject({
+      materialSectionIds: [fixture.root.id, fixture.child.id],
+      evidenceChunkIds: [fixture.chunks[1].id, fixture.rootChunk.id],
+      source: { kind: "pdf", pageRanges: [{ start: 1, end: 3 }] },
+    });
+
     await expect(
       resolveMaterialSourceReferences({
         userId: fixture.userId,
@@ -348,7 +376,7 @@ describeDatabase("material reader and source references", () => {
     expect(stored[0].locator).toMatchObject({
       materialRevisionId: fixture.revision.id,
       evidenceChunkIds: [fixture.rootChunk.id, fixture.chunks[1].id].toSorted(),
-      source: { kind: "pdf", pageRanges: [{ start: 1, end: 3 }] },
+      source: { kind: "pdf", pageRanges: [{ start: 1, end: 60 }] },
     });
     const auth = await createConnection(fixture.userId, ["skills:read"]);
     const publicSkill = await getAgentSkill(auth, { skill_id: fixture.skill.id });
@@ -358,7 +386,7 @@ describeDatabase("material reader and source references", () => {
           revision_id: fixture.revision.id,
           section_ids: [fixture.root.id, fixture.child.id].toSorted(),
           evidence_chunk_ids: [fixture.rootChunk.id, fixture.chunks[1].id].toSorted(),
-          page_ranges: [{ start: 1, end: 3 }],
+          page_ranges: [{ start: 1, end: 60 }],
         }),
       ],
     });
