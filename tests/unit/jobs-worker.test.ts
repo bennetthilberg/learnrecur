@@ -17,6 +17,18 @@ function record(overrides: Partial<SQSRecord> = {}): SQSRecord {
   };
 }
 
+function maintenanceRecord(): SQSRecord {
+  const job = buildJobEnvelope("learnrecur/agent-access.maintenance", {
+    requestedAt: "2026-09-04T21:00:00.000Z",
+  }, "staging");
+  const base = record();
+  return {
+    ...base,
+    body: JSON.stringify(job),
+    attributes: { ...base.attributes, MessageGroupId: getJobMessageGroupId(job) },
+  };
+}
+
 function setup() {
   const dependencies: JobWorkerDependencies = {
     environment: "staging", queueArn,
@@ -42,6 +54,41 @@ describe("SQS worker delivery safety", () => {
     );
     expect(dependencies.complete).toHaveBeenCalledOnce();
     expect(dependencies.deadLetter).not.toHaveBeenCalled();
+  });
+
+  it("logs only approved maintenance counters with a successful maintenance delivery", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.execute).mockResolvedValue({
+      purgedPayloads: 2,
+      purgedRateBuckets: 3,
+      expiredUploadOperations: 4,
+      revocationsAttempted: 5,
+      revocationsFailed: 0,
+      refillEventsAttempted: 6,
+      refillEventsDelivered: 6,
+      refillEventsFailed: 0,
+      activationItemsScanned: 7,
+      activationItemsRequeued: 1,
+      activationItemsFinalized: 2,
+      activationItemsWaiting: 3,
+      activationLegacyItemsPromoted: 1,
+      activationContinuations: 1,
+      privateSourceText: "must not be logged",
+    });
+
+    expect(await run({ Records: [maintenanceRecord()] })).toEqual({ batchItemFailures: [] });
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "completed",
+      name: "learnrecur/agent-access.maintenance",
+      activationItemsScanned: 7,
+      activationItemsRequeued: 1,
+      activationItemsFinalized: 2,
+      activationItemsWaiting: 3,
+      activationLegacyItemsPromoted: 1,
+      activationContinuations: 1,
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("must not be logged");
+    expect(dependencies.complete).toHaveBeenCalledOnce();
   });
 
   it("skips a durably completed duplicate", async () => {
