@@ -128,6 +128,20 @@ export const materialScopePlannerJsonSchema = {
   },
 };
 
+const geminiMaterialScopePlannerJsonSchema = {
+  ...materialScopePlannerJsonSchema,
+  properties: {
+    ...materialScopePlannerJsonSchema.properties,
+    // The parsed plan is still bounded by materialScopePlanSchema. Omitting
+    // this provider-side maximum avoids Vertex rejecting the full schema.
+    items: Object.fromEntries(
+      Object.entries(materialScopePlannerJsonSchema.properties.items).filter(
+        ([key]) => key !== "maxItems",
+      ),
+    ),
+  },
+};
+
 const draftVerificationJsonSchema = {
   type: "object",
   additionalProperties: false,
@@ -296,7 +310,7 @@ function createGeminiMaterialScopeReviewer(
               contents: [{ role: "user", parts: [{ text: prompt }] }],
               config: {
                 responseMimeType: "application/json",
-                responseJsonSchema: materialScopePlannerJsonSchema,
+                responseSchema: geminiMaterialScopePlannerJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
@@ -340,7 +354,7 @@ function createGeminiMaterialScopePlanner(
               contents: [{ role: "user", parts: [{ text: prompt }] }],
               config: {
                 responseMimeType: "application/json",
-                responseJsonSchema: materialScopePlannerJsonSchema,
+                responseSchema: geminiMaterialScopePlannerJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
               },
             });
