@@ -516,12 +516,21 @@ describeDatabase("material multi-skill drafting", () => {
       instruction: "Create one skill from direct object pronouns in chapter four.",
       idempotencyKey: `${runId}_ocr_hang_deadline`,
     };
+    const page = await prisma.materialPage.create({
+      data: {
+        userId,
+        materialRevisionId,
+        pageNumber: 100,
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        contentHash: `sha256:${runId}:ocr-hang-deadline`,
+      },
+    });
     let ocrSignal: AbortSignal | undefined;
-    const ocr = vi
-      .spyOn(materialEvidence, "ensureMaterialPageOcr")
-      .mockImplementation(({ signal }) => {
+    const ocrGenerator = vi.fn(({ signal }: { signal?: AbortSignal }) => {
         ocrSignal = signal;
-        return new Promise(() => {});
+        return new Promise<never>((_, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+        });
       });
 
     try {
@@ -533,17 +542,72 @@ describeDatabase("material multi-skill drafting", () => {
         preservePlanningOnTimeout: true,
         aiSetup: createAiSetup(),
         embeddingGenerator: null,
+        ocrStorage: sourceStorage,
+        ocrGenerator,
       })).rejects.toMatchObject({
         name: "JobStageTimeoutError",
         stage: "material page OCR",
         retryable: true,
       });
 
+      expect(ocrGenerator).toHaveBeenCalledOnce();
       expect(ocrSignal?.aborted).toBe(true);
+      await expect(prisma.materialPage.findUniqueOrThrow({ where: { id: page.id } }))
+        .resolves.toMatchObject({
+          textStatus: MaterialPageTextStatus.NEEDS_OCR,
+          metadata: { reason: "worker-deadline", retryable: true },
+        });
       await expect(prisma.skillDraftBatch.findFirstOrThrow({
         where: { userId, idempotencyKey: request.idempotencyKey },
         select: { status: true, errorCode: true },
       })).resolves.toMatchObject({ status: SkillDraftBatchStatus.PLANNING, errorCode: null });
+    } finally {
+      await prisma.materialPage.delete({ where: { id: page.id } });
+    }
+  }, 60_000);
+
+  it("does not save a plan while relevant OCR pages still have active claims", async () => {
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Create one skill from direct object pronouns in chapter four.",
+      idempotencyKey: `${runId}_ocr_claim_still_active`,
+    };
+    const ocr = vi
+      .spyOn(materialEvidence, "ensureMaterialPageOcr")
+      .mockResolvedValue({ status: "in-progress", processedPageCount: 0 });
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "ambiguous",
+      resolvedScopeLabel: "Unexpected plan",
+      clarification: null,
+      warnings: [],
+      items: [],
+    }));
+
+    try {
+      await expect(planMaterialSkills({
+        userId,
+        input: request,
+        now: new Date(),
+        deadlineAt: new Date(Date.now() + 66_000),
+        preservePlanningOnTimeout: true,
+        aiSetup: createAiSetup({ planScope }),
+        embeddingGenerator: null,
+      })).rejects.toMatchObject({
+        name: "JobStageTimeoutError",
+        stage: "material page OCR",
+        retryable: true,
+      });
+
+      expect(planScope).not.toHaveBeenCalled();
+      await expect(prisma.skillDraftBatch.findFirstOrThrow({
+        where: { userId, idempotencyKey: request.idempotencyKey },
+        select: { status: true, errorCode: true, proposedPlan: true },
+      })).resolves.toMatchObject({
+        status: SkillDraftBatchStatus.PLANNING,
+        errorCode: null,
+        proposedPlan: null,
+      });
     } finally {
       ocr.mockRestore();
     }

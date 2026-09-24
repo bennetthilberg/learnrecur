@@ -217,43 +217,28 @@ export async function ensureMaterialPageOcr(input: {
   const now = input.now ?? new Date();
   const staleBefore = new Date(now.getTime() - MATERIAL_OCR_PROCESSING_STALE_MS);
   const prisma = getPrisma();
-  const candidates = await prisma.materialPage.findMany({
-    where: {
-      userId: input.userId,
-      materialRevisionId: input.materialRevisionId,
-      OR: [
-        { textStatus: { in: [MaterialPageTextStatus.NEEDS_OCR, MaterialPageTextStatus.OCR_FAILED] } },
-        { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: { lt: staleBefore } },
-      ],
-      AND: [
-        {
-          OR: input.pageRanges.map((range) => ({
-            pageNumber: { gte: range.start, lte: range.end },
-          })),
-        },
-      ],
-    },
-    orderBy: { pageNumber: "asc" },
-    take: MAX_LAZY_OCR_PAGES_PER_RUN,
-    select: { id: true, pageNumber: true },
-  });
-  throwIfAborted(input.signal);
-  if (candidates.length === 0) {
-    return { status: "not-needed" as const, processedPageCount: 0 };
-  }
   const storage = input.storage ?? resolveReadyStorage();
   const ocrGenerator =
     input.ocrGenerator === undefined ? resolveMaterialOcrGenerator() : input.ocrGenerator;
-  if (
-    !storage ||
-    !ocrGenerator ||
-    !input.sourceFile.storageKey ||
-    !input.sourceFile.storageBucket ||
-    input.sourceFile.storageBucket !== storage.bucketName
-  ) {
-    return { status: "unavailable" as const, processedPageCount: 0 };
-  }
-  const claimedCandidates = await prisma.$transaction(async (tx) => {
+  const ocrConfiguration =
+    storage &&
+    ocrGenerator &&
+    input.sourceFile.storageKey &&
+    input.sourceFile.storageBucket &&
+    input.sourceFile.storageBucket === storage.bucketName
+      ? {
+          storage,
+          ocrGenerator,
+          storageKey: input.sourceFile.storageKey,
+          storageBucket: input.sourceFile.storageBucket,
+        }
+      : null;
+  const pageRangeWhere: Prisma.MaterialPageWhereInput = {
+    OR: input.pageRanges.map((range) => ({
+      pageNumber: { gte: range.start, lte: range.end },
+    })),
+  };
+  const claimResult = await prisma.$transaction(async (tx) => {
     const lockedRevisions = await tx.$queryRaw<
       Array<{
         materialStatus: StudyMaterialStatus;
@@ -275,7 +260,40 @@ export async function ensureMaterialPageOcr(input: {
       lockedRevisions[0]?.materialStatus !== StudyMaterialStatus.ACTIVE ||
       lockedRevisions[0]?.revisionStatus !== MaterialRevisionStatus.READY
     ) {
-      return [] as typeof candidates;
+      return { status: "not-needed" as const, pages: [] as Array<{ id: string; pageNumber: number }> };
+    }
+    const activeClaim = await tx.materialPage.findFirst({
+      where: {
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        updatedAt: { gte: staleBefore },
+        AND: [pageRangeWhere],
+      },
+      select: { id: true },
+    });
+    if (activeClaim) {
+      return { status: "in-progress" as const, pages: [] as Array<{ id: string; pageNumber: number }> };
+    }
+    const candidates = await tx.materialPage.findMany({
+      where: {
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        OR: [
+          { textStatus: { in: [MaterialPageTextStatus.NEEDS_OCR, MaterialPageTextStatus.OCR_FAILED] } },
+          { textStatus: MaterialPageTextStatus.OCR_PROCESSING, updatedAt: { lt: staleBefore } },
+        ],
+        AND: [pageRangeWhere],
+      },
+      orderBy: { pageNumber: "asc" },
+      take: MAX_LAZY_OCR_PAGES_PER_RUN,
+      select: { id: true, pageNumber: true },
+    });
+    if (candidates.length === 0) {
+      return { status: "not-needed" as const, pages: candidates };
+    }
+    if (!ocrConfiguration) {
+      return { status: "unavailable" as const, pages: candidates };
     }
     const claimedPages: typeof candidates = [];
     for (const candidate of candidates) {
@@ -302,18 +320,35 @@ export async function ensureMaterialPageOcr(input: {
         claimedPages.push(candidate);
       }
     }
-    return claimedPages;
+    return claimedPages.length > 0
+      ? { status: "claimed" as const, pages: claimedPages, ocrConfiguration }
+      : { status: "not-needed" as const, pages: claimedPages };
   });
-  if (claimedCandidates.length === 0) {
+
+  throwIfAborted(input.signal);
+  if (claimResult.status === "in-progress") {
+    return { status: "in-progress" as const, processedPageCount: 0 };
+  }
+  if (claimResult.status === "unavailable") {
+    return { status: "unavailable" as const, processedPageCount: 0 };
+  }
+  if (claimResult.status === "not-needed") {
     return { status: "not-needed" as const, processedPageCount: 0 };
   }
+  const claimedCandidates = claimResult.pages;
+  const {
+    storage: claimedStorage,
+    ocrGenerator: claimedOcrGenerator,
+    storageKey,
+    storageBucket,
+  } = claimResult.ocrConfiguration;
   const candidateIds = claimedCandidates.map((page) => page.id);
 
   try {
     throwIfAborted(input.signal);
-    const sourceBytes = await storage.getObjectBytes({
-      key: input.sourceFile.storageKey,
-      bucket: input.sourceFile.storageBucket,
+    const sourceBytes = await claimedStorage.getObjectBytes({
+      key: storageKey,
+      bucket: storageBucket,
       maxBytes: MAX_MATERIAL_SOURCE_BYTES,
       abortSignal: input.signal,
     });
@@ -325,7 +360,7 @@ export async function ensureMaterialPageOcr(input: {
       maxPages: MAX_LAZY_OCR_PAGES_PER_RUN,
     });
     const parsed = materialOcrResponseSchema.safeParse(
-      await ocrGenerator({
+      await claimedOcrGenerator({
         pdfBytes: slice.bytes,
         pageNumbers: slice.pageNumbers,
         signal: input.signal,

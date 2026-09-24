@@ -253,7 +253,7 @@ cd /Users/main/repos/learnrecur
 git switch main
 git pull --ff-only
 git status --short --branch
-sed -n '1,260p' docs/spanish-import-readiness-status.md
+cat docs/spanish-import-readiness-status.md
 rg -n "source_refs|recent_attempts|AGENT_ACCESS_SCOPES|permissionSummary" src tests docs
 ```
 
@@ -297,3 +297,26 @@ branch until the remaining data-integrity issue is resolved and verified. CI
 `verify`, `authenticated-e2e`, and Vercel previews passed on code revision
 `4601008`, but those checks do not establish the production mixed-batch
 acceptance criteria.
+
+### Timeout review follow-up — 2026-09-24 14:41 UTC
+
+The current working tree resolves the remaining OCR review finding. OCR timeout
+handling now gives canceled work at most five seconds to finish cleanup, and
+material planning treats a fresh OCR claim in its selected page range as a
+retryable in-progress state. Both checks and claims run under the material lock,
+so another planner cannot silently skip a live claim and save a partial plan.
+The readiness resume command now prints the entire document.
+
+Local verification passed: `npm run lint`, `npm run test:unit` (148 files,
+1,287 tests), `npm run prisma:validate`, `npm run prisma:generate`,
+`npx tsc --noEmit`, and `npm run build`. The new database regression tests could
+not run locally: the configured database connection rejected fixture inserts
+as read-only before any test data was created. Run them in the write-enabled CI
+database after pushing.
+
+At this checkpoint, the patch is still uncommitted on
+`a/activation-worker-deadline`; PR #154 still points to `e64a18c`. AWS CLI
+authentication has expired, so I could not refresh the live Lambda, queue, or
+alarm snapshot. No SQS messages or production configuration were changed. The
+04:36 UTC snapshot above remains the last verified AWS state; restore CLI access
+before production acceptance or any release action.

@@ -381,6 +381,57 @@ describeDatabase("localized material OCR evidence", () => {
     }
   });
 
+  it("reports a fresh OCR claim instead of treating it as completed work", async () => {
+    const page = await prisma.materialPage.findFirstOrThrow({
+      where: { userId, materialRevisionId, pageNumber: 3 },
+    });
+    const previousPageState = {
+      textStatus: page.textStatus,
+      ocrText: page.ocrText,
+      contentHash: page.contentHash,
+      tokenEstimate: page.tokenEstimate,
+      metadata:
+        page.metadata === null
+          ? Prisma.JsonNull
+          : page.metadata as Prisma.InputJsonValue,
+    };
+    const claimedAt = new Date();
+    await prisma.materialPage.update({
+      where: { id: page.id },
+      data: {
+        textStatus: MaterialPageTextStatus.OCR_PROCESSING,
+        ocrText: null,
+        updatedAt: claimedAt,
+      },
+    });
+    const generator = vi.fn(async ({ pageNumbers }: { pageNumbers: number[] }) => ({
+      pages: pageNumbers.map((pageNumber) => ({
+        pageNumber,
+        text: `OCR page ${pageNumber}.`,
+      })),
+    }));
+
+    try {
+      await expect(ensureMaterialPageOcr({
+        userId,
+        materialRevisionId,
+        sourceFile,
+        pageRanges: [{ start: 3, end: 3 }],
+        storage: createStorage(pdfBytes),
+        ocrGenerator: generator,
+        now: new Date(claimedAt.getTime() + 5_000),
+      })).resolves.toMatchObject({ status: "in-progress", processedPageCount: 0 });
+      expect(generator).not.toHaveBeenCalled();
+      await expect(prisma.materialPage.findUniqueOrThrow({ where: { id: page.id } }))
+        .resolves.toMatchObject({ textStatus: MaterialPageTextStatus.OCR_PROCESSING });
+    } finally {
+      await prisma.materialPage.update({
+        where: { id: page.id },
+        data: previousPageState,
+      });
+    }
+  });
+
   it("OCRs a still-ready revision after a replacement becomes active", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,

@@ -19,6 +19,7 @@ import {
 } from "@/generated/prisma/client";
 import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
+  JobStageTimeoutError,
   getJobStageTimeoutMs,
   isJobStageTimeoutError,
   withAbortableTimeout,
@@ -122,6 +123,7 @@ const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // Keep this above the five-minute function ceiling so a slow but healthy model call
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
+const MATERIAL_OCR_ABORT_SETTLE_GRACE_MS = 5_000;
 // The worker can spend two provider budgets on generation and two more on verification.
 // Only recover a claim after the five-minute function window has elapsed.
 const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 5 * 60 * 1_000;
@@ -139,10 +141,12 @@ function withMaterialPlanningStageTimeout<T>(input: {
   deadlineAt?: Date;
   stage: string;
   message: string;
+  settleGraceMs?: number;
   run(signal: AbortSignal): Promise<T>;
 }): Promise<T> {
   return withAbortableTimeout({
     run: input.run,
+    settleGraceMs: input.settleGraceMs,
     timeoutMs: getJobStageTimeoutMs({
       deadlineAt: input.deadlineAt,
       cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
@@ -3650,10 +3654,11 @@ async function planExistingMaterialBatch(input: {
             : [],
         );
       if (pageRanges.length > 0) {
-        await withMaterialPlanningStageTimeout({
+        const ocr = await withMaterialPlanningStageTimeout({
           deadlineAt: input.deadlineAt,
           stage: "material page OCR",
           message: "Material page OCR timed out.",
+          settleGraceMs: MATERIAL_OCR_ABORT_SETTLE_GRACE_MS,
           run: (signal) => ensureMaterialPageOcr({
             userId: input.userId,
             materialRevisionId: batch.materialRevisionId,
@@ -3665,6 +3670,12 @@ async function planExistingMaterialBatch(input: {
             signal,
           }),
         });
+        if (ocr.status === "in-progress") {
+          throw new JobStageTimeoutError(
+            "Material page OCR is still processing relevant pages.",
+            "material page OCR",
+          );
+        }
       }
     }
     const retrieval = await withMaterialPlanningStageTimeout({
@@ -3806,7 +3817,10 @@ async function planExistingMaterialBatch(input: {
       sections: allowedSections,
       chunks,
     };
-    let validation = await withAbortableTimeout({
+    let validation = await withMaterialPlanningStageTimeout({
+      deadlineAt: input.deadlineAt,
+      stage: "material scope planning",
+      message: "Material scope planning timed out.",
       run: (signal) => generateValidatedMaterialScopePlan({
         generate: (validationFeedback) =>
           ai.planScope({ ...scopePlanningInput, signal, validationFeedback }),
@@ -3816,14 +3830,6 @@ async function planExistingMaterialBatch(input: {
         allowedSections,
         allowedChunks: chunks,
       }),
-      timeoutMs: getJobStageTimeoutMs({
-        deadlineAt: input.deadlineAt,
-        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
-        maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
-        stage: "material scope planning",
-      }),
-      message: "Material scope planning timed out.",
-      stage: "material scope planning",
     });
     const reviewScope = ai.reviewScope;
     if (
@@ -3832,7 +3838,10 @@ async function planExistingMaterialBatch(input: {
       reviewScope
     ) {
       const candidatePlan = validation.plan;
-      validation = await withAbortableTimeout({
+      validation = await withMaterialPlanningStageTimeout({
+        deadlineAt: input.deadlineAt,
+        stage: "material scope review",
+        message: "Material scope review timed out.",
         run: (signal) => generateValidatedMaterialScopePlan({
           generate: (validationFeedback) =>
             reviewScope({
@@ -3847,14 +3856,6 @@ async function planExistingMaterialBatch(input: {
           allowedSections,
           allowedChunks: chunks,
         }),
-        timeoutMs: getJobStageTimeoutMs({
-          deadlineAt: input.deadlineAt,
-          cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
-          maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
-          stage: "material scope review",
-        }),
-        message: "Material scope review timed out.",
-        stage: "material scope review",
       });
     }
     if (validation.status !== "ready") {
