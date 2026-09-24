@@ -37,6 +37,7 @@ import {
   isJobStageTimeoutError,
   withAbortableTimeout,
 } from "@/lib/jobs/deadline";
+import { JobContinuationLimitError } from "@/lib/jobs/publication-context";
 import {
   enqueueOperation,
 } from "@/lib/agent-access/operations";
@@ -324,6 +325,10 @@ export async function runAgentSkillOperationJob(
   } catch (error) {
     for (const [itemId, claimToken] of claims) {
       await releaseClaimForRetry({ itemId, userId: input.userId, now, claimToken });
+    }
+    if (error instanceof JobContinuationLimitError) {
+      await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
+      throw error;
     }
     if (isRecoverableWorkerTimeout(error)) {
       if (operation.kind === AgentOperationKind.MATERIAL_BATCH && claims.size === 0) {

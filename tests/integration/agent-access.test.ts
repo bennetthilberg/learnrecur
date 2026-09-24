@@ -1042,6 +1042,52 @@ describeDatabase("agent access persistence", () => {
     await expect(prisma.exerciseAttempt.count({ where: { skillId: siblingSkill.id } })).resolves.toBe(0);
   }, 60_000);
 
+  it("keeps continuation-limit failures permanent after operation reconciliation", async () => {
+    const fixture = await createConnection("worker-continuation-limit");
+    const first = await createQueuedDraftOperation(fixture, "continuation-limit-first");
+    const siblingSkill = await prisma.skill.create({
+      data: {
+        userId: fixture.userId,
+        title: "Continuation limit sibling",
+        objective: "Practice resuming a sibling after the continuation limit is reached.",
+        status: SkillStatus.DRAFT,
+      },
+    });
+    const sibling = await prisma.agentSkillOperationItem.create({
+      data: {
+        userId: fixture.userId,
+        operationId: first.operation.id,
+        ordinal: 1,
+        clientReference: "continuation-limit-sibling",
+        status: AgentOperationItemStatus.QUEUED,
+        createdSkillId: siblingSkill.id,
+      },
+    });
+    await prisma.agentSkillOperation.update({
+      where: { id: first.operation.id },
+      data: { requestedCount: 2 },
+    });
+    const limitError = new JobContinuationLimitError("depth");
+    vi.mocked(sendAgentSkillOperationRequested).mockClear().mockRejectedValueOnce(limitError);
+
+    await expect(runAgentSkillOperationJob({
+      userId: fixture.userId,
+      operationId: first.operation.id,
+      deadlineAt: new Date(Date.now() + 120_000),
+    }, { activationOptions: quickActivationOptions() })).rejects.toBe(limitError);
+
+    await expect(prisma.agentSkillOperation.findUniqueOrThrow({
+      where: { id: first.operation.id },
+    })).resolves.toMatchObject({ status: AgentOperationStatus.QUEUED, activeCount: 1 });
+    await expect(prisma.agentSkillOperationItem.findUniqueOrThrow({
+      where: { id: first.item.id },
+    })).resolves.toMatchObject({ status: AgentOperationItemStatus.ACTIVE });
+    await expect(prisma.agentSkillOperationItem.findUniqueOrThrow({
+      where: { id: sibling.id },
+    })).resolves.toMatchObject({ status: AgentOperationItemStatus.QUEUED, retryCount: 0 });
+    expect(sendAgentSkillOperationRequested).toHaveBeenCalledOnce();
+  }, 60_000);
+
   it("sweeps queued operations after an ambiguous continuation publish with one stable event ID", async () => {
     const fixture = await createConnection("continuation-recovery");
     const queued = await createQueuedDraftOperation(fixture, "ambiguous-continuation");

@@ -320,3 +320,15 @@ authentication has expired, so I could not refresh the live Lambda, queue, or
 alarm snapshot. No SQS messages or production configuration were changed. The
 04:36 UTC snapshot above remains the last verified AWS state; restore CLI access
 before production acceptance or any release action.
+
+### Continuation-limit review follow-up — 2026-09-24 14:59 UTC
+
+PR #154 is now at `c9624a7`; its `verify` workflow passed, including the
+write-enabled database integration suite. Authenticated browser tests and the
+Vercel production preview were still running at this checkpoint. A fresh local
+CodeRabbit review found that `runAgentSkillOperationJob` could wrap
+`JobContinuationLimitError` as retryable. The working-tree fix now reconciles
+the operation and rethrows that typed permanent error, with a database
+regression test for a rejected continuation at the safety limit. TypeScript,
+lint, and all 1,287 unit tests pass for this follow-up. This second patch is not
+yet committed or pushed; no production changes have been made.
