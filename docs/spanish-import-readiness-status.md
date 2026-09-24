@@ -181,11 +181,12 @@ Local verification for this branch:
 
 AWS sent a recursive-invocation termination alert for the jobs worker around
 2026-09-24 00:16 UTC. The alert says Lambda stopped the detected invocation
-chain. Read-only CloudWatch inspection on 2026-09-24 confirmed two
-`RecursiveInvocationsDropped` datapoints: one at 00:10 UTC, matching the alert,
-and another at 01:10 UTC. The same window had no Lambda `Errors` datapoints above
-zero; Lambda's recursion-drop metric is separate from the ordinary error metric.
-The second drop confirms this repeated after the email.
+chain. Read-only CloudWatch inspection on 2026-09-24 confirmed three
+`RecursiveInvocationsDropped` datapoints, labeled 00:10, 01:10, and 02:10 UTC.
+The first aligns with the email at 00:16 UTC; the next two show the drops
+continued hourly after the notification. Across the queried 00:00–04:00 UTC
+window, all 30 Lambda `Errors` datapoints were zero. Lambda's recursion-drop
+metric is separate from the ordinary error metric.
 
 The production worker was still the pre-PR deployment at inspection: active,
 last modified 2026-09-23 08:20 UTC, with a 600-second timeout. Its `RecursiveLoop`
@@ -198,10 +199,13 @@ dead-letter alarm's last breaching datapoint was 1 at 04:31 UTC on 2026-09-18.
 
 Repository code confirms that worker handlers can publish follow-up messages
 directly to their own FIFO-triggered queue, so a sufficiently long valid
-fan-out can reach AWS's recursion threshold. The metric confirms recursion was
-dropped twice, but it does not identify which job started either chain. No SQS
-messages were received or changed during this inspection, and no production
-configuration was modified.
+fan-out can reach AWS's recursion threshold. Safe worker logs sampled around
+each drop show successful maintenance runs at 00:08, 01:08, and 02:08 UTC, each
+reporting zero activation continuations; account-deletion recovery also
+completed in those windows. These entries do not establish which invocation
+started the recursive chain. The metric confirms three drops, but not the
+originating job. No SQS messages were received or changed during this
+inspection, and no production configuration was modified.
 
 PR #154 explicitly allows the intentional SQS/Lambda chain and adds the
 bounded follow-up, continuation-depth, and reserved-concurrency guardrails
