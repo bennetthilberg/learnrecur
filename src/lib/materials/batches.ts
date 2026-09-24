@@ -4009,8 +4009,9 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
+  const hasVectorMatch = ranked.some((chunk) => chunk.vectorScore > 0);
   let hasMissingEmbeddings = false;
-  if (ranked.some((chunk) => chunk.vectorScore > 0)) {
+  if (hasVectorMatch) {
     const coverage = await prisma.$queryRaw<Array<{ hasMissingEmbeddings: boolean }>>`
       SELECT EXISTS (
         SELECT 1 FROM "material_chunks"
@@ -4023,10 +4024,32 @@ async function retrievePlanningChunks(input: {
     throwIfMaterialPlanningAborted(input.signal);
     hasMissingEmbeddings = coverage[0]?.hasMissingEmbeddings ?? false;
   }
+  let hasOcrEvidence = false;
+  if (hasVectorMatch) {
+    const boundedSections = input.sections.filter(
+      (section) => section.pageStart !== null && section.pageEnd !== null,
+    );
+    if (boundedSections.length > 0) {
+      const ocrPage = await prisma.materialPage.findFirst({
+        where: {
+          userId: input.userId,
+          materialRevisionId: input.materialRevisionId,
+          textStatus: MaterialPageTextStatus.OCR_READY,
+          ocrText: { not: null },
+          OR: boundedSections.map((section) => ({
+            pageNumber: { gte: section.pageStart!, lte: section.pageEnd! },
+          })),
+        },
+        select: { id: true },
+      });
+      throwIfMaterialPlanningAborted(input.signal);
+      hasOcrEvidence = ocrPage !== null;
+    }
+  }
   let museMatched = false;
   let retrievalWarning: string | null = null;
   let museOcrChunks: MaterialChunkSearchResult[] | null = null;
-  if ((!ranked.some((chunk) => chunk.vectorScore > 0) || hasMissingEmbeddings) && input.rankChunks) {
+  if ((!hasVectorMatch || hasMissingEmbeddings || hasOcrEvidence) && input.rankChunks) {
     try {
       const scanSignal = createMuseScanSignal(
         input.signal,
@@ -4092,8 +4115,8 @@ async function retrievePlanningChunks(input: {
   }
   if (embeddingFailed && !input.rankChunks) {
     retrievalWarning = "Semantic retrieval is unavailable. Word-based evidence may miss related passages; review the cited passages carefully.";
-  } else if (hasMissingEmbeddings && !input.rankChunks) {
-    retrievalWarning = "Some source passages have no embeddings, so semantic coverage may be incomplete. Review the cited passages carefully.";
+  } else if ((hasMissingEmbeddings || hasOcrEvidence) && !input.rankChunks) {
+    retrievalWarning = "Some source passages have no embeddings or come from OCR pages, so semantic coverage may be incomplete. Review the cited passages carefully.";
   }
   let strictLexicalMatched = false;
   if (input.topicSearchQuery) {

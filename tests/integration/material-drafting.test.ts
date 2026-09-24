@@ -2994,7 +2994,7 @@ describeDatabase("material multi-skill drafting", () => {
     }
   });
 
-  it("includes later OCR-only pages in Muse retrieval", async () => {
+  it("includes later OCR-only pages despite complete chunk embedding coverage", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
       title: "OCR-only lesson fixture",
@@ -3013,7 +3013,7 @@ describeDatabase("material multi-skill drafting", () => {
         headingPath: ["Lesson 1"],
       },
     });
-    await prisma.materialChunk.create({
+    const storedChunk = await prisma.materialChunk.create({
       data: {
         userId,
         materialRevisionId: revision.id,
@@ -3025,6 +3025,14 @@ describeDatabase("material multi-skill drafting", () => {
         headingText: section.title,
         locator: { kind: "pdf", pageRange: { start: 20, end: 20 } },
       },
+    });
+    const vector = Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => index === 0 ? 1 : 0);
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: storedChunk.id,
+      embedding: vector,
     });
     const targetPageId = `${runId}_ocr_only_target`;
     await prisma.materialPage.createMany({
@@ -3087,7 +3095,7 @@ describeDatabase("material multi-skill drafting", () => {
       },
       now: new Date(),
       aiSetup: createAiSetup({ planScope, rankChunks }),
-      embeddingGenerator: async () => { throw new Error("Gemini embeddings unavailable"); },
+      embeddingGenerator: async () => [vector],
     });
 
     expect(result.status).toBe("planned");
