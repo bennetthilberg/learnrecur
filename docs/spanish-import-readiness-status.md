@@ -398,3 +398,33 @@ the handoff's production mixed-batch acceptance and Spanish import resume are
 still pending the reviewed release path. Poll existing operation IDs before
 resuming; preserve zero new introductions/reviews during that canary, and do
 not redrive the 7 DLQ messages without identifying and reviewing them.
+
+### Post-merge release checkpoint — 2026-09-24 17:20 UTC
+
+PR #154 merged as `3818819`. GitHub Actions `ci` passed on that commit, but the
+Vercel production build failed while resolving `next/font/google` through
+Turbopack. The agent-staging Vercel build of the same commit passed. A Vercel
+production redeploy without build cache compiled successfully, became Ready,
+and was aliased to `alpha.learnrecur.com`; the live site returned HTTP 200 and
+the merge commit's Vercel status changed to success. No application code change
+was needed for that build failure.
+
+The first AWS worker deployment of `3818819` rolled back: the template tried
+to reserve five Lambda concurrency slots, while the AWS account's concurrency
+quota is ten and AWS requires ten slots to stay unreserved. This follow-up
+changes the template so reservation is optional and disabled by default. The
+SQS event-source mapping still caps worker concurrency at five. The successful
+stack update reused configuration revision
+`bb2607c5-bfa1-43f8-a8a6-878a70d2e02e`, kept schedules enabled, and
+completed at 17:19 UTC. The live Lambda code hash
+`UeCztfe2H9hK9H52+l4DRx6rGJW4Tu6S9xlZbLJKuGg=` matches the package built
+from merge commit `3818819`; its recursion configuration is `Allow`, and the
+SQS mapping is enabled with batch size one and maximum concurrency five.
+
+At the 17:20 UTC snapshot, the main FIFO queue had zero visible and one
+in-flight message. The existing jobs DLQ still had seven visible messages; it
+was not redriven. Shared unreserved account concurrency can still throttle
+the worker if other Lambda functions consume the quota. Queue age and dead
+letter alarms remain the backstop. The production mixed-batch acceptance and
+Spanish import resume remain pending; preserve zero introductions and reviews
+during that canary and inspect the in-flight operation before resuming it.

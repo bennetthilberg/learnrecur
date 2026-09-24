@@ -35,6 +35,8 @@ describe("AWS deployment contract", () => {
   it.each(["staging", "production"] as const)("keeps %s encrypted, bounded, isolated, and initially unscheduled", (environment) => {
     const template = createJobsTemplate(environment);
     expect(template.Parameters.EnableSchedules.Default).toBe("false");
+    expect(template.Parameters.ReserveWorkerConcurrency.Default).toBe("false");
+    expect(template.Conditions.WorkerConcurrencyReserved).toEqual({ "Fn::Equals": [{ Ref: "ReserveWorkerConcurrency" }, "true"] });
     expect(template.Resources.Queue.Properties).toMatchObject({
       FifoQueue: true, ContentBasedDeduplication: true, SqsManagedSseEnabled: true,
       QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
@@ -42,12 +44,12 @@ describe("AWS deployment contract", () => {
     });
     expect(template.Resources.Worker.Properties).toMatchObject({
       Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS,
-      ReservedConcurrentExecutions: { Ref: "MaximumConcurrency" }, RecursiveLoop: "Allow",
+      ReservedConcurrentExecutions: { "Fn::If": ["WorkerConcurrencyReserved", { Ref: "MaximumConcurrency" }, { Ref: "AWS::NoValue" }] }, RecursiveLoop: "Allow",
     });
     expect(SQS_VISIBILITY_TIMEOUT_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(JOB_LEASE_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
-    expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"] });
+    expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"], ScalingConfig: { MaximumConcurrency: { Ref: "MaximumConcurrency" } } });
     expect(template.Resources.EventSource.Properties).not.toHaveProperty("ProvisionedPollerConfig");
     expect(template.Resources.PublisherPolicy.Properties.PolicyDocument).toEqual({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage", "sqs:GetQueueAttributes"], Resource: { "Fn::GetAtt": ["Queue", "Arn"] } }] });
     expect(template.Resources.SchedulerDeadLetters.Properties).not.toHaveProperty("FifoQueue");

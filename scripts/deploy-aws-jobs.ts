@@ -15,6 +15,7 @@ const { values: options } = parseArgs({ options: {
   environment: { type: "string" }, "env-file": { type: "string" }, schedules: { type: "string" },
   "source-bucket": { type: "string" }, "database-host": { type: "string" }, region: { type: "string", default: "us-east-1" },
   "configuration-revision": { type: "string" },
+  "reserve-concurrency": { type: "string", default: "disabled" },
 } });
 
 function aws(args: string[], input?: unknown): Record<string, unknown> {
@@ -34,8 +35,8 @@ function aws(args: string[], input?: unknown): Record<string, unknown> {
 function main() {
   const environment = options.environment;
   const reuseRevision = options["configuration-revision"];
-  if ((environment !== "staging" && environment !== "production") || (!options["env-file"] === !reuseRevision) || (reuseRevision && !/^[a-zA-Z0-9-]{1,80}$/.test(reuseRevision)) || !options["source-bucket"] || !options["database-host"] || !["enabled", "disabled"].includes(options.schedules ?? "")) {
-    throw new Error("Required: --environment staging|production, exactly one of --env-file or --configuration-revision, --source-bucket <verified bucket> --database-host <verified host> --schedules enabled|disabled");
+  if ((environment !== "staging" && environment !== "production") || (!options["env-file"] === !reuseRevision) || (reuseRevision && !/^[a-zA-Z0-9-]{1,80}$/.test(reuseRevision)) || !options["source-bucket"] || !options["database-host"] || !["enabled", "disabled"].includes(options.schedules ?? "") || !["enabled", "disabled"].includes(options["reserve-concurrency"] ?? "")) {
+    throw new Error("Required: --environment staging|production, exactly one of --env-file or --configuration-revision, --source-bucket <verified bucket> --database-host <verified host> --schedules enabled|disabled [--reserve-concurrency enabled|disabled]");
   }
   let input: Record<string, string>;
   if (reuseRevision) {
@@ -63,11 +64,12 @@ function main() {
   mkdirSync(".aws-build", { recursive: true });
   const template = resolve(`.aws-build/${environment}-template.json`);
   writeFileSync(template, JSON.stringify(createJobsTemplate(environment), null, 2));
-  console.info(`Deploying learnrecur-${environment}-jobs in ${identity.Account}/${options.region}; schedules ${options.schedules}`);
+  console.info(`Deploying learnrecur-${environment}-jobs in ${identity.Account}/${options.region}; schedules ${options.schedules}; reserved concurrency ${options["reserve-concurrency"]}`);
   const deployed = spawnSync("aws", ["cloudformation", "deploy", "--stack-name", `learnrecur-${environment}-jobs`, "--template-file", template,
     "--region", options.region!, "--capabilities", "CAPABILITY_NAMED_IAM", "--no-fail-on-empty-changeset", "--parameter-overrides",
     `CodeBucket=${bucket}`, `CodeKey=${key}`, `SourceBucketName=${values.S3_BUCKET_NAME}`, `EnableSchedules=${options.schedules === "enabled"}`,
     `ConfigurationRevision=${configurationRevision}`,
+    `ReserveWorkerConcurrency=${options["reserve-concurrency"] === "enabled"}`,
   ], { stdio: "inherit" });
   if (deployed.status !== 0) throw new Error("CloudFormation deployment failed");
   console.info(`Worker artifact ${key}; synchronized ${Object.keys(values).length} encrypted parameters`);
