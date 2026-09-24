@@ -166,7 +166,8 @@ describe("Gemini fallback helpers", () => {
     expect(isRetryableGeminiModelError(error)).toBe(true);
   });
 
-  it("does not retry malformed request errors", async () => {
+  it("falls back after a Gemini request rejection", async () => {
+    const warningSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const calls: string[] = [];
 
     await expect(
@@ -194,9 +195,10 @@ describe("Gemini fallback helpers", () => {
           },
         },
       }),
-    ).rejects.toThrow(/INVALID_ARGUMENT/);
+    ).resolves.toBe("ok:meta");
 
-    expect(calls).toEqual(["gemini"]);
+    expect(calls).toEqual(["gemini", "meta"]);
+    warningSpy.mockRestore();
   });
 
   it("returns clean public messages for provider overload", () => {
