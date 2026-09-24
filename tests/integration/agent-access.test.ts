@@ -12,15 +12,15 @@ vi.mock("@/lib/skills/activation-timing", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/skills/activation-timing")>();
   return {
     ...actual,
-    GENERATION_TIMEOUT_MS: 15,
-    ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS: 30,
-    CHOICE_VERIFICATION_TIMEOUT_MS: 40,
-    ACTIVATION_GENERATION_COMPLETION_SLACK_MS: 5,
-    ACTIVATION_PUBLISH_TRANSACTION_MAX_WAIT_MS: 5,
-    ACTIVATION_PUBLISH_TRANSACTION_TIMEOUT_MS: 25,
-    ACTIVATION_RESERVATION_TRANSACTION_MAX_WAIT_MS: 5,
-    ACTIVATION_RESERVATION_TRANSACTION_TIMEOUT_MS: 20,
-    ACTIVATION_GENERATION_TIMEOUT_MS: 100,
+    GENERATION_TIMEOUT_MS: 1_000,
+    ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS: 2_500,
+    CHOICE_VERIFICATION_TIMEOUT_MS: 2_500,
+    ACTIVATION_GENERATION_COMPLETION_SLACK_MS: 500,
+    ACTIVATION_PUBLISH_TRANSACTION_MAX_WAIT_MS: 5_000,
+    ACTIVATION_PUBLISH_TRANSACTION_TIMEOUT_MS: 5_000,
+    ACTIVATION_RESERVATION_TRANSACTION_MAX_WAIT_MS: 5_000,
+    ACTIVATION_RESERVATION_TRANSACTION_TIMEOUT_MS: 15_000,
+    ACTIVATION_GENERATION_TIMEOUT_MS: 20_000,
   };
 });
 
@@ -29,7 +29,7 @@ vi.mock("@/lib/agent-access/recovery-policy", async (importOriginal) => {
   return {
     ...actual,
     AGENT_OPERATION_CLEANUP_MARGIN_MS: 5,
-    AGENT_OPERATION_ACTIVATION_RESERVE_MS: 105,
+    AGENT_OPERATION_ACTIVATION_RESERVE_MS: 20_005,
     AGENT_OPERATION_CANDIDATE_VERIFICATION_RESERVE_MS: 5,
   };
 });
@@ -919,25 +919,23 @@ describeDatabase("agent access persistence", () => {
     const transactionSpy = vi.spyOn(prisma, "$transaction");
     let publicationTimedOut = false;
     let sawPublishingStage = false;
-    transactionSpy.mockImplementation(((...args: unknown[]) => {
+    transactionSpy.mockImplementation((async (...args: unknown[]) => {
       const operation = args[0];
       const options = args[1] as { maxWait?: number; timeout?: number } | undefined;
-      if (
-        !publicationTimedOut &&
-        typeof operation === "function" &&
-        options?.timeout === 25
-      ) {
-        publicationTimedOut = true;
-        return (async () => {
-          const generationJob = await prisma.generationJob.findFirst({
-            where: { skillId: stalled.skill.id },
-            orderBy: { createdAt: "desc" },
-            select: { stage: true },
-          });
-          sawPublishingStage = generationJob?.stage === GenerationJobStage.PUBLISHING;
-          await new Promise((resolve) => setTimeout(resolve, options.timeout));
-          throw Object.assign(new Error("The interactive transaction expired."), { code: "P2028" });
-        })();
+      if (!publicationTimedOut && typeof operation === "function" && options?.timeout === 5_000) {
+        const generationJob = await prisma.generationJob.findFirst({
+          where: { skillId: stalled.skill.id },
+          orderBy: { createdAt: "desc" },
+          select: { stage: true },
+        });
+        if (generationJob?.stage === GenerationJobStage.PUBLISHING) {
+          publicationTimedOut = true;
+          sawPublishingStage = true;
+          return (async () => {
+            await new Promise((resolve) => setTimeout(resolve, 25));
+            throw Object.assign(new Error("The interactive transaction expired."), { code: "P2028" });
+          })();
+        }
       }
       return originalTransaction(operation, options);
     }) as typeof prisma.$transaction);
