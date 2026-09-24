@@ -164,14 +164,14 @@ Local verification for this branch:
 - `npm run test:unit`: 147 files and 1,281 tests passed;
 - `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
 - `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
-- `npm run test:db` passed all 46 files and 559 tests against a fresh temporary
+- `npm run test:db` passed all 46 files and 561 tests against a fresh temporary
   local PostgreSQL 18 database with `pgvector`; the tracked migrations applied
   successfully. The configured Neon branch remains read-only (`25006`);
-- the integration suite covers a verifier that never resolves, sibling
-  progress, activation-publication timeout, preservation of verified
-  candidates, stable recovery event IDs, upload-expiry isolation, fairness when
-  upload-waiting rows exceed the continuation scan cap, retry after continuation
-  publication failure, and synchronous planning timeout results;
+- the integration suite covers never-resolving verifier, planner, and reviewer
+  calls; sibling progress; activation-publication timeout; preservation of
+  verified candidates; stable recovery event IDs; upload-expiry isolation;
+  fairness when upload-waiting rows exceed the continuation scan cap; retry
+  after continuation publication failure; and synchronous planning timeouts;
 - AWS credentials remain expired. Production queue behavior, production
   deployment, duplicate-activation checks under a live mixed batch, and the
   requested production smoke acceptance remain unverified.

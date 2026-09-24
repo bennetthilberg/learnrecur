@@ -423,6 +423,89 @@ describeDatabase("material multi-skill drafting", () => {
     expect(retry).toMatchObject({ status: "planned", batchId: batch.id });
   }, 60_000);
 
+  it("aborts a material scope planner that never resolves before the worker deadline", async () => {
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Create one skill from direct object pronouns in chapter four.",
+      idempotencyKey: `${runId}_planning_hang_deadline`,
+    };
+    let plannerSignal: AbortSignal | undefined;
+
+    await expect(planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date(),
+      deadlineAt: new Date(Date.now() + 66_000),
+      preservePlanningOnTimeout: true,
+      aiSetup: createAiSetup({
+        planScope: ({ signal }) => {
+          plannerSignal = signal;
+          return new Promise(() => {});
+        },
+      }),
+      embeddingGenerator: null,
+    })).rejects.toMatchObject({
+      name: "JobStageTimeoutError",
+      stage: "material scope planning",
+      retryable: true,
+    });
+
+    expect(plannerSignal?.aborted).toBe(true);
+    await expect(prisma.skillDraftBatch.findFirstOrThrow({
+      where: { userId, idempotencyKey: request.idempotencyKey },
+      select: { status: true, errorCode: true },
+    })).resolves.toMatchObject({ status: SkillDraftBatchStatus.PLANNING, errorCode: null });
+  }, 60_000);
+
+  it("aborts a material scope reviewer that never resolves before the worker deadline", async () => {
+    const request = {
+      materialId,
+      materialRevisionId,
+      instruction: "Create one skill from direct object pronouns in chapter four.",
+      idempotencyKey: `${runId}_review_hang_deadline`,
+    };
+    let reviewSignal: AbortSignal | undefined;
+
+    await expect(planMaterialSkills({
+      userId,
+      input: request,
+      now: new Date(),
+      deadlineAt: new Date(Date.now() + 66_000),
+      preservePlanningOnTimeout: true,
+      aiSetup: createAiSetup({
+        planScope: async () => ({
+          resolutionStatus: "resolved",
+          resolvedScopeLabel: "Chapter four direct object pronouns",
+          clarification: null,
+          warnings: [],
+          items: [{
+            key: "direct-object-pronouns-review-hang",
+            title: "Direct object pronouns",
+            objective: "Replace direct objects with the correct Spanish pronoun in short sentences.",
+            materialSectionIds: [directSectionId],
+            evidenceChunkIds: [directChunkId],
+          }],
+        }),
+        reviewScope: ({ signal }) => {
+          reviewSignal = signal;
+          return new Promise(() => {});
+        },
+      }),
+      embeddingGenerator: null,
+    })).rejects.toMatchObject({
+      name: "JobStageTimeoutError",
+      stage: "material scope review",
+      retryable: true,
+    });
+
+    expect(reviewSignal?.aborted).toBe(true);
+    await expect(prisma.skillDraftBatch.findFirstOrThrow({
+      where: { userId, idempotencyKey: request.idempotencyKey },
+      select: { status: true, errorCode: true },
+    })).resolves.toMatchObject({ status: SkillDraftBatchStatus.PLANNING, errorCode: null });
+  }, 60_000);
+
   it("returns a failed planning result for synchronous planning timeouts", async () => {
     const request = {
       materialId,
