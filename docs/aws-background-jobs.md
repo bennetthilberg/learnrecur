@@ -29,10 +29,11 @@ must bound the work: each delivery may publish at most 100 follow-ups; the
 validated envelope depth may not exceed 64; item and job attempts are bounded;
 and the production/staging Lambda reserved concurrency matches the event-source
 cap (five and two). Hitting a continuation limit is a permanent, logged job
-failure sent to the FIFO dead-letter queue. Queue age and the FIFO dead-letter
-queue have CloudWatch alarms in both environments; production also alarms on
-the scheduler dead-letter queue. Review these limits before increasing batch
-sizes or concurrency. [AWS's recursion guidance](https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html)
+failure sent to the FIFO dead-letter queue. Maintenance rethrows this typed
+limit error instead of converting it into a recoverable scan failure. Queue
+age and the FIFO dead-letter queue have CloudWatch alarms in both environments;
+production also alarms on the scheduler dead-letter queue. Review these limits
+before increasing batch sizes or concurrency. [AWS's recursion guidance](https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html)
 recommends guardrails whenever an intentional recursive pattern is enabled.
 
 `BackgroundJobDelivery` atomically claims an envelope ID and payload hash within

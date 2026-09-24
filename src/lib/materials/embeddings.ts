@@ -13,13 +13,14 @@ import { MATERIAL_EMBEDDING_DIMENSIONS } from "@/lib/materials/retrieval";
 export type MaterialEmbeddingGenerator = (input: {
   texts: string[];
   titles?: Array<string | null>;
+  signal?: AbortSignal;
 }) => Promise<number[][]>;
 
 export function createGeminiMaterialEmbeddingGenerator(): MaterialEmbeddingGenerator {
   const env = getGeminiEnv();
   const runtimeConfigs = resolveMaterialEmbeddingRuntimeConfigs(env);
 
-  return async ({ texts, titles = [] }) => {
+  return async ({ texts, titles = [], signal }) => {
     if (texts.length === 0) {
       return [];
     }
@@ -49,7 +50,10 @@ export function createGeminiMaterialEmbeddingGenerator(): MaterialEmbeddingGener
               },
             ],
           })),
-          config: buildMaterialEmbeddingConfig(config.model, config.apiMode),
+          config: {
+            ...buildMaterialEmbeddingConfig(config.model, config.apiMode),
+            abortSignal: signal,
+          },
         });
         const embeddings = response.embeddings ?? [];
         if (embeddings.length !== texts.length) {
@@ -69,6 +73,9 @@ export function createGeminiMaterialEmbeddingGenerator(): MaterialEmbeddingGener
         });
         return values;
       } catch (error) {
+        if (signal?.aborted) {
+          throw signal.reason instanceof Error ? signal.reason : error;
+        }
         const willFallback =
           index < runtimeConfigs.length - 1 && isUnavailableEmbeddingModel(error);
         const log = willFallback ? console.warn : console.error;

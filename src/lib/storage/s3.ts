@@ -42,7 +42,12 @@ export type SourceObjectStorage = {
     expiresInSeconds?: number;
   }): Promise<string>;
   headObject(input: { key: string; bucket?: string }): Promise<SourceObjectHead>;
-  getObjectBytes(input: { key: string; bucket?: string; maxBytes?: number }): Promise<Buffer>;
+  getObjectBytes(input: {
+    key: string;
+    bucket?: string;
+    maxBytes?: number;
+    abortSignal?: AbortSignal;
+  }): Promise<Buffer>;
   putObject?(input: {
     key: string;
     bytes: Buffer;
@@ -134,13 +139,18 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
           Bucket: bucket,
           Key: input.key,
         }),
+        input.abortSignal ? { abortSignal: input.abortSignal } : undefined,
       );
 
       if (!result.Body) {
         throw new Error(`S3 object ${bucket}/${input.key} had no response body.`);
       }
 
-      return streamToBuffer(result.Body as AsyncIterable<Uint8Array>, input.maxBytes);
+      return streamToBuffer(
+        result.Body as AsyncIterable<Uint8Array>,
+        input.maxBytes,
+        input.abortSignal,
+      );
     },
     async putObject(input) {
       await client.send(
@@ -194,20 +204,56 @@ export function createS3SourceObjectStorage(env: S3Env): SourceObjectStorage {
 async function streamToBuffer(
   stream: AsyncIterable<Uint8Array>,
   maxBytes?: number,
+  abortSignal?: AbortSignal,
 ): Promise<Buffer> {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
+  let completed = false;
 
-  for await (const chunk of stream) {
-    totalBytes += chunk.byteLength;
+  const iterator = stream[Symbol.asyncIterator]();
+  let removeAbortListener: (() => void) | undefined;
+  const aborted = abortSignal
+    ? new Promise<never>((_, reject) => {
+        const rejectAborted = () => reject(
+          abortSignal.reason instanceof Error
+            ? abortSignal.reason
+            : new Error("S3 object read was canceled."),
+        );
+        if (abortSignal.aborted) {
+          rejectAborted();
+          return;
+        }
+        abortSignal.addEventListener("abort", rejectAborted, { once: true });
+        removeAbortListener = () => abortSignal.removeEventListener("abort", rejectAborted);
+        if (abortSignal.aborted) rejectAborted();
+      })
+    : null;
 
-    if (maxBytes !== undefined && totalBytes > maxBytes) {
-      throw new SourceObjectSizeLimitError(
-        `S3 object exceeded maximum read size of ${maxBytes} bytes.`,
-      );
+  try {
+    while (true) {
+      const next = await (aborted
+        ? Promise.race([iterator.next(), aborted])
+        : iterator.next());
+      if (next.done) {
+        completed = true;
+        break;
+      }
+      const chunk = next.value;
+      totalBytes += chunk.byteLength;
+
+      if (maxBytes !== undefined && totalBytes > maxBytes) {
+        throw new SourceObjectSizeLimitError(
+          `S3 object exceeded maximum read size of ${maxBytes} bytes.`,
+        );
+      }
+
+      chunks.push(Buffer.from(chunk));
     }
-
-    chunks.push(Buffer.from(chunk));
+  } finally {
+    removeAbortListener?.();
+    if (!completed && iterator.return) {
+      void Promise.resolve(iterator.return()).catch(() => undefined);
+    }
   }
 
   return Buffer.concat(chunks, totalBytes);

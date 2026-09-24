@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import {
   MaterialPageTextStatus,
+  Prisma,
   SourceFileKind,
   SourceFileStatus,
   StudyMaterialKind,
@@ -310,6 +311,74 @@ describeDatabase("localized material OCR evidence", () => {
     await expect(
       prisma.materialChunk.count({ where: { userId, materialRevisionId } }),
     ).resolves.toBe(1);
+  });
+
+  it("releases claimed OCR pages when the worker deadline aborts its provider", async () => {
+    const page = await prisma.materialPage.findFirstOrThrow({
+      where: { userId, materialRevisionId, pageNumber: 1 },
+    });
+    const previousPageState = {
+      textStatus: page.textStatus,
+      ocrText: page.ocrText,
+      contentHash: page.contentHash,
+      tokenEstimate: page.tokenEstimate,
+      metadata:
+        page.metadata === null
+          ? Prisma.JsonNull
+          : page.metadata as Prisma.InputJsonValue,
+    };
+    await prisma.materialPage.update({
+      where: { id: page.id },
+      data: {
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        ocrText: null,
+        metadata: {},
+      },
+    });
+
+    const controller = new AbortController();
+    const canceled = new Error("material OCR worker deadline reached");
+    let ocrSignal: AbortSignal | undefined;
+    let markOcrStarted!: () => void;
+    const ocrStarted = new Promise<void>((resolve) => {
+      markOcrStarted = resolve;
+    });
+
+    try {
+      const ocrPromise = ensureMaterialPageOcr({
+        userId,
+        materialRevisionId,
+        sourceFile,
+        pageRanges: [{ start: 1, end: 1 }],
+        storage: createStorage(pdfBytes),
+        signal: controller.signal,
+        now: new Date(),
+        ocrGenerator: ({ signal }) => {
+          ocrSignal = signal;
+          markOcrStarted();
+          return new Promise((_, reject) => {
+            signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+          });
+        },
+      });
+      await ocrStarted;
+      controller.abort(canceled);
+
+      await expect(ocrPromise).rejects.toBe(canceled);
+      expect(ocrSignal).toBe(controller.signal);
+      await expect(
+        prisma.materialPage.findUniqueOrThrow({ where: { id: page.id } }),
+      ).resolves.toMatchObject({
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        ocrText: null,
+        metadata: { reason: "worker-deadline", retryable: true },
+      });
+    } finally {
+      await prisma.materialPage.update({
+        where: { id: page.id },
+        data: previousPageState,
+      });
+    }
   });
 
   it("OCRs a still-ready revision after a replacement becomes active", async () => {

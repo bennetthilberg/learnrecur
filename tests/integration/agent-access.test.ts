@@ -66,6 +66,7 @@ import {
   createAgentSpecOperation,
 } from "@/lib/agent-access/operations";
 import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
+import * as agentAccessRecovery from "@/lib/agent-access/recovery";
 import { listAgentMaterials } from "@/lib/agent-access/materials";
 import { reserveAgentActivation, runAgentSkillOperationJob } from "@/lib/agent-access/worker";
 import * as materialBatches from "@/lib/materials/batches";
@@ -77,6 +78,7 @@ import {
 } from "@/lib/jobs/events";
 import { getPrisma } from "@/lib/prisma";
 import { JobStageTimeoutError } from "@/lib/jobs/deadline";
+import { JobContinuationLimitError } from "@/lib/jobs/publication-context";
 import { getUserDataExport } from "@/lib/settings/data-export";
 import * as refillJobs from "@/lib/skills/refill-jobs";
 import { ALPHA_ACTIVE_SKILLS } from "@/lib/usage-limits";
@@ -679,6 +681,21 @@ describeDatabase("agent access persistence", () => {
     await expect(
       prisma.agentSkillOperationItem.findUniqueOrThrow({ where: { id: queued.item.id } }),
     ).resolves.toMatchObject({ status: AgentOperationItemStatus.QUEUED });
+  });
+
+  it("sends continuation-limit failures from maintenance to the permanent worker path", async () => {
+    const continuationLimitError = new JobContinuationLimitError("depth");
+    const recovery = vi
+      .spyOn(agentAccessRecovery, "recoverStaleAgentOperationItems")
+      .mockRejectedValueOnce(continuationLimitError);
+
+    try {
+      await expect(runAgentAccessMaintenance(new Date())).rejects.toBe(
+        continuationLimitError,
+      );
+    } finally {
+      recovery.mockRestore();
+    }
   });
 
   it("does not let awaiting-upload operations starve the bounded continuation scan", async () => {

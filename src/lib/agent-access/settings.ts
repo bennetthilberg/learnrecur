@@ -16,6 +16,7 @@ import { getPrisma } from "@/lib/prisma";
 import { cleanupPreparedSourceUploads } from "@/lib/skills/uploads";
 import { recoverPendingRefillEvents } from "@/lib/skills/refill-jobs";
 import { recoverStaleAgentOperationItems } from "@/lib/agent-access/recovery";
+import { JobContinuationLimitError } from "@/lib/jobs/publication-context";
 
 const AGENT_UPLOAD_WINDOW_MS = 10 * 60 * 1_000;
 const WORKOS_AUTHORIZED_APPLICATION_PAGE_LIMIT = 100;
@@ -568,6 +569,7 @@ export async function runAgentAccessMaintenance(now: Date) {
       },
     }),
     recoverPendingRefillEvents({ now }).catch((error: unknown) => {
+      if (error instanceof JobContinuationLimitError) throw error;
       refillRecoveryFailed = true;
       console.error("[agent-access] refill event recovery failed during maintenance", {
         errorName: error instanceof Error ? error.name : "UnknownError",
@@ -575,6 +577,7 @@ export async function runAgentAccessMaintenance(now: Date) {
       return { attempted: 0, delivered: 0, failed: 1 };
     }),
     recoverStaleAgentOperationItems({ now }).catch((error: unknown) => {
+      if (error instanceof JobContinuationLimitError) throw error;
       activationRecoveryFailed = true;
       console.error("[agent-access] activation item recovery failed during maintenance", {
         errorName: error instanceof Error ? error.name : "UnknownError",

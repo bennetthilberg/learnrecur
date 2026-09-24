@@ -142,9 +142,15 @@ deployed to production:
 - Continuation publish timeouts and failures now reject the current job
   delivery for retry; ambiguous publication remains safe through stable event
   IDs and item claim fencing.
+- Maintenance rethrows `JobContinuationLimitError` from refill and activation
+  recovery so the worker records the safety-limit breach as a permanent failure
+  and sends it to the FIFO dead-letter queue.
 - Background material planning preserves an idempotent `PLANNING` batch for a
   retryable worker timeout. Synchronous plan and replan actions return a normal
   failed result instead of throwing through the action boundary.
+- Lazy PDF OCR, material chunk retrieval and embeddings, and final skill
+  similarity checks also have deadline-bound stages. Their S3 and AI calls
+  receive abort signals; canceled OCR releases its page claims for retry.
 - Scope planning and its optional review now receive the remaining delivery
   deadline and abort provider work before the worker cleanup margin. Material
   summaries have an explicit provider timeout instead of inheriting the shorter
@@ -161,17 +167,28 @@ deployed to production:
 
 Local verification for this branch:
 
-- `npm run test:unit`: 147 files and 1,281 tests passed;
+- `npm run test:unit`: 148 files and 1,284 tests passed after the final review fixes;
 - `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
 - `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
-- `npm run test:db` passed all 46 files and 561 tests against a fresh temporary
-  local PostgreSQL 18 database with `pgvector`; the tracked migrations applied
-  successfully. The configured Neon branch remains read-only (`25006`);
-- the integration suite covers never-resolving verifier, planner, and reviewer
-  calls; sibling progress; activation-publication timeout; preservation of
-  verified candidates; stable recovery event IDs; upload-expiry isolation;
-  fairness when upload-waiting rows exceed the continuation scan cap; retry
-  after continuation publication failure; and synchronous planning timeouts;
+- the full database baseline passed all 46 files and 561 tests against a fresh
+  temporary local PostgreSQL 18 database with `pgvector`; the tracked
+  migrations applied successfully. After the final review fixes, the focused
+  `agent-access` and `material-drafting` suites passed 95 tests total. The
+  configured Neon branch remains read-only (`25006`);
+- the integration suite covers never-resolving verifier, planner, reviewer,
+  OCR, retrieval, back-matter recovery, and similarity stages; sibling progress;
+  activation-publication timeout; preservation of verified candidates; stable
+  recovery event IDs; upload-expiry isolation; fairness when upload-waiting rows
+  exceed the continuation scan cap; retry after continuation publication
+  failure; synchronous planning timeouts; and retryable OCR claim release when
+  its provider is aborted;
+- final CodeRabbit follow-up suites passed 102 tests across `agent-access`,
+  `material-drafting`, and `material-evidence` on a fresh local PostgreSQL 18
+  database, plus 16 focused unit tests across material embeddings, evidence,
+  S3 reads, and job deadlines. The configured Neon test branch rejected writes
+  as read-only; no test rows were written there;
+- `npx tsc --noEmit` and ESLint on all changed code and tests passed after the
+  final review fixes;
 - AWS access was restored on 2026-09-24 and used for read-only inspection.
   The live worker, recursion metric, alarm, and queue evidence is recorded
   below. Production deployment, duplicate-activation checks under a live mixed
