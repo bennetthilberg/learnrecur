@@ -3998,10 +3998,24 @@ async function retrievePlanningChunks(input: {
       });
     }
   }
+  let hasMissingEmbeddings = false;
+  if (ranked.some((chunk) => chunk.vectorScore > 0)) {
+    const coverage = await prisma.$queryRaw<Array<{ hasMissingEmbeddings: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1 FROM "material_chunks"
+        WHERE "userId" = ${input.userId}
+          AND "materialRevisionId" = ${input.materialRevisionId}
+          AND "materialSectionId" IN (${Prisma.join(input.sectionIds)})
+          AND "embedding" IS NULL
+      ) AS "hasMissingEmbeddings"
+    `;
+    throwIfMaterialPlanningAborted(input.signal);
+    hasMissingEmbeddings = coverage[0]?.hasMissingEmbeddings ?? false;
+  }
   let museMatched = false;
   let retrievalWarning: string | null = null;
   let museOcrChunks: MaterialChunkSearchResult[] | null = null;
-  if (!ranked.some((chunk) => chunk.vectorScore > 0) && input.rankChunks) {
+  if ((!ranked.some((chunk) => chunk.vectorScore > 0) || hasMissingEmbeddings) && input.rankChunks) {
     try {
       museOcrChunks = await retrieveOcrPlanningChunks({
         userId: input.userId,
@@ -4042,7 +4056,7 @@ async function retrievePlanningChunks(input: {
       });
       throwIfMaterialPlanningAborted(input.signal);
       if (scan.matches.length > 0) {
-        ranked = scan.matches;
+        ranked = uniqueById([...scan.matches, ...ranked]);
         museMatched = true;
       }
       console.info("[materials] muse scope retrieval completed", {
@@ -4063,6 +4077,8 @@ async function retrievePlanningChunks(input: {
   }
   if (embeddingFailed && !input.rankChunks) {
     retrievalWarning = "Semantic retrieval is unavailable. Word-based evidence may miss related passages; review the cited passages carefully.";
+  } else if (hasMissingEmbeddings && !input.rankChunks) {
+    retrievalWarning = "Some source passages have no embeddings, so semantic coverage may be incomplete. Review the cited passages carefully.";
   }
   let strictLexicalMatched = false;
   if (input.topicSearchQuery) {

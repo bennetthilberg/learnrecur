@@ -2784,6 +2784,115 @@ describeDatabase("material multi-skill drafting", () => {
     ]);
   });
 
+  it("scans unembedded passages even when another chunk has a vector match", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Partially embedded lesson",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Lesson 1",
+        normalizedTitle: "lesson 1",
+        pageStart: 1,
+        pageEnd: 2,
+        headingPath: ["Lesson 1"],
+      },
+    });
+    const stored = await Promise.all([
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: section.id,
+          ordinal: 0,
+          text: "Noun plurals add s after a vowel.",
+          tokenEstimate: 10,
+          contentHash: `sha256:${runId}:partial-embedding-0`,
+          headingText: section.title,
+          locator: { kind: "pdf", pageRange: { start: 1, end: 1 } },
+        },
+      }),
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: section.id,
+          ordinal: 1,
+          text: "La casa blanca.",
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:partial-embedding-1`,
+          headingText: section.title,
+          locator: { kind: "pdf", pageRange: { start: 2, end: 2 } },
+        },
+      }),
+    ]);
+    const vector = Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => index === 0 ? 1 : 0);
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: stored[0].id,
+      embedding: vector,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:partial-embedding`,
+      byteSize: 4_096,
+      pageCount: 2,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/partial-embedding.pdf`,
+    });
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => ({
+        scores: chunks.map((chunk) => ({
+          id: chunk.id,
+          relevance: chunk.id === stored[1].id ? 3 : 0,
+        })),
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Gender concord",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "gender-concord",
+        title: "Matching adjective gender",
+        objective: "Select an adjective form that matches a feminine noun.",
+        includeConcepts: ["feminine adjective agreement"],
+        excludeConcepts: ["noun plurals"],
+        materialSectionIds: [section.id],
+        evidenceChunkIds: [stored[1].id],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for gender concord",
+        idempotencyKey: `${runId}_partial_embedding_muse_scan`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => [vector],
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks).toHaveBeenCalled();
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+      .toContain(stored[1].id);
+  });
+
   it("keeps lexical evidence and warns when Muse cannot complete its scan", async () => {
     const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
       resolutionStatus: "resolved",

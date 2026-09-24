@@ -11,7 +11,8 @@ fails. Muse matches are limited to known skill IDs and remain possible matches
 for review; they are never stored as Gemini vectors.
 
 [Meta's Model API](https://dev.meta.ai/docs/overview) does not expose a compatible embedding endpoint.
-When Gemini material retrieval produces no semantic matches, the planner gives
+When Gemini material retrieval produces no semantic matches or some selected
+chunks have no embeddings, the planner gives
 Muse the text, headings, IDs, and locators for every stored chunk and OCR-ready
 page in the structurally selected scope. Muse scores each passage; the server requires one
 valid score for every supplied ID before using any result. Requests use groups
