@@ -256,3 +256,44 @@ git status --short --branch
 sed -n '1,260p' docs/spanish-import-readiness-status.md
 rg -n "source_refs|recent_attempts|AGENT_ACCESS_SCOPES|permissionSummary" src tests docs
 ```
+
+### Live worker snapshot — 2026-09-24 04:36 UTC
+
+Further read-only AWS inspection confirmed the alert and queue backlog were
+still active:
+
+- The production Lambda remained on the pre-PR version (last modified
+  2026-09-23 08:20 UTC), with recursion set to `Terminate`, a 600-second
+  timeout, and no reserved concurrency. Its enabled SQS mapping used batch size
+  1 and maximum concurrency 5.
+- The main queue had 1 visible and 2 in-flight messages; the FIFO DLQ had 4
+  visible messages. The latest queue-age datapoint was 4,411 seconds at 04:25
+  UTC. Both `QueueAge` and `DeadLetterBacklog` alarms remained in `ALARM`.
+- `RecursiveInvocationsDropped` datapoints timestamped 00:00, 01:00, 02:00,
+  03:00, and 04:00 UTC had sums of 1, 1, 1, 2, and 2 respectively. The 04:00
+  datapoint belongs to an incomplete hour at inspection time. Drops continued
+  after the AWS email.
+- CloudWatch Logs Insights showed 55 successful agent-access maintenance runs
+  from 00:03 through 04:33 UTC. Every run reported zero activation items
+  requeued and zero activation continuations. No structured non-completion job
+  outcomes appeared in that window. Three agent-skill-operation deliveries
+  completed between 03:13 and 03:15 UTC; none completed afterward in the queried
+  interval. These records do not identify which message triggered recursion.
+  No structured non-completion outcome was logged in the queried window.
+- The LearnRecur progress summary at 04:31 UTC showed 73 active skills, 12
+  pending operation items, zero introductions, and zero reviews. Preparation
+  reported 48 failed jobs and 2 pending jobs.
+
+I did not receive, change, or redrive any SQS messages. The connected AWS CLI
+credentials were active during this inspection. The exact queued job remains
+unidentified because receiving a message would change its receive count and
+visibility, and no production configuration change has been applied.
+
+At this snapshot, PR #154 was open at code revision `4601008` with
+`CHANGES_REQUESTED`. Its unresolved CodeRabbit Major finding concerns OCR claim cleanup after timeout
+([review thread](https://github.com/bennetthilberg/learnrecur/pull/154#discussion_r4089646646)).
+The three permitted review-response cycles have been used; do not deploy this
+branch until the remaining data-integrity issue is resolved and verified. CI
+`verify`, `authenticated-e2e`, and Vercel previews passed on code revision
+`4601008`, but those checks do not establish the production mixed-batch
+acceptance criteria.
