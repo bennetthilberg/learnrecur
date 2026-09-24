@@ -196,6 +196,15 @@ visible and 1 in-flight message; its FIFO dead-letter queue had 3 visible
 messages. The production `QueueAge` and `DeadLetterBacklog` alarms were both in
 `ALARM`: queue age crossed 900 seconds at 21:23 UTC on 2026-09-23, and the
 dead-letter alarm's last breaching datapoint was 1 at 04:31 UTC on 2026-09-18.
+The latest `ApproximateAgeOfOldestMessage` datapoint was 19,511 seconds (about
+5 hours 25 minutes) at 02:30 UTC, up from 4,631 seconds at 22:00 UTC. From
+00:00–02:30 UTC, receive and delete metrics remained around one or two messages
+per five-minute period while the oldest-message age continued to rise. The
+queue visibility timeout is 3,600 seconds, retention is four days, and its
+redrive policy allows six receives. The hourly recursion
+drop cadence matches the visibility interval, so repeated delivery of an old
+message is plausible, but current metrics and logs do not prove it is the same
+message or identify its job.
 
 Repository code confirms that worker handlers can publish follow-up messages
 directly to their own FIFO-triggered queue, so a sufficiently long valid
@@ -205,7 +214,9 @@ reporting zero activation continuations; account-deletion recovery also
 completed in those windows. These entries do not establish which invocation
 started the recursive chain. The metric confirms three drops, but not the
 originating job. No SQS messages were received or changed during this
-inspection, and no production configuration was modified.
+inspection, and no production configuration was modified. Reading a message
+with `ReceiveMessage` would temporarily change its visibility and increase its
+receive count, so message bodies and exact job identity remain uninspected.
 
 PR #154 explicitly allows the intentional SQS/Lambda chain and adds the
 bounded follow-up, continuation-depth, and reserved-concurrency guardrails
