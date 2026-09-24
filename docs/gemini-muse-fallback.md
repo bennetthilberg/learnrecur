@@ -18,7 +18,9 @@ page in the structurally selected scope. Muse scores each passage; the server re
 valid score for every supplied ID before using any result. Requests use groups
 of at most 120 chunks or 180,000 source characters, with no more than three
 groups in flight. A scope needing more than 24 groups does not trigger an
-unbounded scan. If Muse fails or the scope exceeds that budget, lexical
+unbounded scan. The scan also has a child deadline that reserves at least
+20 seconds of the retrieval stage for lexical recovery. If Muse fails, times
+out, or the scope exceeds that budget, lexical
 retrieval remains available and the proposed plan warns that source coverage
 may be incomplete. Chunks without Gemini embeddings stay unembedded.
 

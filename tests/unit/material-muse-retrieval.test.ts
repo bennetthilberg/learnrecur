@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createMuseScanSignal,
+  getMuseScanBudgetMs,
   scanMaterialChunksWithMuse,
   type MuseRetrievalChunk,
 } from "@/lib/materials/muse-retrieval";
@@ -20,6 +22,29 @@ function chunk(index: number, text = `Teaching passage ${index}`): MuseRetrieval
 }
 
 describe("Muse material retrieval", () => {
+  it.each([
+    { remaining: 105_000, budget: 70_000 },
+    { remaining: 50_000, budget: 30_000 },
+    { remaining: 20_000, budget: 0 },
+  ])("reserves lexical fallback time from a $remaining ms stage", ({ remaining, budget }) => {
+    expect(getMuseScanBudgetMs(remaining)).toBe(budget);
+  });
+
+  it("times out the Muse child signal without aborting the parent", async () => {
+    const parent = new AbortController();
+    const child = createMuseScanSignal(parent.signal, 5);
+    await new Promise<void>((resolve) => child.addEventListener("abort", () => resolve(), { once: true }));
+    expect(child.aborted).toBe(true);
+    expect(parent.signal.aborted).toBe(false);
+  });
+
+  it("propagates parent cancellation to the Muse child signal", () => {
+    const parent = new AbortController();
+    const child = createMuseScanSignal(parent.signal, 10_000);
+    parent.abort(new Error("delivery ended"));
+    expect(child.reason).toEqual(new Error("delivery ended"));
+  });
+
   it("scans every page and finds a semantic match with no shared query words", async () => {
     const chunks = Array.from({ length: 251 }, (_, index) =>
       chunk(index, index === 241 ? "Yo me levanto antes del amanecer." : `Other lesson ${index}`),

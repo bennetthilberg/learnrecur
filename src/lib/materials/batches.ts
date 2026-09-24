@@ -85,6 +85,8 @@ import {
 } from "@/lib/materials/retrieval";
 import {
   MuseRetrievalCapacityError,
+  createMuseScanSignal,
+  getMuseScanBudgetMs,
   scanMaterialChunksWithMuse,
   type MuseChunkRanker,
 } from "@/lib/materials/muse-retrieval";
@@ -3699,6 +3701,7 @@ async function planExistingMaterialBatch(input: {
         ),
         embeddingGenerator: input.embeddingGenerator,
         rankChunks: ai.rankChunks,
+        deadlineAt: input.deadlineAt,
         signal,
       }),
     });
@@ -3959,9 +3962,17 @@ async function retrievePlanningChunks(input: {
   sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   rankChunks?: MuseChunkRanker;
+  deadlineAt?: Date;
   signal?: AbortSignal;
 }) {
   throwIfMaterialPlanningAborted(input.signal);
+  const stageRemainingMs = getJobStageTimeoutMs({
+    deadlineAt: input.deadlineAt,
+    cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+    maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+    stage: "material scope retrieval",
+  });
+  const stageDeadlineAt = Date.now() + stageRemainingMs;
   const prisma = getPrisma();
   let ranked: MaterialChunkSearchResult[] = [];
   let focusedTopic = false;
@@ -4017,16 +4028,20 @@ async function retrievePlanningChunks(input: {
   let museOcrChunks: MaterialChunkSearchResult[] | null = null;
   if ((!ranked.some((chunk) => chunk.vectorScore > 0) || hasMissingEmbeddings) && input.rankChunks) {
     try {
+      const scanSignal = createMuseScanSignal(
+        input.signal,
+        getMuseScanBudgetMs(stageDeadlineAt - Date.now()),
+      );
       museOcrChunks = await retrieveOcrPlanningChunks({
         userId: input.userId,
         materialRevisionId: input.materialRevisionId,
         instruction: retrievalQuery,
         sections: input.sections,
       });
-      throwIfMaterialPlanningAborted(input.signal);
+      throwIfMaterialPlanningAborted(scanSignal);
       const scan = await scanMaterialChunksWithMuse({
         query: retrievalQuery,
-        signal: input.signal,
+        signal: scanSignal,
         rank: input.rankChunks,
         supplementalChunks: museOcrChunks,
         loadPage: async (afterOrdinal, limit) =>

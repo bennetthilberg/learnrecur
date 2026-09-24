@@ -8,6 +8,8 @@ const MAX_GROUP_CHUNKS = 120;
 const MAX_GROUPS = 24;
 const MAX_CONCURRENT_REQUESTS = 3;
 const MAX_MATCHES = 48;
+const MAX_SCAN_BUDGET_MS = 70_000;
+const FALLBACK_RESERVE_MS = 20_000;
 
 const scoreResponseSchema = z.object({
   scores: z.array(z.object({
@@ -32,6 +34,16 @@ export class MuseRetrievalCapacityError extends Error {
     super("Material exceeds the bounded Muse retrieval scan capacity.");
     this.name = "MuseRetrievalCapacityError";
   }
+}
+
+export function getMuseScanBudgetMs(stageRemainingMs: number): number {
+  return Math.min(MAX_SCAN_BUDGET_MS, Math.max(0, stageRemainingMs - FALLBACK_RESERVE_MS));
+}
+
+export function createMuseScanSignal(parentSignal: AbortSignal | undefined, budgetMs: number) {
+  if (budgetMs <= 0) throw new Error("No delivery time remains for the Muse scan.");
+  const timeoutSignal = AbortSignal.timeout(budgetMs);
+  return parentSignal ? AbortSignal.any([parentSignal, timeoutSignal]) : timeoutSignal;
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

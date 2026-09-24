@@ -41,6 +41,7 @@ import {
 } from "@/lib/materials/retrieval";
 import { recoverBackMatterMaterialScope } from "@/lib/materials/drafting";
 import { materialPageEvidenceId } from "@/lib/materials/evidence-ids";
+import * as museRetrieval from "@/lib/materials/muse-retrieval";
 import { JobStageTimeoutError } from "@/lib/jobs/deadline";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import * as materialEvidence from "@/lib/materials/evidence";
@@ -2935,6 +2936,62 @@ describeDatabase("material multi-skill drafting", () => {
     ]));
     expect(result.plan.warnings).toHaveLength(20);
     expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(directChunkId);
+  });
+
+  it("reserves time for lexical retrieval after a Muse scan timeout", async () => {
+    const budget = vi.spyOn(museRetrieval, "getMuseScanBudgetMs").mockReturnValue(10);
+    let abortReason: unknown;
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ signal }) => new Promise((_, reject) => {
+        const watchdog = setTimeout(() => reject(new Error("Muse child did not time out")), 500);
+        signal?.addEventListener("abort", () => {
+          clearTimeout(watchdog);
+          abortReason = signal.reason;
+          reject(signal.reason);
+        }, { once: true });
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Direct object pronouns",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "direct-object-pronoun-timeout",
+        title: "Placing direct object pronouns",
+        objective: "Place a direct object pronoun before a conjugated verb.",
+        includeConcepts: ["pronoun placement"],
+        excludeConcepts: ["indirect object pronouns"],
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      }],
+    }));
+    try {
+      const result = await planMaterialSkills({
+        userId,
+        input: {
+          materialId,
+          materialRevisionId,
+          instruction: "make skills for direct object pronouns",
+          idempotencyKey: `${runId}_muse_scan_timeout`,
+        },
+        now: new Date(),
+        aiSetup: createAiSetup({ planScope, rankChunks }),
+        embeddingGenerator: null,
+      });
+      expect(result.status).toBe("planned");
+      if (result.status !== "planned") return;
+      expect(rankChunks).toHaveBeenCalled();
+      expect((abortReason as Error).name).toBe("TimeoutError");
+      expect(result.plan.warnings).toEqual(expect.arrayContaining([
+        expect.stringContaining("Muse could not scan all source text"),
+      ]));
+      expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+        .toContain(directChunkId);
+    } finally {
+      budget.mockRestore();
+    }
   });
 
   it("includes later OCR-only pages in Muse retrieval", async () => {
