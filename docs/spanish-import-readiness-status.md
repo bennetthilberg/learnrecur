@@ -1,6 +1,6 @@
 # Spanish import readiness status
 
-Updated 2026-09-23 for the worker deadline blocker follow-up. This is a
+Updated 2026-09-24 for the worker deadline blocker follow-up. This is a
 work-in-progress checkpoint, not a release receipt.
 
 The implementation provides the bounded, auditable plumbing for a future
@@ -357,3 +357,44 @@ has occurred since the 04:36 UTC snapshot. The current production Lambda,
 backlog, alarms, and recursive-drop metric therefore remain unverified. The
 mixed-batch acceptance check and import resume are still blocked on live AWS
 access and the reviewed release path; learner state has not been touched.
+
+### PR and live AWS checkpoint — 2026-09-24 15:58 UTC
+
+PR #154 is open at `b03f84c` on `a/activation-worker-deadline`. Hosted CI run
+`36022085794` passed `verify` and `authenticated-e2e`, including the write-enabled
+database integration suite with coverage and authenticated browser tests. Both
+Vercel previews passed. Local lint, all 1,287 unit tests, and TypeScript
+typechecking also passed at this code revision.
+
+The latest CodeRabbit Major finding about OCR claim cleanup is fixed in
+`b03f84c`. CodeRabbit acknowledged the fix and marked that thread resolved; the
+regression ran in the hosted database suite. All 18 PR review threads are
+resolved. GitHub's aggregate review decision still says `CHANGES_REQUESTED`,
+and the CodeRabbit check says `Review paused`; do not describe the current head
+as approved or freshly reviewed. The manual Codex review-request limit was
+already exhausted on this PR.
+
+The renewed AWS CLI session verified account `168992393637`. The AWS Health
+console shows the account-specific `Lambda runaway termination notification`
+event beginning `2026-09-24T00:16:14Z`
+(`AWS_LAMBDA_RUNAWAY_TERMINATION_NOTIFICATION-024ac3d7-dd40-493e-94c6-d27deded6e79`).
+Its sole affected resource is `learnrecur-production-jobs-worker`. The Health
+API returns `SubscriptionRequiredException` for this account, so the console is
+the source for the affected-resource detail.
+
+The live Lambda is still the pre-fix artifact: active, 600-second timeout,
+last modified `2026-09-23T08:20:20Z`, with code hash
+`4hR1miz1qRqSmEhAaDjU84PYH9HA4y6f69pBdSBpwZM=`. The `RecursiveLoop` field is
+not set in its live configuration, and it has no reserved concurrency. Its
+enabled FIFO SQS mapping has batch size 1 and maximum concurrency 5. At 15:47
+UTC, the main queue had 0 visible and 0 in-flight messages; its jobs DLQ had 7
+visible messages; the scheduler DLQ had 0. `RecursiveInvocationsDropped`
+remained nonzero once or twice per hour through the 09:00 CDT datapoint.
+CloudWatch showed `QueueAge` `OK` and `DeadLetterBacklog` `ALARM`.
+
+No production configuration was changed, no SQS messages were received or
+redriven, and no learner state was modified. The PR has not been deployed, so
+the handoff's production mixed-batch acceptance and Spanish import resume are
+still pending the reviewed release path. Poll existing operation IDs before
+resuming; preserve zero new introductions/reviews during that canary, and do
+not redrive the 7 DLQ messages without identifying and reviewing them.
