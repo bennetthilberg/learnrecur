@@ -2728,6 +2728,104 @@ describeDatabase("material multi-skill drafting", () => {
     );
   });
 
+  it("uses a complete Muse scan when Gemini embeddings fail and words do not match", async () => {
+    const rankedIds: string[] = [];
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => {
+        rankedIds.push(...chunks.map((chunk) => chunk.id));
+        return {
+          scores: chunks.map((chunk) => ({
+            id: chunk.id,
+            relevance: chunk.id === indirectChunkId ? 3 : 0,
+          })),
+        };
+      },
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Dative clitics",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "dative-clitics",
+        title: "Choosing le and les",
+        objective: "Choose the correct pronoun for one or several recipients.",
+        includeConcepts: ["recipient number"],
+        excludeConcepts: ["direct object pronouns"],
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "make skills for dative clitics",
+        idempotencyKey: `${runId}_muse_semantic_retrieval`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => {
+        throw new Error("Gemini embeddings unavailable");
+      },
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks).toHaveBeenCalled();
+    expect(rankedIds).toContain(indirectChunkId);
+    expect(new Set(rankedIds).size).toBe(81);
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(indirectChunkId);
+    expect(planScope.mock.calls[0]?.[0].sections.map((section) => section.id)).toEqual([
+      indirectSectionId,
+    ]);
+  });
+
+  it("keeps lexical evidence and warns when Muse cannot complete its scan", async () => {
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Direct object pronouns",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "direct-object-pronouns",
+        title: "Placing direct object pronouns",
+        objective: "Place a direct object pronoun before a conjugated verb.",
+        includeConcepts: ["pronoun placement"],
+        excludeConcepts: ["indirect object pronouns"],
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      }],
+    }));
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async () => { throw new Error("Meta rate limit"); },
+    );
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "make skills for direct object pronouns",
+        idempotencyKey: `${runId}_muse_lexical_degradation`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => { throw new Error("Gemini embeddings unavailable"); },
+    });
+
+    expect(result.status).toBe("planned");
+    if (result.status !== "planned") return;
+    expect(rankChunks).toHaveBeenCalled();
+    expect(result.plan.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining("Muse could not scan all source text"),
+    ]));
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(directChunkId);
+  });
+
   it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {
     const { material, revision } = await createMaterialWithInitialRevision({
       userId,
@@ -6987,6 +7085,7 @@ function pdfLocator(input: {
 }
 
 function createAiSetup(input: {
+  rankChunks?: MaterialDraftAiSetup["rankChunks"];
   planScope?: MaterialDraftAiSetup["planScope"];
   reviewScope?: MaterialDraftAiSetup["reviewScope"];
   repairTarget?: MaterialDraftAiSetup["repairTarget"];
@@ -6996,6 +7095,7 @@ function createAiSetup(input: {
 } = {}): MaterialDraftAiSetup {
   return {
     model: "fixture-model",
+    ...(input.rankChunks ? { rankChunks: input.rankChunks } : {}),
     planScope:
       input.planScope ??
       (async () => ({

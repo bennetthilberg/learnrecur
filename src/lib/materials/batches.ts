@@ -83,6 +83,11 @@ import {
   searchMaterialChunksLexical,
   type MaterialChunkSearchResult,
 } from "@/lib/materials/retrieval";
+import {
+  MuseRetrievalCapacityError,
+  scanMaterialChunksWithMuse,
+  type MuseChunkRanker,
+} from "@/lib/materials/muse-retrieval";
 import { getPrisma } from "@/lib/prisma";
 import type { SourceObjectStorage } from "@/lib/storage/s3";
 import {
@@ -3644,6 +3649,7 @@ async function planExistingMaterialBatch(input: {
       structural.references.length === 0
         ? resolveMaterialTopicSearchQuery(batch.instruction)
         : null;
+    const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const sourceFile = batch.materialRevision.sourceFiles[0];
     if (batch.materialRevision.material.kind === "PDF" && sourceFile) {
       const pageRanges = sections
@@ -3692,6 +3698,7 @@ async function planExistingMaterialBatch(input: {
           structural.candidateSectionIds.includes(section.id),
         ),
         embeddingGenerator: input.embeddingGenerator,
+        rankChunks: ai.rankChunks,
         signal,
       }),
     });
@@ -3703,7 +3710,7 @@ async function planExistingMaterialBatch(input: {
         instruction: batch.instruction,
         resolutionStatus: "ambiguous",
         resolvedScopeLabel: "The requested scope has no indexed text yet.",
-        warnings: [],
+        warnings: retrieval.retrievalWarning ? [retrieval.retrievalWarning] : [],
         clarification: "Choose another section or retry after scanned pages finish OCR.",
         items: [],
       });
@@ -3805,7 +3812,6 @@ async function planExistingMaterialBatch(input: {
           candidateSectionIds: planningSectionIds,
         }
       : structural;
-    const ai = input.aiSetup ?? resolveMaterialDraftAiSetup();
     const allowedSections = sections.filter((section) =>
       planningSectionIds.includes(section.id),
     );
@@ -3892,7 +3898,13 @@ async function planExistingMaterialBatch(input: {
         signal,
       }),
     });
-    const plan = annotateMaterialPlanOverlaps(validation.plan, similarity.candidates);
+    const annotatedPlan = annotateMaterialPlanOverlaps(validation.plan, similarity.candidates);
+    const plan = retrieval.retrievalWarning
+      ? {
+          ...annotatedPlan,
+          warnings: [...new Set([...annotatedPlan.warnings, retrieval.retrievalWarning])],
+        }
+      : annotatedPlan;
     return saveProposedMaterialPlan({
       batchId: batch.id,
       userId: input.userId,
@@ -3942,6 +3954,7 @@ async function retrievePlanningChunks(input: {
   sectionIds: string[];
   sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  rankChunks?: MuseChunkRanker;
   signal?: AbortSignal;
 }) {
   throwIfMaterialPlanningAborted(input.signal);
@@ -3953,6 +3966,7 @@ async function retrievePlanningChunks(input: {
     input.embeddingGenerator === undefined
       ? safelyResolveEmbeddingGenerator()
       : input.embeddingGenerator;
+  let embeddingFailed = false;
   if (embeddingGenerator) {
     try {
       const [embedding] = await embeddingGenerator({
@@ -3973,11 +3987,67 @@ async function retrievePlanningChunks(input: {
       ).filter((chunk) => chunk.vectorScore > 0 || chunk.lexicalScore > 0);
     } catch (error) {
       throwIfMaterialPlanningAborted(input.signal);
+      embeddingFailed = true;
       console.warn("[materials] semantic scope retrieval unavailable", {
         materialRevisionId: input.materialRevisionId,
         error: error instanceof Error ? error.message : "Unknown retrieval error",
       });
     }
+  }
+  let museMatched = false;
+  let retrievalWarning: string | null = null;
+  if (!ranked.some((chunk) => chunk.vectorScore > 0) && input.rankChunks) {
+    try {
+      const scan = await scanMaterialChunksWithMuse({
+        query: retrievalQuery,
+        signal: input.signal,
+        rank: input.rankChunks,
+        loadPage: async (afterOrdinal, limit) =>
+          prisma.materialChunk.findMany({
+            where: {
+              userId: input.userId,
+              materialRevisionId: input.materialRevisionId,
+              materialSectionId: { in: input.sectionIds },
+              ordinal: { gt: afterOrdinal },
+            },
+            orderBy: { ordinal: "asc" },
+            take: limit,
+            select: {
+              id: true,
+              materialRevisionId: true,
+              materialSectionId: true,
+              sourceFileId: true,
+              ordinal: true,
+              text: true,
+              tokenEstimate: true,
+              locator: true,
+              headingText: true,
+            },
+          }),
+      });
+      throwIfMaterialPlanningAborted(input.signal);
+      if (scan.matches.length > 0) {
+        ranked = scan.matches;
+        museMatched = true;
+      }
+      console.info("[materials] muse scope retrieval completed", {
+        materialRevisionId: input.materialRevisionId,
+        scannedChunkCount: scan.scannedChunkCount,
+        matchedChunkCount: scan.matches.length,
+      });
+    } catch (error) {
+      throwIfMaterialPlanningAborted(input.signal);
+      retrievalWarning = error instanceof MuseRetrievalCapacityError
+        ? "This material is too large for a complete semantic fallback scan. Choose a narrower section or review the cited passages carefully."
+        : "Muse could not scan all source text. Word-based evidence may miss related passages; retry or review the cited passages carefully.";
+      console.warn("[materials] muse scope retrieval unavailable", {
+        materialRevisionId: input.materialRevisionId,
+        error: error instanceof Error ? error.message : "Unknown retrieval error",
+      });
+    }
+  }
+  if (embeddingFailed && !input.rankChunks) {
+    retrievalWarning = "Semantic retrieval is unavailable. Word-based evidence may miss related passages; review the cited passages carefully.";
   }
   let strictLexicalMatched = false;
   if (input.topicSearchQuery) {
@@ -4005,7 +4075,7 @@ async function retrievePlanningChunks(input: {
       focusedTopic = selected.focused || strictLexical.focused;
     }
   }
-  if (input.topicSearchQuery && !strictLexicalMatched) {
+  if (input.topicSearchQuery && !strictLexicalMatched && !museMatched) {
     const recoveryQuery = buildMaterialTopicRecoveryQuery(input.topicSearchQuery);
     if (recoveryQuery) {
       const minimumPrefixMatches = getMaterialTopicRecoveryGroupCount(recoveryQuery);
@@ -4169,6 +4239,7 @@ async function retrievePlanningChunks(input: {
       ...uncoveredSectionFallbacks.slice(0, fallbackSlots),
     ]),
     focusedTopic,
+    retrievalWarning,
   };
 }
 

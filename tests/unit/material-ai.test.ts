@@ -11,7 +11,9 @@ vi.mock("@google/genai", () => ({
 }));
 
 import {
+  buildMetaMuseMaterialChunkRankingPrompt,
   createMaterialDraftAiSetup,
+  materialMuseChunkRankingJsonSchema,
   materialScopePlannerJsonSchema,
   type MaterialScopePlannerInput,
 } from "@/lib/materials/ai";
@@ -90,6 +92,50 @@ const rawScopePlan = {
     },
   ],
 };
+
+describe("Muse material chunk ranking", () => {
+  it("sends the full source passage and locator before the variable query", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      void _url;
+      void _init;
+      return metaMuseResponse({
+        scores: [{ id: "chunk-reflexive-verbs", relevance: 3 }],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const setup = createMaterialDraftAiSetup({ gemini, metaMuseFallback });
+    const chunk = {
+      ...plannerInput.chunks[0],
+      materialRevisionId: "revision-1",
+      sourceFileId: "file-1",
+      ordinal: 7,
+      tokenEstimate: 20,
+      locator: { kind: "pdf", pageRange: { start: 193, end: 193 } },
+    };
+
+    await expect(setup.rankChunks?.({
+      query: "actions done to oneself",
+      chunks: [chunk],
+    })).resolves.toEqual({
+      scores: [{ id: chunk.id, relevance: 3 }],
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const request = parseMetaMuseRequest(fetchMock.mock.calls[0][1]);
+    expect(request.text.format).toMatchObject({
+      name: "materialChunkRelevance",
+      schema: materialMuseChunkRankingJsonSchema,
+      strict: true,
+    });
+    const prompt = buildMetaMuseMaterialChunkRankingPrompt({
+      query: "actions done to oneself",
+      chunks: [chunk],
+    });
+    expect(prompt.indexOf(chunk.text)).toBeLessThan(prompt.indexOf("actions done to oneself"));
+    expect(prompt).toContain("pageRange");
+    expect(JSON.stringify(request.input[0].content)).toContain(chunk.text);
+  });
+});
 
 const candidatePlan: MaterialScopeResolution = {
   version: 1,
