@@ -40,7 +40,10 @@ describe("AWS deployment contract", () => {
       QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
       RedrivePolicy: { maxReceiveCount: 6 },
     });
-    expect(template.Resources.Worker.Properties).toMatchObject({ Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS });
+    expect(template.Resources.Worker.Properties).toMatchObject({
+      Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS,
+      ReservedConcurrentExecutions: { Ref: "MaximumConcurrency" }, RecursiveLoop: "Allow",
+    });
     expect(SQS_VISIBILITY_TIMEOUT_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(JOB_LEASE_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
@@ -80,6 +83,20 @@ describe("AWS deployment contract", () => {
     const alarms = Object.values(createJobsTemplate("production").Resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
     expect(alarms).toHaveLength(7);
     expect(alarms.every((alarm) => Array.isArray(alarm.Properties.AlarmActions) && alarm.Properties.AlarmActions.length > 0)).toBe(true);
+  });
+
+  it("keeps worker self-publication and Lambda concurrency explicitly bounded", () => {
+    const resources = createJobsTemplate("production").Resources;
+    const workerRole = resources.WorkerRole.Properties.Policies as {
+      PolicyDocument: { Statement: { Action: string[]; Resource: unknown }[] };
+    }[];
+    const queueSendPermissions = workerRole[0].PolicyDocument.Statement.filter((statement) =>
+      JSON.stringify(statement.Resource).includes('"Queue"'),
+    );
+    expect(queueSendPermissions).toContainEqual(expect.objectContaining({
+      Action: expect.arrayContaining(["sqs:SendMessage"]),
+      Resource: { "Fn::GetAtt": ["Queue", "Arn"] },
+    }));
   });
 
   it("keeps staging and production within ten standard alarms", () => {

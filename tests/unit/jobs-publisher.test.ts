@@ -8,7 +8,15 @@ vi.mock("@aws-sdk/client-sqs", () => ({
 
 import { getJobsConfig, getJobsEnvStatus } from "@/lib/jobs/config";
 import { createJobPublisher } from "@/lib/jobs/publisher";
-import { getJobMessageGroupId, parseJobEnvelope } from "@/lib/jobs/contracts";
+import {
+  getJobMessageGroupId,
+  MAX_JOB_CONTINUATION_DEPTH,
+  parseJobEnvelope,
+} from "@/lib/jobs/contracts";
+import {
+  MAX_JOB_FOLLOW_UPS_PER_DELIVERY,
+  withWorkerJobPublicationContext,
+} from "@/lib/jobs/publication-context";
 
 const env = {
   JOBS_ENVIRONMENT: "staging", AWS_REGION: "us-east-1",
@@ -17,7 +25,9 @@ const env = {
 const data = { userId: "user-a", operationId: "operation-a", requestedAt: "2026-09-05T01:00:00.000Z" };
 
 describe("AWS job publishing", () => {
-  beforeEach(() => { send.mockReset().mockResolvedValue({ MessageId: "message-a" }); });
+  beforeEach(() => {
+    send.mockReset().mockResolvedValue({ MessageId: "message-a" });
+  });
 
   it("publishes a validated envelope with stable FIFO and deduplication keys", async () => {
     await createJobPublisher(getJobsConfig(env))("learnrecur/agent-skill-operation.requested", data);
@@ -29,14 +39,15 @@ describe("AWS job publishing", () => {
 
   it("preserves a continuation ID across ambiguous publisher retries", async () => {
     const eventId = "agent-op-0123456789abcdef0123456789abcdef01234567";
-    await createJobPublisher(getJobsConfig(env))(
+    await withWorkerJobPublicationContext(() => createJobPublisher(getJobsConfig(env))(
       "learnrecur/agent-skill-operation.requested",
       data,
       { id: eventId },
-    );
+    ));
     const command = send.mock.calls[0][0].input;
     const job = parseJobEnvelope(command.MessageBody, "staging");
     expect(job.id).toBe(eventId);
+    expect(job.continuationDepth).toBe(1);
     expect(command.MessageDeduplicationId).toBe(eventId);
   });
 
@@ -48,6 +59,31 @@ describe("AWS job publishing", () => {
       { id: "agent-op-0123456789abcdef0123456789abcdef01234567", signal },
     );
     expect(send.mock.calls[0][1]).toEqual({ abortSignal: signal });
+  });
+
+  it("stops a runaway continuation at the maximum chain depth", async () => {
+    const publisher = createJobPublisher(getJobsConfig(env));
+    await expect(withWorkerJobPublicationContext(
+      () => publisher("learnrecur/agent-skill-operation.requested", data),
+      MAX_JOB_CONTINUATION_DEPTH,
+    )).rejects.toMatchObject({
+      limit: "depth",
+      retryable: false,
+      failureCode: "JOB_CONTINUATION_LIMIT_EXCEEDED",
+    });
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("limits worker fan-out per delivery and reports the permanent limit", async () => {
+    const publisher = createJobPublisher(getJobsConfig(env));
+    await withWorkerJobPublicationContext(async () => {
+      await Promise.all(Array.from({ length: MAX_JOB_FOLLOW_UPS_PER_DELIVERY }, () =>
+        publisher("learnrecur/agent-skill-operation.requested", data),
+      ));
+      await expect(publisher("learnrecur/agent-skill-operation.requested", data))
+        .rejects.toMatchObject({ limit: "fanout", retryable: false });
+    });
+    expect(send).toHaveBeenCalledTimes(MAX_JOB_FOLLOW_UPS_PER_DELIVERY);
   });
 
   it("does not contact AWS for invalid payloads", async () => {
@@ -87,5 +123,22 @@ describe("AWS environment isolation", () => {
 
   it("accepts explicitly isolated staging deployed to a Vercel production slot", () => {
     expect(getJobsEnvStatus({ ...env, LEARNRECUR_DEPLOYMENT_TIER: "staging", VERCEL_ENV: "production" }).status).toBe("configured");
+  });
+
+  it("keeps the worker publication context isolated from concurrent caller work", async () => {
+    send.mockReset().mockResolvedValue({ MessageId: "message-a" });
+    const publisher = createJobPublisher(getJobsConfig(env));
+    await Promise.all([
+      withWorkerJobPublicationContext(async () => {
+        await publisher("learnrecur/agent-skill-operation.requested", data);
+      }),
+      publisher("learnrecur/agent-skill-operation.requested", data),
+    ]);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    const publishedJobs = send.mock.calls.map(([command]) =>
+      parseJobEnvelope(command.input.MessageBody, "staging"),
+    );
+    expect(publishedJobs.map((job) => job.continuationDepth).sort()).toEqual([1, undefined]);
   });
 });

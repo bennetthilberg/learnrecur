@@ -658,6 +658,7 @@ describeDatabase("agent access persistence", () => {
       expect(plan).toHaveBeenCalledTimes(3);
       expect(plan).toHaveBeenCalledWith(expect.objectContaining({
         preservePlanningOnTimeout: true,
+        deadlineAt: expect.any(Date),
       }));
     } finally {
       plan.mockRestore();

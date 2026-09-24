@@ -145,13 +145,23 @@ deployed to production:
 - Background material planning preserves an idempotent `PLANNING` batch for a
   retryable worker timeout. Synchronous plan and replan actions return a normal
   failed result instead of throwing through the action boundary.
+- Scope planning and its optional review now receive the remaining delivery
+  deadline and abort provider work before the worker cleanup margin. Material
+  summaries have an explicit provider timeout instead of inheriting the shorter
+  generic Gemini timeout.
+- The FIFO worker intentionally publishes bounded follow-ups to its own queue.
+  Its CloudFormation setting explicitly allows this documented pattern; each
+  delivery can publish at most 100 child jobs, each envelope carries a validated
+  continuation depth capped at 64, and Lambda reserved concurrency matches the
+  event-source cap. A breached safety limit is terminal and visible in the
+  worker log and FIFO dead-letter queue, which is alarmed in both environments.
 - Publication checks preserve verified candidates and use transaction fences
   to avoid duplicate skill activation. The worker does not alter introduction
   timestamps, attempts, or FSRS history.
 
 Local verification for this branch:
 
-- `npm run test:unit`: 146 files and 1,273 tests passed;
+- `npm run test:unit`: 147 files and 1,281 tests passed;
 - `npx tsc --noEmit`, `npm run lint`, and `npm run prisma:validate` passed;
 - `npm run prisma:generate`, `npm run jobs:build`, and `npm run build` passed;
 - `npm run test:db` passed all 46 files and 559 tests against a fresh temporary
@@ -165,6 +175,22 @@ Local verification for this branch:
 - AWS credentials remain expired. Production queue behavior, production
   deployment, duplicate-activation checks under a live mixed batch, and the
   requested production smoke acceptance remain unverified.
+
+### AWS recursive Lambda notification
+
+AWS sent a recursive-invocation termination alert for the jobs worker around
+2026-09-24 00:16 UTC. The alert says Lambda stopped the detected invocation
+chain. Repository code confirms that worker handlers could publish follow-up
+messages directly to their own FIFO-triggered queue, so a sufficiently long
+valid fan-out could reach AWS's recursion threshold. The email alone does not
+identify which job started that chain, and expired AWS credentials prevented
+confirmation against the corresponding CloudWatch event or SQS receipts.
+
+PR #154 explicitly allows the intentional SQS/Lambda chain and adds the
+bounded follow-up, continuation-depth, and reserved-concurrency guardrails
+described above. This is a code/template fix only; it is not deployed. Live
+queue cleanup and the mixed-batch acceptance check remain pending an
+authenticated AWS session.
 
 After PR CI and review, the operator should deploy through the normal release
 path, run the small mixed batch from the handoff, and verify sibling progress,

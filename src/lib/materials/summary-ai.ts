@@ -8,6 +8,7 @@ import {
   resolveGeminiRuntimeConfig,
   runLoggedGeminiOperation,
 } from "@/lib/gemini";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   buildMaterialSummaryPrompt,
   materialSummaryResponseSchema,
@@ -33,6 +34,7 @@ export function createGeminiMaterialSummaryGenerator(): MaterialSummaryGenerator
     return runLoggedGeminiOperation({
       config,
       operation: "material summary",
+      timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       metadata: {
         promptChars: prompt.length,
         schemaName: "material-summary-v1",

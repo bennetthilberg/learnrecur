@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { SQSRecord } from "aws-lambda";
 import { buildJobEnvelope, getJobMessageGroupId } from "@/lib/jobs/contracts";
 import { createJobWorker, type JobWorkerDependencies } from "@/lib/jobs/worker";
+import { JobContinuationLimitError } from "@/lib/jobs/publication-context";
 
 const queueArn = "arn:aws:sqs:us-east-1:123456789012:learnrecur-staging-jobs.fifo";
 function record(overrides: Partial<SQSRecord> = {}): SQSRecord {
@@ -131,6 +132,25 @@ describe("SQS worker delivery safety", () => {
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [] });
     expect(dependencies.deadLetter).toHaveBeenCalledWith(expect.anything(), "JOB_NON_RETRYABLE");
     expect(dependencies.fail).toHaveBeenCalledWith(expect.anything(), "lease", "JOB_NON_RETRYABLE", true);
+  });
+
+  it("records a continuation safety-limit breach as a terminal, visible DLQ outcome", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.execute).mockRejectedValue(new JobContinuationLimitError("depth"));
+    expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [] });
+    expect(dependencies.fail).toHaveBeenCalledWith(
+      expect.anything(),
+      "lease",
+      "JOB_CONTINUATION_LIMIT_EXCEEDED",
+      true,
+    );
+    expect(dependencies.deadLetter).toHaveBeenCalledWith(
+      expect.anything(),
+      "JOB_CONTINUATION_LIMIT_EXCEEDED",
+    );
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_CONTINUATION_LIMIT_EXCEEDED",
+    }));
   });
 
   it("quarantines a retryable failure on its last allowed execution", async () => {

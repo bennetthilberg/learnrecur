@@ -693,28 +693,30 @@ async function processMaterialOperation(input: {
     let planning;
     if (batchId) {
       planning = await replanMaterialSkills({
-      userId: input.operation.userId,
-      now: input.now,
-      preservePlanningOnTimeout: true,
-      input: {
-        batchId,
-        instruction: planningInstruction,
-        ...(sectionIds.length > 0 ? { sectionIds } : {}),
-      },
-    });
+        userId: input.operation.userId,
+        now: input.now,
+        deadlineAt: input.deadlineAt,
+        preservePlanningOnTimeout: true,
+        input: {
+          batchId,
+          instruction: planningInstruction,
+          ...(sectionIds.length > 0 ? { sectionIds } : {}),
+        },
+      });
     } else {
       planning = await planMaterialSkills({
-      userId: input.operation.userId,
-      now: input.now,
-      preservePlanningOnTimeout: true,
-      input: {
-        materialId,
-        materialRevisionId: input.operation.materialRevisionId,
-        instruction: planningInstruction,
-        idempotencyKey: `agent-${input.operation.id}`,
-        ...(sectionIds.length > 0 ? { sectionIds } : {}),
-      },
-    });
+        userId: input.operation.userId,
+        now: input.now,
+        deadlineAt: input.deadlineAt,
+        preservePlanningOnTimeout: true,
+        input: {
+          materialId,
+          materialRevisionId: input.operation.materialRevisionId,
+          instruction: planningInstruction,
+          idempotencyKey: `agent-${input.operation.id}`,
+          ...(sectionIds.length > 0 ? { sectionIds } : {}),
+        },
+      });
     }
     if (planning.status === "needs-scope") {
       const clarificationPayload: Record<string, unknown> = {

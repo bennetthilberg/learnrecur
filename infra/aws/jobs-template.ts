@@ -64,6 +64,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
       Properties: {
         FunctionName: name("jobs-worker"), Runtime: "nodejs24.x", Architectures: ["arm64"],
         Handler: "index.handler", MemorySize: 1024, Timeout: JOB_TIMEOUT_SECONDS,
+        ReservedConcurrentExecutions: ref("MaximumConcurrency"), RecursiveLoop: "Allow",
         Role: arn("WorkerRole"), Code: { S3Bucket: ref("CodeBucket"), S3Key: ref("CodeKey") },
         Environment: { Variables: { NODE_ENV: "production", LEARNRECUR_DEPLOYMENT_TIER: environment, JOBS_ENVIRONMENT: environment, JOBS_QUEUE_URL: ref("Queue"), JOBS_CONFIG_REVISION: ref("ConfigurationRevision") } },
       },

@@ -3,6 +3,7 @@ import { SendMessageCommand, SQSClient } from "@aws-sdk/client-sqs";
 
 import { buildJobEnvelope, getJobMessageGroupId } from "./contracts";
 import { getJobsConfig, type JobsConfig } from "./config";
+import { reserveWorkerJobFollowUp } from "./publication-context";
 
 export function createJobPublisher(config: JobsConfig) {
   const client = new SQSClient({ region: config.region, maxAttempts: 3 });
@@ -11,7 +12,8 @@ export function createJobPublisher(config: JobsConfig) {
     data: unknown,
     options?: { id?: string; signal?: AbortSignal },
   ): Promise<void> => {
-    const job = buildJobEnvelope(name, data, config.environment, options?.id);
+    const continuationDepth = reserveWorkerJobFollowUp();
+    const job = buildJobEnvelope(name, data, config.environment, options?.id, continuationDepth);
     try {
       const response = await client.send(new SendMessageCommand({
         QueueUrl: config.queueUrl,

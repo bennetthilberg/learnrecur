@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   JOB_DEFINITIONS,
+  MAX_JOB_CONTINUATION_DEPTH,
   buildJobEnvelope,
   getJobMessageGroupId,
   parseJobEnvelope,
@@ -49,6 +50,26 @@ describe("AWS background job contracts", () => {
     );
     expect(job.id).toBe("agent-op-stable-continuation-1");
     expect(parseJobEnvelope(JSON.stringify(job), "staging")).toEqual(job);
+  });
+
+  it("bounds and round-trips worker continuation depth", () => {
+    const job = buildJobEnvelope(
+      "learnrecur/agent-skill-operation.requested",
+      { userId: "learner-a", operationId: "operation-a", requestedAt: refill.requestedAt },
+      "staging",
+      "agent-op-depth-1",
+      MAX_JOB_CONTINUATION_DEPTH,
+    );
+    expect(job.continuationDepth).toBe(MAX_JOB_CONTINUATION_DEPTH);
+    expect(parseJobEnvelope(JSON.stringify(job), "staging")).toEqual(job);
+    expect(() => parseJobEnvelope(JSON.stringify({ ...job, continuationDepth: -1 }), "staging")).toThrow();
+    expect(() => buildJobEnvelope(
+      "learnrecur/agent-skill-operation.requested",
+      { userId: "learner-a", operationId: "operation-a", requestedAt: refill.requestedAt },
+      "staging",
+      "agent-op-depth-invalid",
+      MAX_JOB_CONTINUATION_DEPTH + 1,
+    )).toThrow();
   });
 
   it.each([

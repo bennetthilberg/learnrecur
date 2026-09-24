@@ -18,7 +18,11 @@ import {
   StudyMaterialStatus,
 } from "@/generated/prisma/client";
 import { getJobsEnvStatus } from "@/lib/jobs/config";
-import { isJobStageTimeoutError } from "@/lib/jobs/deadline";
+import {
+  getJobStageTimeoutMs,
+  isJobStageTimeoutError,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
 import { AGENT_OPERATION_CLEANUP_MARGIN_MS } from "@/lib/agent-access/recovery-policy";
 import {
   awsMaterialBatchActivationEventSender,
@@ -108,6 +112,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   getPublicGeminiScopePlanningFailureMessage,
 } from "@/lib/gemini";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   getSkillActivationUsage,
 } from "@/lib/usage-limits";
@@ -155,6 +160,7 @@ export async function planMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  deadlineAt?: Date;
   preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
@@ -209,6 +215,7 @@ export async function planMaterialSkills(input: {
     userId: input.userId,
     batchId: batch.id,
     now: input.now,
+    deadlineAt: input.deadlineAt,
     preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
@@ -222,6 +229,7 @@ export async function replanMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  deadlineAt?: Date;
   preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
@@ -269,6 +277,7 @@ export async function replanMaterialSkills(input: {
     userId: input.userId,
     batchId: parsed.data.batchId,
     now: input.now,
+    deadlineAt: input.deadlineAt,
     preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
@@ -3490,6 +3499,7 @@ async function planExistingMaterialBatch(input: {
   userId: string;
   batchId: string;
   now: Date;
+  deadlineAt?: Date;
   preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
@@ -3744,14 +3754,24 @@ async function planExistingMaterialBatch(input: {
       sections: allowedSections,
       chunks,
     };
-    let validation = await generateValidatedMaterialScopePlan({
-      generate: (validationFeedback) =>
-        ai.planScope({ ...scopePlanningInput, validationFeedback }),
-      materialRevisionId: batch.materialRevisionId,
-      instruction: batch.instruction,
-      kind: batch.materialRevision.material.kind,
-      allowedSections,
-      allowedChunks: chunks,
+    let validation = await withAbortableTimeout({
+      run: (signal) => generateValidatedMaterialScopePlan({
+        generate: (validationFeedback) =>
+          ai.planScope({ ...scopePlanningInput, signal, validationFeedback }),
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        kind: batch.materialRevision.material.kind,
+        allowedSections,
+        allowedChunks: chunks,
+      }),
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+        stage: "material scope planning",
+      }),
+      message: "Material scope planning timed out.",
+      stage: "material scope planning",
     });
     const reviewScope = ai.reviewScope;
     if (
@@ -3760,18 +3780,29 @@ async function planExistingMaterialBatch(input: {
       reviewScope
     ) {
       const candidatePlan = validation.plan;
-      validation = await generateValidatedMaterialScopePlan({
-        generate: (validationFeedback) =>
-          reviewScope({
-            ...scopePlanningInput,
-            candidatePlan,
-            validationFeedback,
-          }),
-        materialRevisionId: batch.materialRevisionId,
-        instruction: batch.instruction,
-        kind: batch.materialRevision.material.kind,
-        allowedSections,
-        allowedChunks: chunks,
+      validation = await withAbortableTimeout({
+        run: (signal) => generateValidatedMaterialScopePlan({
+          generate: (validationFeedback) =>
+            reviewScope({
+              ...scopePlanningInput,
+              signal,
+              candidatePlan,
+              validationFeedback,
+            }),
+          materialRevisionId: batch.materialRevisionId,
+          instruction: batch.instruction,
+          kind: batch.materialRevision.material.kind,
+          allowedSections,
+          allowedChunks: chunks,
+        }),
+        timeoutMs: getJobStageTimeoutMs({
+          deadlineAt: input.deadlineAt,
+          cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+          maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+          stage: "material scope review",
+        }),
+        message: "Material scope review timed out.",
+        stage: "material scope review",
       });
     }
     if (validation.status !== "ready") {

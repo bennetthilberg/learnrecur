@@ -14,6 +14,7 @@ export type JobFailureCode =
   | "JOB_INVALID_MESSAGE"
   | "JOB_ID_CONFLICT"
   | "JOB_NON_RETRYABLE"
+  | "JOB_CONTINUATION_LIMIT_EXCEEDED"
   | "JOB_RETRIES_EXHAUSTED"
   | "JOB_EXECUTION_FAILED";
 
@@ -82,6 +83,14 @@ function isPermanent(error: unknown): boolean {
   return typeof error === "object" && error !== null && "retryable" in error && error.retryable === false;
 }
 
+function failureReason(error: unknown, permanent: boolean, terminal: boolean): JobFailureCode {
+  if (permanent && typeof error === "object" && error !== null && "failureCode" in error &&
+    error.failureCode === "JOB_CONTINUATION_LIMIT_EXCEEDED") {
+    return "JOB_CONTINUATION_LIMIT_EXCEEDED";
+  }
+  return permanent ? "JOB_NON_RETRYABLE" : terminal ? "JOB_RETRIES_EXHAUSTED" : "JOB_EXECUTION_FAILED";
+}
+
 export function createJobWorker(dependencies: JobWorkerDependencies) {
   const { environment, queueArn, log } = dependencies;
 
@@ -132,7 +141,7 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
     } catch (error) {
       const permanent = isPermanent(error);
       const terminal = permanent || claim.attempt >= maxAttempts;
-      const reason = permanent ? "JOB_NON_RETRYABLE" : terminal ? "JOB_RETRIES_EXHAUSTED" : "JOB_EXECUTION_FAILED";
+      const reason = failureReason(error, permanent, terminal);
       // Persist terminal state first. If DLQ publication fails, the next delivery
       // retries publication without re-executing the failed business operation.
       await dependencies.fail(job, claim.token, reason, terminal);

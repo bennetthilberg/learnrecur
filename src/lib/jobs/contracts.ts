@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 export const JOB_BODY_LIMIT_BYTES = 65_536;
+export const MAX_JOB_CONTINUATION_DEPTH = 64;
 export const JOB_ENVIRONMENTS = ["local", "staging", "production"] as const;
 export type JobEnvironment = typeof JOB_ENVIRONMENTS[number];
 
@@ -39,6 +40,7 @@ export type JobEnvelope = {
     environment: JobEnvironment;
     name: N;
     data: JobData<N>;
+    continuationDepth?: number;
   }
 }[JobName];
 
@@ -73,12 +75,20 @@ const envelopeSchema = z.strictObject({
   environment: z.enum(JOB_ENVIRONMENTS),
   name: z.enum(Object.keys(JOB_PAYLOAD_SCHEMAS) as [JobName, ...JobName[]]),
   data: z.unknown(),
+  continuationDepth: z.number().int().min(0).max(MAX_JOB_CONTINUATION_DEPTH).optional(),
 });
 
-export function buildJobEnvelope<N extends JobName>(name: N, data: unknown, environment: JobEnvironment, id?: string): Extract<JobEnvelope, { name: N }>;
-export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string): JobEnvelope;
-export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string): JobEnvelope {
-  return parseJobEnvelope(JSON.stringify({ version: 1, id: id ?? randomUUID(), environment, name, data }), environment);
+export function buildJobEnvelope<N extends JobName>(name: N, data: unknown, environment: JobEnvironment, id?: string, continuationDepth?: number): Extract<JobEnvelope, { name: N }>;
+export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string, continuationDepth?: number): JobEnvelope;
+export function buildJobEnvelope(name: string, data: unknown, environment: JobEnvironment, id?: string, continuationDepth?: number): JobEnvelope {
+  return parseJobEnvelope(JSON.stringify({
+    version: 1,
+    id: id ?? randomUUID(),
+    environment,
+    name,
+    data,
+    ...(continuationDepth === undefined ? {} : { continuationDepth }),
+  }), environment);
 }
 
 export function parseJobEnvelope(body: string, environment: JobEnvironment): JobEnvelope {
