@@ -351,9 +351,10 @@ describe("material AI MetaMuse fallback", () => {
     expect(prompt).toContain(candidatePlan.items[0].title);
   });
 
-  it("does not fall back when Gemini rejects an invalid scope request", async () => {
+  it("falls back when Gemini rejects a scope request", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     geminiGenerateContentMock.mockRejectedValueOnce(
       new Error(
         JSON.stringify({
@@ -365,14 +366,14 @@ describe("material AI MetaMuse fallback", () => {
         }),
       ),
     );
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(async () => metaMuseResponse(rawScopePlan));
     vi.stubGlobal("fetch", fetchMock);
 
     const setup = createMaterialDraftAiSetup({ gemini, metaMuseFallback });
 
-    await expect(setup.planScope(plannerInput)).rejects.toThrow("INVALID_ARGUMENT");
+    await expect(setup.planScope(plannerInput)).resolves.toEqual(rawScopePlan);
     expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("falls back for target repair, draft generation, and PDF-backed verification", async () => {

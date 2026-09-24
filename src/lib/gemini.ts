@@ -226,7 +226,7 @@ export async function runWithGeminiProviderFallback<T>({
     if (signal?.aborted) {
       throw signal.reason instanceof Error ? signal.reason : error;
     }
-    if (!fallback || !isRetryableGeminiModelError(error)) {
+    if (!fallback) {
       throw error;
     }
 

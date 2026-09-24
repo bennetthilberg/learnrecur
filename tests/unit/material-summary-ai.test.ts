@@ -12,8 +12,14 @@ vi.mock("@/lib/env", () => ({
 
 vi.mock("@/lib/gemini", () => ({
   GEMINI_LOW_THINKING_CONFIG: {},
+  getGeminiRuntimeLogContext: vi.fn(() => ({})),
   resolveGeminiRuntimeConfig: mocks.resolveGeminiRuntimeConfig,
   runLoggedGeminiOperation: mocks.runLoggedGeminiOperation,
+  runWithGeminiProviderFallback: vi.fn(({ runPrimary }: { runPrimary: () => Promise<unknown> }) => runPrimary()),
+}));
+
+vi.mock("@/lib/meta-muse-fallback", () => ({
+  resolveOptionalMetaMuseFallbackConfig: vi.fn(() => ({ status: "ready", config: null })),
 }));
 
 import { createGeminiMaterialSummaryGenerator } from "@/lib/materials/summary-ai";
