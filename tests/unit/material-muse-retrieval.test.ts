@@ -61,6 +61,26 @@ describe("Muse material retrieval", () => {
     expect(result.matches.map((item) => item.id)).toEqual(["chunk--2", "chunk-0"]);
   });
 
+  it("scores supplemental OCR evidence after stored chunks", async () => {
+    const ocr = { ...chunk(30, "Yo me levanto cada mañana."), id: "material-page:30" };
+    const seen: string[] = [];
+    const result = await scanMaterialChunksWithMuse({
+      query: "personal routines",
+      loadPage: async (afterOrdinal) => afterOrdinal < 0 ? [chunk(0)] : [],
+      supplementalChunks: [ocr],
+      rank: async ({ chunks }) => {
+        seen.push(...chunks.map((item) => item.id));
+        return { scores: chunks.map((item) => ({
+          id: item.id,
+          relevance: item.id === ocr.id ? 3 : 0,
+        })) };
+      },
+    });
+    expect(seen).toEqual(["chunk-0", ocr.id]);
+    expect(result.scannedChunkCount).toBe(2);
+    expect(result.matches.map((item) => item.id)).toEqual([ocr.id]);
+  });
+
   it.each([
     { label: "missing score", scores: [{ id: "chunk-0", relevance: 3 }] },
     { label: "duplicate score", scores: [{ id: "chunk-0", relevance: 3 }, { id: "chunk-0", relevance: 0 }] },

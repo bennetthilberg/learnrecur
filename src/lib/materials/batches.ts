@@ -3902,7 +3902,11 @@ async function planExistingMaterialBatch(input: {
     const plan = retrieval.retrievalWarning
       ? {
           ...annotatedPlan,
-          warnings: [...new Set([...annotatedPlan.warnings, retrieval.retrievalWarning])],
+          warnings: [
+            ...new Set(annotatedPlan.warnings.filter(
+              (warning) => warning !== retrieval.retrievalWarning,
+            )),
+          ].slice(0, 19).concat(retrieval.retrievalWarning),
         }
       : annotatedPlan;
     return saveProposedMaterialPlan({
@@ -3996,19 +4000,30 @@ async function retrievePlanningChunks(input: {
   }
   let museMatched = false;
   let retrievalWarning: string | null = null;
+  let museOcrChunks: MaterialChunkSearchResult[] | null = null;
   if (!ranked.some((chunk) => chunk.vectorScore > 0) && input.rankChunks) {
     try {
+      museOcrChunks = await retrieveOcrPlanningChunks({
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        instruction: retrievalQuery,
+        sections: input.sections,
+      });
+      throwIfMaterialPlanningAborted(input.signal);
       const scan = await scanMaterialChunksWithMuse({
         query: retrievalQuery,
         signal: input.signal,
         rank: input.rankChunks,
+        supplementalChunks: museOcrChunks,
         loadPage: async (afterOrdinal, limit) =>
           prisma.materialChunk.findMany({
             where: {
               userId: input.userId,
               materialRevisionId: input.materialRevisionId,
               materialSectionId: { in: input.sectionIds },
-              ordinal: { gt: afterOrdinal },
+              ordinal: afterOrdinal === Number.MIN_SAFE_INTEGER
+                ? undefined
+                : { gt: afterOrdinal },
             },
             orderBy: { ordinal: "asc" },
             take: limit,
@@ -4112,16 +4127,22 @@ async function retrievePlanningChunks(input: {
     ).filter((chunk) => chunk.lexicalScore > 0);
     throwIfMaterialPlanningAborted(input.signal);
   }
-  const ocrChunks = await retrieveOcrPlanningChunks({
-    userId: input.userId,
-    materialRevisionId: input.materialRevisionId,
-    instruction: retrievalQuery,
-    sections: focusedTopic
-      ? input.sections.filter((section) =>
-          ranked.some((chunk) => chunk.materialSectionId === section.id),
-        )
-      : input.sections,
-  });
+  const ocrSections = focusedTopic
+    ? input.sections.filter((section) =>
+        ranked.some((chunk) => chunk.materialSectionId === section.id),
+      )
+    : input.sections;
+  const ocrSectionIds = new Set(ocrSections.map((section) => section.id));
+  const ocrChunks = museOcrChunks
+    ? museOcrChunks.filter((chunk) =>
+        chunk.materialSectionId !== null && ocrSectionIds.has(chunk.materialSectionId),
+      )
+    : await retrieveOcrPlanningChunks({
+        userId: input.userId,
+        materialRevisionId: input.materialRevisionId,
+        instruction: retrievalQuery,
+        sections: ocrSections,
+      });
   throwIfMaterialPlanningAborted(input.signal);
   const matchedOcrChunks = ocrChunks.filter((chunk) => chunk.lexicalScore > 0);
   const reservedOcrChunks = uniqueById([...matchedOcrChunks, ...ocrChunks]).slice(0, 8);

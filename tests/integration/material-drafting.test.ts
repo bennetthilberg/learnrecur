@@ -40,6 +40,7 @@ import {
   storeMaterialChunkEmbedding,
 } from "@/lib/materials/retrieval";
 import { recoverBackMatterMaterialScope } from "@/lib/materials/drafting";
+import { materialPageEvidenceId } from "@/lib/materials/evidence-ids";
 import { JobStageTimeoutError } from "@/lib/jobs/deadline";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import * as materialEvidence from "@/lib/materials/evidence";
@@ -2789,7 +2790,7 @@ describeDatabase("material multi-skill drafting", () => {
       resolvedScopeLabel: "Direct object pronouns",
       clarification: null,
       clarificationOptions: [],
-      warnings: [],
+      warnings: Array.from({ length: 20 }, (_, index) => `Fixture warning ${index + 1}`),
       items: [{
         key: "direct-object-pronouns",
         title: "Placing direct object pronouns",
@@ -2823,7 +2824,111 @@ describeDatabase("material multi-skill drafting", () => {
     expect(result.plan.warnings).toEqual(expect.arrayContaining([
       expect.stringContaining("Muse could not scan all source text"),
     ]));
+    expect(result.plan.warnings).toHaveLength(20);
     expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(directChunkId);
+  });
+
+  it("includes later OCR-only pages in Muse retrieval", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "OCR-only lesson fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Lesson 1",
+        normalizedTitle: "lesson 1",
+        pageStart: 20,
+        pageEnd: 30,
+        headingPath: ["Lesson 1"],
+      },
+    });
+    await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: section.id,
+        ordinal: 0,
+        text: "Noun plurals add s after a vowel.",
+        tokenEstimate: 10,
+        contentHash: `sha256:${runId}:ocr-only-stored`,
+        headingText: section.title,
+        locator: { kind: "pdf", pageRange: { start: 20, end: 20 } },
+      },
+    });
+    const targetPageId = `${runId}_ocr_only_target`;
+    await prisma.materialPage.createMany({
+      data: Array.from({ length: 11 }, (_, index) => ({
+        id: index === 10 ? targetPageId : `${runId}_ocr_only_${index}`,
+        userId,
+        materialRevisionId: revision.id,
+        pageNumber: index + 20,
+        ocrText: index === 10
+          ? "Yo me levanto cada mañana."
+          : `Unrelated passage ${index + 1}.`,
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:ocr-only-page-${index}`,
+        tokenEstimate: 10,
+      })),
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:ocr-only-material`,
+      byteSize: 16_384,
+      pageCount: 30,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/ocr-only.pdf`,
+    });
+    const targetEvidenceId = materialPageEvidenceId(targetPageId);
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => ({
+        scores: chunks.map((chunk) => ({
+          id: chunk.id,
+          relevance: chunk.id === targetEvidenceId ? 3 : 0,
+        })),
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Personal routines",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "personal-routines",
+        title: "Describing personal routines",
+        objective: "Choose the matching first-person routine expression.",
+        includeConcepts: ["first-person routine expression"],
+        excludeConcepts: ["noun plurals"],
+        materialSectionIds: [section.id],
+        evidenceChunkIds: [targetEvidenceId],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for personal routines",
+        idempotencyKey: `${runId}_muse_ocr_only`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => { throw new Error("Gemini embeddings unavailable"); },
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks.mock.calls.flatMap(([call]) => call.chunks.map((chunk) => chunk.id)))
+      .toContain(targetEvidenceId);
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+      .toContain(targetEvidenceId);
   });
 
   it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {

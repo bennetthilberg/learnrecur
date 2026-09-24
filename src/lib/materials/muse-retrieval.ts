@@ -44,6 +44,7 @@ function throwIfAborted(signal?: AbortSignal): void {
 export async function scanMaterialChunksWithMuse(input: {
   query: string;
   loadPage: (afterOrdinal: number, limit: number) => Promise<MuseRetrievalChunk[]>;
+  supplementalChunks?: readonly MuseRetrievalChunk[];
   rank: MuseChunkRanker;
   signal?: AbortSignal;
 }): Promise<{ matches: MaterialChunkSearchResult[]; scannedChunkCount: number }> {
@@ -52,6 +53,30 @@ export async function scanMaterialChunksWithMuse(input: {
   let groupChars = 0;
   let scannedChunkCount = 0;
   let afterOrdinal = Number.MIN_SAFE_INTEGER;
+  const seenIds = new Set<string>();
+
+  const appendChunk = (chunk: MuseRetrievalChunk) => {
+    if (seenIds.has(chunk.id)) throw new Error("Material retrieval found a duplicate source ID.");
+    seenIds.add(chunk.id);
+    const chars = JSON.stringify({
+      id: chunk.id,
+      materialSectionId: chunk.materialSectionId,
+      headingText: chunk.headingText,
+      locator: chunk.locator,
+      text: chunk.text,
+    }).length;
+    if (chars > MAX_GROUP_CHARS) throw new MuseRetrievalCapacityError();
+    if (group.length > 0 &&
+        (group.length >= MAX_GROUP_CHUNKS || groupChars + chars > MAX_GROUP_CHARS)) {
+      groups.push(group);
+      group = [];
+      groupChars = 0;
+    }
+    if (groups.length >= MAX_GROUPS) throw new MuseRetrievalCapacityError();
+    group.push(chunk);
+    groupChars += chars;
+    scannedChunkCount += 1;
+  };
 
   while (true) {
     throwIfAborted(input.signal);
@@ -65,26 +90,13 @@ export async function scanMaterialChunksWithMuse(input: {
         throw new Error("Material chunk scan did not advance by ordinal.");
       }
       afterOrdinal = chunk.ordinal;
-      const chars = JSON.stringify({
-        id: chunk.id,
-        materialSectionId: chunk.materialSectionId,
-        headingText: chunk.headingText,
-        locator: chunk.locator,
-        text: chunk.text,
-      }).length;
-      if (chars > MAX_GROUP_CHARS) throw new MuseRetrievalCapacityError();
-      if (group.length > 0 &&
-          (group.length >= MAX_GROUP_CHUNKS || groupChars + chars > MAX_GROUP_CHARS)) {
-        groups.push(group);
-        group = [];
-        groupChars = 0;
-      }
-      if (groups.length >= MAX_GROUPS) throw new MuseRetrievalCapacityError();
-      group.push(chunk);
-      groupChars += chars;
-      scannedChunkCount += 1;
+      appendChunk(chunk);
     }
     if (page.length < PAGE_SIZE) break;
+  }
+  for (const chunk of input.supplementalChunks ?? []) {
+    throwIfAborted(input.signal);
+    appendChunk(chunk);
   }
   if (group.length > 0) groups.push(group);
   if (groups.length === 0) return { matches: [], scannedChunkCount: 0 };
