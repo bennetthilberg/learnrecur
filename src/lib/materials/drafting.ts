@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  getJobStageTimeoutMs,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 
 import {
   MATERIAL_LOCATOR_VERSION,
@@ -81,6 +86,7 @@ export type MaterialDraftVerifier = (input: {
   draft: GeneratedSkillDraft;
   materialTitle: string;
   evidenceText: string;
+  signal?: AbortSignal;
   sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) => Promise<unknown>;
 
@@ -89,6 +95,7 @@ export type MaterialDraftTargetRepairer = (input: {
   materialTitle: string;
   evidenceText: string;
   verificationNote: string;
+  signal?: AbortSignal;
   sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) => Promise<unknown>;
 
@@ -907,15 +914,25 @@ export async function repairMaterialDraftTarget(input: {
   evidenceText: string;
   verificationNote: string;
   repairTarget: MaterialDraftTargetRepairer;
+  deadlineAt?: Date;
+  cleanupMarginMs?: number;
+  signal?: AbortSignal;
   sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) {
   const parsed = draftTargetRepairSchema.safeParse(
-    await input.repairTarget({
-      target: input.target,
-      materialTitle: input.materialTitle,
-      evidenceText: input.evidenceText,
-      verificationNote: input.verificationNote,
-      sourceMedia: input.sourceMedia,
+    await runMaterialDraftProviderStage({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: input.cleanupMarginMs ?? 0,
+      parentSignal: input.signal,
+      stage: "material target repair",
+      run: (signal) => input.repairTarget({
+        target: input.target,
+        materialTitle: input.materialTitle,
+        evidenceText: input.evidenceText,
+        verificationNote: input.verificationNote,
+        signal,
+        sourceMedia: input.sourceMedia,
+      }),
     }),
   );
   if (!parsed.success) {
@@ -989,33 +1006,43 @@ export async function generateVerifiedMaterialDraft(input: {
   evidenceText: string;
   generateDraft: SkillDraftGenerator;
   verifyDraft: MaterialDraftVerifier;
+  deadlineAt?: Date;
+  cleanupMarginMs?: number;
+  signal?: AbortSignal;
   sourceMedia?: Parameters<SkillDraftGenerator>[0]["sourceMedia"];
 }) {
   let verifierNote: string | null = null;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const rawDraft = await input.generateDraft({
-      sourceText: input.evidenceText,
-      sourceContext: wrapUntrustedEvidence(input.evidenceText),
-      sourceLabel: input.materialTitle,
-      focusNote: [
-        `Create exactly this target: ${input.target.title}.`,
-        input.target.objective,
-        input.target.includeConcepts?.length
-          ? `Include: ${input.target.includeConcepts.join("; ")}.`
-          : null,
-        input.target.excludeConcepts?.length
-          ? `Do not include: ${input.target.excludeConcepts.join("; ")}.`
-          : null,
-        verifierNote
-          ? `Previous verification feedback: ${verifierNote} Remove anything outside the confirmed target; do not broaden the skill to use nearby source material.`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" "),
-      collectionName: null,
-      tags: [],
-      sourceMedia: input.sourceMedia,
+    const rawDraft = await runMaterialDraftProviderStage({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: input.cleanupMarginMs ?? 0,
+      parentSignal: input.signal,
+      stage: "material draft generation",
+      run: (signal) => input.generateDraft({
+        sourceText: input.evidenceText,
+        sourceContext: wrapUntrustedEvidence(input.evidenceText),
+        sourceLabel: input.materialTitle,
+        focusNote: [
+          `Create exactly this target: ${input.target.title}.`,
+          input.target.objective,
+          input.target.includeConcepts?.length
+            ? `Include: ${input.target.includeConcepts.join("; ")}.`
+            : null,
+          input.target.excludeConcepts?.length
+            ? `Do not include: ${input.target.excludeConcepts.join("; ")}.`
+            : null,
+          verifierNote
+            ? `Previous verification feedback: ${verifierNote} Remove anything outside the confirmed target; do not broaden the skill to use nearby source material.`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        collectionName: null,
+        tags: [],
+        signal,
+        sourceMedia: input.sourceMedia,
+      }),
     });
     const validation = validateGeneratedSkillDrafts(rawDraft);
     if (validation.status !== "ready") {
@@ -1033,12 +1060,19 @@ export async function generateVerifiedMaterialDraft(input: {
 
     const draft = validation.drafts[0];
     const verification = draftVerificationSchema.safeParse(
-      await input.verifyDraft({
-        target: input.target,
-        draft,
-        materialTitle: input.materialTitle,
-        evidenceText: input.evidenceText,
-        sourceMedia: input.sourceMedia,
+      await runMaterialDraftProviderStage({
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.cleanupMarginMs ?? 0,
+        parentSignal: input.signal,
+        stage: "material draft verification",
+        run: (signal) => input.verifyDraft({
+          target: input.target,
+          draft,
+          materialTitle: input.materialTitle,
+          evidenceText: input.evidenceText,
+          signal,
+          sourceMedia: input.sourceMedia,
+        }),
       }),
     );
     if (!verification.success) {
@@ -1078,6 +1112,27 @@ export async function generateVerifiedMaterialDraft(input: {
   }
 
   throw new Error("Material draft generation ended unexpectedly.");
+}
+
+async function runMaterialDraftProviderStage<T>(input: {
+  deadlineAt?: Date;
+  cleanupMarginMs: number;
+  parentSignal?: AbortSignal;
+  stage: string;
+  run(signal: AbortSignal): Promise<T>;
+}): Promise<T> {
+  return withAbortableTimeout({
+    run: input.run,
+    timeoutMs: getJobStageTimeoutMs({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: input.cleanupMarginMs,
+      maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+      stage: input.stage,
+    }),
+    message: `${input.stage} timed out.`,
+    stage: input.stage,
+    parentSignal: input.parentSignal,
+  });
 }
 
 function buildSkillSourceLocator(input: {

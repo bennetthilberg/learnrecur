@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { createJobsTemplate } from "../../infra/aws/jobs-template";
 import { getJobMessageGroupId, parseJobEnvelope } from "@/lib/jobs/contracts";
-import { hasValidJobTiming, JOB_LEASE_SECONDS, JOB_TIMEOUT_SECONDS, SQS_VISIBILITY_TIMEOUT_SECONDS } from "@/lib/jobs/timing";
+import {
+  AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS,
+  getJobSoftDeadlineMs,
+  hasValidJobTiming,
+  JOB_LEASE_SECONDS,
+  JOB_TIMEOUT_SECONDS,
+  SQS_VISIBILITY_TIMEOUT_SECONDS,
+} from "@/lib/jobs/timing";
 import localTemplate from "../../infra/aws/local-queues-template.json";
 
 describe("AWS deployment contract", () => {
   it("keeps the worker deadline, delivery lease, and visibility windows ordered", () => {
     expect(hasValidJobTiming()).toBe(true);
+    expect(getJobSoftDeadlineMs("learnrecur/agent-skill-operation.requested"))
+      .toBe(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS);
+    expect(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS).toBeLessThan(JOB_TIMEOUT_SECONDS * 1_000);
+    expect(getJobSoftDeadlineMs("learnrecur/choice-refill.requested")).toBe(6 * 60_000);
   });
 
   it.each(["Queue", "DeadLetters"])("requires TLS for the local %s", (queue) => {
@@ -29,7 +40,10 @@ describe("AWS deployment contract", () => {
       QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
       RedrivePolicy: { maxReceiveCount: 6 },
     });
-    expect(template.Resources.Worker.Properties).toMatchObject({ Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS });
+    expect(template.Resources.Worker.Properties).toMatchObject({
+      Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS,
+      ReservedConcurrentExecutions: { Ref: "MaximumConcurrency" }, RecursiveLoop: "Allow",
+    });
     expect(SQS_VISIBILITY_TIMEOUT_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(JOB_LEASE_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
@@ -69,6 +83,20 @@ describe("AWS deployment contract", () => {
     const alarms = Object.values(createJobsTemplate("production").Resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
     expect(alarms).toHaveLength(7);
     expect(alarms.every((alarm) => Array.isArray(alarm.Properties.AlarmActions) && alarm.Properties.AlarmActions.length > 0)).toBe(true);
+  });
+
+  it("keeps worker self-publication and Lambda concurrency explicitly bounded", () => {
+    const resources = createJobsTemplate("production").Resources;
+    const workerRole = resources.WorkerRole.Properties.Policies as {
+      PolicyDocument: { Statement: { Action: string[]; Resource: unknown }[] };
+    }[];
+    const queueSendPermissions = workerRole[0].PolicyDocument.Statement.filter((statement) =>
+      JSON.stringify(statement.Resource).includes('"Queue"'),
+    );
+    expect(queueSendPermissions).toContainEqual(expect.objectContaining({
+      Action: expect.arrayContaining(["sqs:SendMessage"]),
+      Resource: { "Fn::GetAtt": ["Queue", "Arn"] },
+    }));
   });
 
   it("keeps staging and production within ten standard alarms", () => {

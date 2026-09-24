@@ -16,6 +16,11 @@ import {
 import {
   resolveMaterialEmbeddingRuntimeConfigs,
 } from "@/lib/materials/embeddings";
+import {
+  getJobStageTimeoutMs,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
+import { AGENT_OPERATION_CLEANUP_MARGIN_MS } from "@/lib/agent-access/recovery-policy";
 import { toPgVectorLiteral } from "@/lib/materials/retrieval";
 import { getPrisma } from "@/lib/prisma";
 
@@ -111,6 +116,8 @@ export type SkillSimilarityBulkResult = {
 
 export type SkillSimilarityEmbeddingGenerator = (input: {
   texts: string[];
+  deadlineAt?: Date;
+  signal?: AbortSignal;
 }) => Promise<number[][]>;
 
 export type SkillSimilarityClient = Pick<
@@ -284,7 +291,7 @@ export function createGeminiSkillSimilarityEmbeddingGenerator(
 ): SkillSimilarityEmbeddingGenerator {
   const runtimeConfigs = resolveMaterialEmbeddingRuntimeConfigs(env);
 
-  return async ({ texts }) => {
+  return async ({ texts, deadlineAt, signal }) => {
     if (texts.length === 0) {
       return [];
     }
@@ -305,16 +312,30 @@ export function createGeminiSkillSimilarityEmbeddingGenerator(
 
       try {
         const ai = new GoogleGenAI(config.clientOptions);
-        const response = await ai.models.embedContent({
-          model: config.model,
-          contents: texts.map((text) => ({
-            role: "user",
-            parts: [{ text }],
-          })),
-          config: buildSkillSimilarityEmbeddingConfig(
-            config.model,
-            config.apiMode,
-          ),
+        const response = await withAbortableTimeout({
+          run: (stageSignal) => ai.models.embedContent({
+            model: config.model,
+            contents: texts.map((text) => ({
+              role: "user",
+              parts: [{ text }],
+            })),
+            config: {
+              ...buildSkillSimilarityEmbeddingConfig(
+                config.model,
+                config.apiMode,
+              ),
+              abortSignal: stageSignal,
+            },
+          }),
+          timeoutMs: getJobStageTimeoutMs({
+            deadlineAt,
+            cleanupMarginMs: deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+            maxTimeoutMs: SKILL_SIMILARITY_EMBEDDING_TIMEOUT_MS,
+            stage: "skill similarity embedding",
+          }),
+          message: "Skill similarity embedding timed out.",
+          stage: "skill similarity embedding",
+          parentSignal: signal,
         });
         const embeddings = response.embeddings ?? [];
         if (embeddings.length !== texts.length) {
@@ -336,6 +357,9 @@ export function createGeminiSkillSimilarityEmbeddingGenerator(
         });
         return normalized;
       } catch (error) {
+        if (signal?.aborted || error instanceof Error && error.name === "JobStageTimeoutError") {
+          throw error;
+        }
         const details = getGeminiErrorLogDetails(error);
         const willFallback =
           index < runtimeConfigs.length - 1 &&
@@ -480,6 +504,8 @@ export async function findSimilarSkillsForUser(input: {
   limitPerCandidate?: number;
   embeddingGenerator?: SkillSimilarityEmbeddingGenerator | null;
   embeddingModel?: string;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
   prisma?: SkillSimilarityClient;
 }): Promise<SkillSimilarityBulkResult> {
   const candidates = normalizeCandidates(input.candidates);
@@ -555,6 +581,8 @@ export async function findSimilarSkillsForUser(input: {
       storedSkills,
       embeddingGenerator,
       embeddingModel,
+      deadlineAt: input.deadlineAt,
+      signal: input.signal,
       prisma,
     });
     const semanticResults = buildCandidateResults({
@@ -610,6 +638,8 @@ async function prepareSemanticScores(input: {
   storedSkills: readonly StoredSkillSimilarityRow[];
   embeddingGenerator: SkillSimilarityEmbeddingGenerator;
   embeddingModel: string;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
   prisma: SkillSimilarityClient;
 }) {
   const expectedFingerprintBySkillId = new Map(
@@ -663,6 +693,8 @@ async function prepareSemanticScores(input: {
     targets: [...targets.values()],
     embeddingGenerator: input.embeddingGenerator,
     embeddingModel: input.embeddingModel,
+    deadlineAt: input.deadlineAt,
+    signal: input.signal,
   });
 
   const skillsNeedingCacheWrite = input.storedSkills.filter(
@@ -749,6 +781,8 @@ async function generateEmbeddings(input: {
   targets: readonly EmbeddingTarget[];
   embeddingGenerator: SkillSimilarityEmbeddingGenerator;
   embeddingModel: string;
+  deadlineAt?: Date;
+  signal?: AbortSignal;
 }) {
   const generated = new Map<string, number[]>();
   for (
@@ -767,6 +801,8 @@ async function generateEmbeddings(input: {
           input.embeddingModel,
         ),
       ),
+      deadlineAt: input.deadlineAt,
+      signal: input.signal,
     });
     if (embeddings.length !== batch.length) {
       throw new Error(

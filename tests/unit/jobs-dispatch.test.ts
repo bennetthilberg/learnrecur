@@ -19,6 +19,7 @@ vi.mock("@/lib/reminders", () => ({ processDueReminderBatch: handlers.reminders,
 
 import { executeJob } from "@/lib/jobs/dispatch";
 import { buildJobEnvelope } from "@/lib/jobs/contracts";
+import { reserveWorkerJobFollowUp } from "@/lib/jobs/publication-context";
 
 const requestedAt = "2026-09-05T01:00:00.000Z";
 const user = { userId: "user-a", requestedAt };
@@ -39,7 +40,7 @@ describe("all migrated job families", () => {
     ["material-cleanup.requested", { ...user, materialId: "material-a", cleanupJobId: "cleanup-a" }, "cleanup", { ...user, materialId: "material-a", cleanupJobId: "cleanup-a" }],
     ["material-draft-item.requested", item, "draft", { ...item, ...context }],
     ["material-batch-activation.requested", { ...item, generationJobId: "generation-a" }, "activation", { ...item, generationJobId: "generation-a", ...context }],
-    ["agent-skill-operation.requested", { ...user, operationId: "operation-a" }, "agent", { ...user, operationId: "operation-a" }],
+    ["agent-skill-operation.requested", { ...user, operationId: "operation-a" }, "agent", { ...user, operationId: "operation-a", deliveryAttempt: context }],
     ["agent-connection-revocation.requested", { ...user, connectionId: "connection-a" }, "revocation", { ...user, connectionId: "connection-a" }],
     ["account-deletion.requested", { ...user, deletionJobId: "deletion-a" }, "deletion", { ...user, deletionJobId: "deletion-a" }],
     ["account-deletion.recovery", { requestedAt }, "recovery", { now }],
@@ -59,6 +60,17 @@ describe("all migrated job families", () => {
     await executeJob(job, { attempt: 1, maxAttempts: 3 });
     expect(recover).toHaveBeenCalledExactlyOnceWith(job);
     expect(recover.mock.invocationCallOrder[0]).toBeLessThan(handlers.choice.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps retries and domain work inside the worker continuation publication context", async () => {
+    handlers.agent.mockImplementationOnce(async () => {
+      expect(reserveWorkerJobFollowUp()).toBe(1);
+    });
+    await executeJob(buildJobEnvelope("learnrecur/agent-skill-operation.requested", {
+      ...user,
+      operationId: "operation-a",
+    }, "staging"), context);
+    expect(reserveWorkerJobFollowUp()).toBeUndefined();
   });
 
   it("does not execute when interrupted-state recovery fails", async () => {

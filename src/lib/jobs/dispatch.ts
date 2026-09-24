@@ -12,8 +12,16 @@ import { runQueuedSourceUploadDraftJob } from "@/lib/skills/uploads";
 import type { JobEnvelope } from "./contracts";
 import type { JobExecutionContext } from "./worker";
 import { recoverInterruptedJob } from "./recovery";
+import { withWorkerJobPublicationContext } from "./publication-context";
 
-export async function executeJob(job: JobEnvelope, context: JobExecutionContext): Promise<unknown> {
+export function executeJob(job: JobEnvelope, context: JobExecutionContext): Promise<unknown> {
+  return withWorkerJobPublicationContext(
+    () => executeJobInPublicationContext(job, context),
+    job.continuationDepth ?? 0,
+  );
+}
+
+async function executeJobInPublicationContext(job: JobEnvelope, context: JobExecutionContext): Promise<unknown> {
   if (context.attempt > 0) await recoverInterruptedJob(job);
   switch (job.name) {
     case "learnrecur/choice-refill.requested":
@@ -46,6 +54,7 @@ export async function executeJob(job: JobEnvelope, context: JobExecutionContext)
       return runAgentSkillOperationJob({
         ...job.data,
         ...(context.deadlineAt ? { deadlineAt: context.deadlineAt } : {}),
+        deliveryAttempt: { attempt: context.attempt, maxAttempts: context.maxAttempts },
       });
     case "learnrecur/agent-connection-revocation.requested":
       return runAgentConnectionRevocationJob(job.data);

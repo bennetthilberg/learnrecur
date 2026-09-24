@@ -19,6 +19,13 @@ import {
 } from "@/generated/prisma/client";
 import { getJobsEnvStatus } from "@/lib/jobs/config";
 import {
+  JobStageTimeoutError,
+  getJobStageTimeoutMs,
+  isJobStageTimeoutError,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
+import { AGENT_OPERATION_CLEANUP_MARGIN_MS } from "@/lib/agent-access/recovery-policy";
+import {
   awsMaterialBatchActivationEventSender,
   awsMaterialDraftItemEventSender,
   type MaterialBatchActivationEventSender,
@@ -106,6 +113,7 @@ import {
   DEFAULT_GEMINI_MODEL,
   getPublicGeminiScopePlanningFailureMessage,
 } from "@/lib/gemini";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   getSkillActivationUsage,
 } from "@/lib/usage-limits";
@@ -115,10 +123,40 @@ const GENERATION_EVIDENCE_CHARACTER_LIMIT = 24_000;
 // Keep this above the five-minute function ceiling so a slow but healthy model call
 // is not surfaced as failed while its worker can still complete.
 const MATERIAL_DRAFT_CLAIM_STALE_MS = 10 * 60 * 1_000;
+const MATERIAL_OCR_ABORT_SETTLE_GRACE_MS = 5_000;
 // The worker can spend two provider budgets on generation and two more on verification.
 // Only recover a claim after the five-minute function window has elapsed.
 const MATERIAL_BATCH_ACTIVATION_CLAIM_STALE_MS = 5 * 60 * 1_000;
 const MAX_AUTOMATIC_TARGET_REPAIRS = 2;
+
+function throwIfMaterialPlanningAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw signal.reason instanceof Error
+      ? signal.reason
+      : new Error("Material planning was canceled.");
+  }
+}
+
+function withMaterialPlanningStageTimeout<T>(input: {
+  deadlineAt?: Date;
+  stage: string;
+  message: string;
+  settleGraceMs?: number;
+  run(signal: AbortSignal): Promise<T>;
+}): Promise<T> {
+  return withAbortableTimeout({
+    run: input.run,
+    settleGraceMs: input.settleGraceMs,
+    timeoutMs: getJobStageTimeoutMs({
+      deadlineAt: input.deadlineAt,
+      cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+      maxTimeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
+      stage: input.stage,
+    }),
+    message: input.message,
+    stage: input.stage,
+  });
+}
 
 function isSupersededActivationJobMessage(message: string | null): boolean {
   return (
@@ -153,6 +191,8 @@ export async function planMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  deadlineAt?: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -206,6 +246,8 @@ export async function planMaterialSkills(input: {
     userId: input.userId,
     batchId: batch.id,
     now: input.now,
+    deadlineAt: input.deadlineAt,
+    preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
@@ -218,6 +260,8 @@ export async function replanMaterialSkills(input: {
   userId: string;
   input: unknown;
   now: Date;
+  deadlineAt?: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -237,7 +281,13 @@ export async function replanMaterialSkills(input: {
       id: parsed.data.batchId,
       userId: input.userId,
       confirmedAt: null,
-      status: { in: [SkillDraftBatchStatus.NEEDS_SCOPE, SkillDraftBatchStatus.PLANNED] },
+      status: {
+        in: [
+          SkillDraftBatchStatus.NEEDS_SCOPE,
+          SkillDraftBatchStatus.PLANNED,
+          SkillDraftBatchStatus.PLANNING,
+        ],
+      },
       items: { none: {} },
     },
     data: {
@@ -258,6 +308,8 @@ export async function replanMaterialSkills(input: {
     userId: input.userId,
     batchId: parsed.data.batchId,
     now: input.now,
+    deadlineAt: input.deadlineAt,
+    preservePlanningOnTimeout: input.preservePlanningOnTimeout,
     aiSetup: input.aiSetup,
     embeddingGenerator: input.embeddingGenerator,
     ocrGenerator: input.ocrGenerator,
@@ -576,6 +628,9 @@ export async function runMaterialDraftItemJob(input: {
   attempt?: number;
   maxAttempts?: number;
   now?: Date;
+  deadlineAt?: Date;
+  retryTransientOnWorkerDeadline?: boolean;
+  signal?: AbortSignal;
   aiSetup?: MaterialDraftAiSetup;
   sourceStorage?: SourceObjectStorage;
   sourceEvidenceLoader?: SkillSourceEvidenceLoader;
@@ -593,6 +648,7 @@ export async function runMaterialDraftItemJob(input: {
       proposedObjective: true,
       locator: true,
       generationMetadata: true,
+      generationClaimId: true,
       overlapSkillId: true,
       skillId: true,
       skill: { select: { id: true } },
@@ -656,11 +712,12 @@ export async function runMaterialDraftItemJob(input: {
     return { status: "excluded" as const };
   }
 
-  const claimId = input.requestedAt
-    ? createHash("sha256")
-        .update(`${input.itemId}\u0000${input.requestedAt}`)
-        .digest("hex")
-    : randomUUID();
+  const claimId = getMaterialDraftGenerationClaimId({
+    itemId: input.itemId,
+    requestedAt: input.requestedAt,
+    status: item.status,
+    existingClaimId: item.generationClaimId,
+  });
   const claimed = await prisma.skillDraftBatchItem.updateMany({
     where: {
       id: item.id,
@@ -786,6 +843,9 @@ export async function runMaterialDraftItemJob(input: {
         evidenceText,
         verificationNote,
         repairTarget: ai.repairTarget,
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        signal: input.signal,
         sourceMedia,
       });
       if (repaired.status === "failed") {
@@ -883,6 +943,9 @@ export async function runMaterialDraftItemJob(input: {
           return ai.generateDraft(draftInput);
         },
         verifyDraft: ai.verifyDraft,
+        deadlineAt: input.deadlineAt,
+        cleanupMarginMs: input.deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        signal: input.signal,
       });
       totalDraftAttempts += generated.attempts;
       if (generated.status === "ready") {
@@ -1131,12 +1194,13 @@ export async function runMaterialDraftItemJob(input: {
       return { status: "not-claimed" as const };
     }
     const normalized = normalizeMaterialDraftError(error);
-    const hasAutomaticRetryRemaining =
-      normalized.retryable &&
-      input.attempt !== undefined &&
-      input.maxAttempts !== undefined &&
-      input.attempt + 1 < input.maxAttempts;
-    const marked = hasAutomaticRetryRemaining
+    const releaseForRetry = shouldRetryMaterialDraftGeneration({
+      retryable: normalized.retryable,
+      attempt: input.attempt,
+      maxAttempts: input.maxAttempts,
+      retryTransientOnWorkerDeadline: input.retryTransientOnWorkerDeadline,
+    });
+    const marked = releaseForRetry
       ? await releaseMaterialDraftItemForRetry({
           userId: input.userId,
           itemId: item.id,
@@ -1157,6 +1221,40 @@ export async function runMaterialDraftItemJob(input: {
     await reconcileMaterialDraftBatch({ userId: input.userId, batchId: input.batchId, now });
     throw normalized;
   }
+}
+
+export function getMaterialDraftGenerationClaimId(input: {
+  itemId: string;
+  requestedAt?: string;
+  status: SkillDraftBatchItemStatus;
+  existingClaimId?: string | null;
+}) {
+  if (input.requestedAt) {
+    return createHash("sha256")
+      .update(`${input.itemId}\u0000${input.requestedAt}`)
+      .digest("hex");
+  }
+  if (
+    input.status === SkillDraftBatchItemStatus.PLANNED &&
+    input.existingClaimId
+  ) {
+    return input.existingClaimId;
+  }
+  return randomUUID();
+}
+
+export function shouldRetryMaterialDraftGeneration(input: {
+  retryable: boolean;
+  attempt?: number;
+  maxAttempts?: number;
+  retryTransientOnWorkerDeadline?: boolean;
+}) {
+  return input.retryable && (
+    input.retryTransientOnWorkerDeadline === true ||
+    (input.attempt !== undefined &&
+      input.maxAttempts !== undefined &&
+      input.attempt + 1 < input.maxAttempts)
+  );
 }
 
 export async function retryMaterialDraftItem(input: {
@@ -3432,6 +3530,8 @@ async function planExistingMaterialBatch(input: {
   userId: string;
   batchId: string;
   now: Date;
+  deadlineAt?: Date;
+  preservePlanningOnTimeout?: boolean;
   aiSetup?: MaterialDraftAiSetup;
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
   ocrGenerator?: MaterialOcrGenerator | null;
@@ -3554,27 +3654,46 @@ async function planExistingMaterialBatch(input: {
             : [],
         );
       if (pageRanges.length > 0) {
-        await ensureMaterialPageOcr({
-          userId: input.userId,
-          materialRevisionId: batch.materialRevisionId,
-          sourceFile,
-          pageRanges,
-          now: input.now,
-          storage: input.ocrStorage,
-          ocrGenerator: input.ocrGenerator,
+        const ocr = await withMaterialPlanningStageTimeout({
+          deadlineAt: input.deadlineAt,
+          stage: "material page OCR",
+          message: "Material page OCR timed out.",
+          settleGraceMs: MATERIAL_OCR_ABORT_SETTLE_GRACE_MS,
+          run: (signal) => ensureMaterialPageOcr({
+            userId: input.userId,
+            materialRevisionId: batch.materialRevisionId,
+            sourceFile,
+            pageRanges,
+            now: input.now,
+            storage: input.ocrStorage,
+            ocrGenerator: input.ocrGenerator,
+            signal,
+          }),
         });
+        if (ocr.status === "in-progress") {
+          throw new JobStageTimeoutError(
+            "Material page OCR is still processing relevant pages.",
+            "material page OCR",
+          );
+        }
       }
     }
-    const retrieval = await retrievePlanningChunks({
-      userId: input.userId,
-      materialRevisionId: batch.materialRevisionId,
-      instruction: batch.instruction,
-      topicSearchQuery,
-      sectionIds: structural.candidateSectionIds,
-      sections: sections.filter((section) =>
-        structural.candidateSectionIds.includes(section.id),
-      ),
-      embeddingGenerator: input.embeddingGenerator,
+    const retrieval = await withMaterialPlanningStageTimeout({
+      deadlineAt: input.deadlineAt,
+      stage: "material scope retrieval",
+      message: "Material scope retrieval timed out.",
+      run: (signal) => retrievePlanningChunks({
+        userId: input.userId,
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        topicSearchQuery,
+        sectionIds: structural.candidateSectionIds,
+        sections: sections.filter((section) =>
+          structural.candidateSectionIds.includes(section.id),
+        ),
+        embeddingGenerator: input.embeddingGenerator,
+        signal,
+      }),
     });
     let chunks = retrieval.chunks;
     if (chunks.length === 0) {
@@ -3600,23 +3719,36 @@ async function planExistingMaterialBatch(input: {
         expectedUpdatedAt: batch.updatedAt,
       });
     }
-    const recoveredScope = await recoverBackMatterMaterialScope({
-      sections,
-      sectionIds: structural.candidateSectionIds,
-      chunks,
-      retrieveRevisionChunks: ({ query }) =>
-        retrieveBackMatterRecoveryCandidates({
-          userId: input.userId,
-          materialRevisionId: batch.materialRevisionId,
-          query,
-        }),
-      retrieveSectionChunks: ({ sectionIds, anchorChunkIds }) =>
-        retrieveMaterialSectionChunks({
-          userId: input.userId,
-          materialRevisionId: batch.materialRevisionId,
-          sectionIds,
-          anchorChunkIds,
-        }),
+    const recoveredScope = await withMaterialPlanningStageTimeout({
+      deadlineAt: input.deadlineAt,
+      stage: "material scope evidence recovery",
+      message: "Material scope evidence recovery timed out.",
+      run: async (signal) => recoverBackMatterMaterialScope({
+        sections,
+        sectionIds: structural.candidateSectionIds,
+        chunks,
+        retrieveRevisionChunks: async ({ query }) => {
+          throwIfMaterialPlanningAborted(signal);
+          const result = await retrieveBackMatterRecoveryCandidates({
+            userId: input.userId,
+            materialRevisionId: batch.materialRevisionId,
+            query,
+          });
+          throwIfMaterialPlanningAborted(signal);
+          return result;
+        },
+        retrieveSectionChunks: async ({ sectionIds, anchorChunkIds }) => {
+          throwIfMaterialPlanningAborted(signal);
+          const result = await retrieveMaterialSectionChunks({
+            userId: input.userId,
+            materialRevisionId: batch.materialRevisionId,
+            sectionIds,
+            anchorChunkIds,
+          });
+          throwIfMaterialPlanningAborted(signal);
+          return result;
+        },
+      }),
     });
     if (
       recoveredScope.status === "ambiguous" ||
@@ -3685,14 +3817,19 @@ async function planExistingMaterialBatch(input: {
       sections: allowedSections,
       chunks,
     };
-    let validation = await generateValidatedMaterialScopePlan({
-      generate: (validationFeedback) =>
-        ai.planScope({ ...scopePlanningInput, validationFeedback }),
-      materialRevisionId: batch.materialRevisionId,
-      instruction: batch.instruction,
-      kind: batch.materialRevision.material.kind,
-      allowedSections,
-      allowedChunks: chunks,
+    let validation = await withMaterialPlanningStageTimeout({
+      deadlineAt: input.deadlineAt,
+      stage: "material scope planning",
+      message: "Material scope planning timed out.",
+      run: (signal) => generateValidatedMaterialScopePlan({
+        generate: (validationFeedback) =>
+          ai.planScope({ ...scopePlanningInput, signal, validationFeedback }),
+        materialRevisionId: batch.materialRevisionId,
+        instruction: batch.instruction,
+        kind: batch.materialRevision.material.kind,
+        allowedSections,
+        allowedChunks: chunks,
+      }),
     });
     const reviewScope = ai.reviewScope;
     if (
@@ -3701,18 +3838,24 @@ async function planExistingMaterialBatch(input: {
       reviewScope
     ) {
       const candidatePlan = validation.plan;
-      validation = await generateValidatedMaterialScopePlan({
-        generate: (validationFeedback) =>
-          reviewScope({
-            ...scopePlanningInput,
-            candidatePlan,
-            validationFeedback,
-          }),
-        materialRevisionId: batch.materialRevisionId,
-        instruction: batch.instruction,
-        kind: batch.materialRevision.material.kind,
-        allowedSections,
-        allowedChunks: chunks,
+      validation = await withMaterialPlanningStageTimeout({
+        deadlineAt: input.deadlineAt,
+        stage: "material scope review",
+        message: "Material scope review timed out.",
+        run: (signal) => generateValidatedMaterialScopePlan({
+          generate: (validationFeedback) =>
+            reviewScope({
+              ...scopePlanningInput,
+              signal,
+              candidatePlan,
+              validationFeedback,
+            }),
+          materialRevisionId: batch.materialRevisionId,
+          instruction: batch.instruction,
+          kind: batch.materialRevision.material.kind,
+          allowedSections,
+          allowedChunks: chunks,
+        }),
       });
     }
     if (validation.status !== "ready") {
@@ -3732,15 +3875,22 @@ async function planExistingMaterialBatch(input: {
       }
       return { status: "failed" as const, batchId: batch.id, message: validation.message };
     }
-    const similarity = await findSimilarSkillsForUser({
-      userId: input.userId,
-      candidates: validation.plan.items.map((item) => ({
-        key: item.key,
-        title: item.title,
-        objective: item.objective,
-      })),
-      embeddingGenerator:
-        input.embeddingGenerator as SkillSimilarityEmbeddingGenerator | null | undefined,
+    const similarity = await withMaterialPlanningStageTimeout({
+      deadlineAt: input.deadlineAt,
+      stage: "material skill similarity",
+      message: "Material skill similarity lookup timed out.",
+      run: (signal) => findSimilarSkillsForUser({
+        userId: input.userId,
+        candidates: validation.plan.items.map((item) => ({
+          key: item.key,
+          title: item.title,
+          objective: item.objective,
+        })),
+        embeddingGenerator:
+          input.embeddingGenerator as SkillSimilarityEmbeddingGenerator | null | undefined,
+        deadlineAt: input.deadlineAt,
+        signal,
+      }),
     });
     const plan = annotateMaterialPlanOverlaps(validation.plan, similarity.candidates);
     return saveProposedMaterialPlan({
@@ -3755,6 +3905,12 @@ async function planExistingMaterialBatch(input: {
       expectedUpdatedAt: batch.updatedAt,
     });
   } catch (error) {
+    if (isJobStageTimeoutError(error) && input.preservePlanningOnTimeout) {
+      // Keep the idempotent planning row in PLANNING so the same background
+      // delivery can retry the provider call without turning a transient stall
+      // into a permanent material-planning failure.
+      throw error;
+    }
     console.error("[materials] scope planning failed", {
       materialRevisionId: batch.materialRevisionId,
       error: error instanceof Error ? error.message : "Unknown scope planning error",
@@ -3786,7 +3942,9 @@ async function retrievePlanningChunks(input: {
   sectionIds: string[];
   sections: MaterialPlanningSection[];
   embeddingGenerator?: MaterialEmbeddingGenerator | null;
+  signal?: AbortSignal;
 }) {
+  throwIfMaterialPlanningAborted(input.signal);
   const prisma = getPrisma();
   let ranked: MaterialChunkSearchResult[] = [];
   let focusedTopic = false;
@@ -3800,7 +3958,9 @@ async function retrievePlanningChunks(input: {
       const [embedding] = await embeddingGenerator({
         texts: [retrievalQuery],
         titles: ["Material skill request"],
+        signal: input.signal,
       });
+      throwIfMaterialPlanningAborted(input.signal);
       ranked = (
         await searchMaterialChunks({
           userId: input.userId,
@@ -3812,6 +3972,7 @@ async function retrievePlanningChunks(input: {
         })
       ).filter((chunk) => chunk.vectorScore > 0 || chunk.lexicalScore > 0);
     } catch (error) {
+      throwIfMaterialPlanningAborted(input.signal);
       console.warn("[materials] semantic scope retrieval unavailable", {
         materialRevisionId: input.materialRevisionId,
         error: error instanceof Error ? error.message : "Unknown retrieval error",
@@ -3829,6 +3990,7 @@ async function retrievePlanningChunks(input: {
       prefixMatching: true,
       excludeLikelyBackMatter: true,
     });
+    throwIfMaterialPlanningAborted(input.signal);
     const strictLexical = selectMaterialTopicRetrievalChunks({
       semantic: [],
       lexical: lexicalMatches,
@@ -3860,6 +4022,7 @@ async function retrievePlanningChunks(input: {
           excludeLikelyBackMatter: true,
         })
       );
+      throwIfMaterialPlanningAborted(input.signal);
       const recovered = selectFocusedMaterialTopicRecoveryChunks(recoveryMatches);
       if (recovered.length > 0) {
         ranked = recovered;
@@ -3877,6 +4040,7 @@ async function retrievePlanningChunks(input: {
         limit: 48,
       })
     ).filter((chunk) => chunk.lexicalScore > 0);
+    throwIfMaterialPlanningAborted(input.signal);
   }
   const ocrChunks = await retrieveOcrPlanningChunks({
     userId: input.userId,
@@ -3888,6 +4052,7 @@ async function retrievePlanningChunks(input: {
         )
       : input.sections,
   });
+  throwIfMaterialPlanningAborted(input.signal);
   const matchedOcrChunks = ocrChunks.filter((chunk) => chunk.lexicalScore > 0);
   const reservedOcrChunks = uniqueById([...matchedOcrChunks, ...ocrChunks]).slice(0, 8);
   ranked = uniqueById([
@@ -3921,6 +4086,7 @@ async function retrievePlanningChunks(input: {
         headingText: true,
       },
     });
+    throwIfMaterialPlanningAborted(input.signal);
     const neighboringChunks = neighboringRows.map((chunk) => ({
       ...chunk,
       vectorScore: 0,
@@ -3974,6 +4140,7 @@ async function retrievePlanningChunks(input: {
     )
     LIMIT ${PLANNING_CHUNK_LIMIT}
   `;
+  throwIfMaterialPlanningAborted(input.signal);
   const firstOcrBySection = uniqueBy(
     ocrChunks.filter((chunk) => chunk.materialSectionId !== null),
     (chunk) => chunk.materialSectionId,

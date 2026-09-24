@@ -16,8 +16,10 @@ import {
   type MaterialScopePlannerInput,
 } from "@/lib/materials/ai";
 import type { MaterialScopeResolution } from "@/lib/materials/contracts";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 
 afterEach(() => {
+  vi.useRealTimers();
   geminiGenerateContentMock.mockReset();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -178,6 +180,82 @@ function parseMetaMuseRequest(init: RequestInit | undefined) {
 }
 
 describe("material AI MetaMuse fallback", () => {
+  it("does not retry a cancelled material verifier through the fallback provider", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    geminiGenerateContentMock.mockImplementation(() => new Promise(() => {}));
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const setup = createMaterialDraftAiSetup({ gemini, metaMuseFallback });
+    const reason = retryableGeminiError(503, "UNAVAILABLE");
+    const pending = setup.verifyDraft({
+      target,
+      draft: generatedDraft,
+      materialTitle: plannerInput.materialTitle,
+      evidenceText: plannerInput.chunks[0].text,
+      signal: controller.signal,
+    });
+
+    for (let turn = 0; turn < 5 && geminiGenerateContentMock.mock.calls.length === 0; turn += 1) {
+      await Promise.resolve();
+    }
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
+    controller.abort(reason);
+
+    await expect(pending).rejects.toBe(reason);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("gives scope planning and review a longer bounded Gemini timeout", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    geminiGenerateContentMock.mockImplementation(() => new Promise(() => {}));
+
+    const setup = createMaterialDraftAiSetup({ gemini, metaMuseFallback: null });
+    const stages = [
+      {
+        name: "gemini material scope planning",
+        run: () => setup.planScope(plannerInput),
+      },
+      {
+        name: "gemini material scope review",
+        run: () => setup.reviewScope?.({ ...plannerInput, candidatePlan }) as Promise<unknown>,
+      },
+    ];
+
+    for (const stage of stages) {
+      let settled = false;
+      let error: unknown;
+      const pending = stage.run().then(
+        () => { settled = true; },
+        (caught: unknown) => { settled = true; error = caught; },
+      );
+      const expectedCallsBeforeStage = stages.indexOf(stage);
+      for (
+        let turn = 0;
+        turn < 5 && geminiGenerateContentMock.mock.calls.length === expectedCallsBeforeStage;
+        turn += 1
+      ) {
+        await Promise.resolve();
+      }
+      const request = geminiGenerateContentMock.mock.calls.at(-1)?.[0] as {
+        config: { abortSignal: AbortSignal };
+      } | undefined;
+      expect(request?.config.abortSignal).toBeInstanceOf(AbortSignal);
+
+      await vi.advanceTimersByTimeAsync(45_000);
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS - 45_000);
+      await pending;
+
+      expect(error).toMatchObject({ name: "JobStageTimeoutError", stage: stage.name });
+      expect(request?.config.abortSignal.aborted).toBe(true);
+    }
+  });
+
   it("uses the Vertex response schema while retaining the server batch limit", async () => {
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -192,6 +270,7 @@ describe("material AI MetaMuse fallback", () => {
     expect(geminiGenerateContentMock).toHaveBeenCalledTimes(2);
     for (const [request] of geminiGenerateContentMock.mock.calls) {
       const config = (request as { config: Record<string, unknown> }).config;
+      expect(config.abortSignal).toBeInstanceOf(AbortSignal);
       const responseSchema = config.responseSchema as {
         properties: { items: Record<string, unknown> };
       };
@@ -373,6 +452,9 @@ describe("material AI MetaMuse fallback", () => {
     expect(draft).toEqual({ drafts: [generatedDraft] });
     expect(verified).toEqual(verification);
     expect(geminiGenerateContentMock).toHaveBeenCalledTimes(3);
+    expect(geminiGenerateContentMock.mock.calls.map(([request]) =>
+      (request as { config: Record<string, unknown> }).config.abortSignal,
+    )).toEqual([expect.any(AbortSignal), expect.any(AbortSignal), expect.any(AbortSignal)]);
     expect(fetchMock).toHaveBeenCalledTimes(3);
 
     const requests = fetchMock.mock.calls.map((call) => parseMetaMuseRequest(call[1]));

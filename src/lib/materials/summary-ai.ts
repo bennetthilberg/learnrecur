@@ -8,6 +8,7 @@ import {
   resolveGeminiRuntimeConfig,
   runLoggedGeminiOperation,
 } from "@/lib/gemini";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   buildMaterialSummaryPrompt,
   materialSummaryResponseSchema,
@@ -33,15 +34,17 @@ export function createGeminiMaterialSummaryGenerator(): MaterialSummaryGenerator
     return runLoggedGeminiOperation({
       config,
       operation: "material summary",
+      timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
       metadata: {
         promptChars: prompt.length,
         schemaName: "material-summary-v1",
       },
-      run: async (ai: GoogleGenAI) => {
+      run: async (ai: GoogleGenAI, signal) => {
         const response = await ai.models.generateContent({
           model: config.model,
           contents: [{ role: "user", parts: [{ text: prompt }] }],
           config: {
+            abortSignal: signal,
             responseMimeType: "application/json",
             responseJsonSchema: materialSummaryJsonSchema,
             thinkingConfig: GEMINI_LOW_THINKING_CONFIG,

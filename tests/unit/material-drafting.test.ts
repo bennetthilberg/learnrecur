@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { MAX_SKILLS_PER_BATCH } from "@/lib/materials/contracts";
 import {
@@ -1246,6 +1246,8 @@ describe("material scope planning", () => {
 });
 
 describe("material draft generation", () => {
+  afterEach(() => vi.useRealTimers());
+
   const generatedDraft = {
     title: "Direct object pronouns",
     objective: "Replace direct objects with the correct Spanish pronoun in short sentences.",
@@ -1355,6 +1357,32 @@ describe("material draft generation", () => {
       attempts: 2,
       reason: "verification-rejected",
     });
+  });
+
+  it("aborts a provider stage before the worker deadline", async () => {
+    vi.useFakeTimers();
+    let signal: AbortSignal | undefined;
+    const result = generateVerifiedMaterialDraft({
+      target: { title: generatedDraft.title, objective: generatedDraft.objective },
+      materialTitle: "Spanish Grammar Atlas",
+      evidenceText: "Direct object pronouns replace nouns that receive the action of a verb.",
+      deadlineAt: new Date(Date.now() + 5_000),
+      cleanupMarginMs: 1_000,
+      generateDraft: ({ signal: receivedSignal }) => {
+        signal = receivedSignal;
+        return new Promise<never>(() => {});
+      },
+      verifyDraft: async () => ({ verdict: "verified", reasons: [], note: null }),
+    });
+    const assertion = expect(result).rejects.toMatchObject({
+      name: "JobStageTimeoutError",
+      stage: "material draft generation",
+      retryable: true,
+    });
+
+    await vi.advanceTimersByTimeAsync(4_000);
+    await assertion;
+    expect(signal?.aborted).toBe(true);
   });
 
   it("repairs an unsupported target against the cited evidence before regeneration", async () => {

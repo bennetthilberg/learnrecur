@@ -3,6 +3,8 @@ import {
   type GenerateContentResponse,
   type ThinkingLevel,
 } from "@google/genai";
+import { withAbortableTimeout } from "@/lib/jobs/deadline";
+import { GENERATION_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_EMBEDDING_MODEL = "gemini-embedding-2";
@@ -45,7 +47,9 @@ type GeminiOperationInput<T> = {
   config: GeminiRuntimeConfig;
   metadata?: GeminiOperationMetadata;
   operation: string;
-  run: (ai: GoogleGenAI) => Promise<{
+  signal?: AbortSignal;
+  timeoutMs?: number;
+  run: (ai: GoogleGenAI, signal: AbortSignal) => Promise<{
     response: GenerateContentResponse;
     value: T;
   }>;
@@ -106,6 +110,8 @@ export async function runLoggedGeminiOperation<T>({
   metadata,
   operation,
   run,
+  signal,
+  timeoutMs,
 }: GeminiOperationInput<T>): Promise<T> {
   const requestId = buildGeminiRequestId();
   const startedAt = Date.now();
@@ -119,7 +125,13 @@ export async function runLoggedGeminiOperation<T>({
   console.info("[ai] gemini request started", context);
 
   try {
-    const result = await run(new GoogleGenAI(config.clientOptions));
+    const result = await withAbortableTimeout({
+      run: (requestSignal) => run(new GoogleGenAI(config.clientOptions), requestSignal),
+      timeoutMs: timeoutMs ?? GENERATION_TIMEOUT_MS,
+      message: `${operation} timed out with Gemini.`,
+      stage: `gemini ${operation}`,
+      parentSignal: signal,
+    });
     const text = result.response.text ?? "";
 
     console.info("[ai] gemini request succeeded", {
@@ -162,6 +174,7 @@ function summarizeGeminiUsageMetadata(
 }
 
 type GeminiProviderFallbackInput<T> = {
+  signal?: AbortSignal;
   fallback?: {
     model: string;
     provider: string;
@@ -205,10 +218,14 @@ export async function runWithGeminiProviderFallback<T>({
   primary,
   primaryModel,
   runPrimary,
+  signal,
 }: GeminiProviderFallbackInput<T>): Promise<T> {
   try {
     return await runPrimary();
   } catch (error) {
+    if (signal?.aborted) {
+      throw signal.reason instanceof Error ? signal.reason : error;
+    }
     if (!fallback || !isRetryableGeminiModelError(error)) {
       throw error;
     }
@@ -223,6 +240,9 @@ export async function runWithGeminiProviderFallback<T>({
       error: getGeminiErrorLogDetails(error),
     });
 
+    if (signal?.aborted) {
+      throw signal.reason instanceof Error ? signal.reason : error;
+    }
     return fallback.run();
   }
 }

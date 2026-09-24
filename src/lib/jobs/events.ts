@@ -181,8 +181,12 @@ export const awsMaterialBatchActivationEventSender: MaterialBatchActivationEvent
 
 export async function sendAgentSkillOperationRequested(
   payload: AgentSkillOperationEventPayload,
+  options?: { eventId?: string; signal?: AbortSignal },
 ) {
-  await publishJob(AGENT_SKILL_OPERATION_REQUESTED_EVENT, payload);
+  await publishJob(AGENT_SKILL_OPERATION_REQUESTED_EVENT, payload, {
+    ...(options?.eventId ? { id: options.eventId } : {}),
+    ...(options?.signal ? { signal: options.signal } : {}),
+  });
 }
 
 export async function sendAgentConnectionRevocationRequested(

@@ -49,6 +49,7 @@ type MetaMuseJsonResponseInput = {
   operation: string;
   responseJsonSchema?: Record<string, unknown>;
   responseJsonSchemaName?: string;
+  signal?: AbortSignal;
   timeoutMs?: number;
   userContent?: string | MetaMuseInputContentPart[];
 };
@@ -63,6 +64,7 @@ export async function runMetaMuseJsonResponse({
   operation,
   responseJsonSchema,
   responseJsonSchemaName,
+  signal,
   timeoutMs,
   userContent,
 }: MetaMuseJsonResponseInput): Promise<unknown> {
@@ -72,6 +74,12 @@ export async function runMetaMuseJsonResponse({
   const startedAt = Date.now();
   const requestTimeoutMs = normalizeRequestTimeoutMs(timeoutMs);
   const abortController = new AbortController();
+  const abortFromCaller = () => {
+    const reason = signal?.reason;
+    abortController.abort(reason instanceof Error ? reason : new Error(`${operation} was canceled.`));
+  };
+  if (signal?.aborted) abortFromCaller();
+  else signal?.addEventListener("abort", abortFromCaller, { once: true });
   const timeoutId = setTimeout(() => {
     abortController.abort(
       new Error(`${operation} timed out after ${requestTimeoutMs}ms with Meta Muse.`),
@@ -200,6 +208,7 @@ export async function runMetaMuseJsonResponse({
     throw loggedError;
   } finally {
     clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", abortFromCaller);
   }
 }
 

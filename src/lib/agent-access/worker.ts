@@ -7,7 +7,10 @@ import {
   AgentOperationItemStatus,
   AgentOperationKind,
   AgentOperationStatus,
+  GenerationJobKind,
+  GenerationJobStatus,
   Prisma,
+  SkillDraftBatchStatus,
   SkillDraftBatchItemStatus,
   SkillStatus,
 } from "@/generated/prisma/client";
@@ -16,6 +19,7 @@ import {
   createSkillDraftFromSource,
   activateSkillDraft,
   verifyUntrustedAgentExerciseCandidates,
+  type ActivateSkillDraftInput,
 } from "@/lib/skills";
 import {
   buildSkillDuplicateCandidateFingerprint,
@@ -29,22 +33,35 @@ import {
 } from "@/lib/import-limits";
 import { getSkillActivationUsage } from "@/lib/usage-limits";
 import {
+  getJobStageTimeoutMs,
+  isJobStageTimeoutError,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
+import { JobContinuationLimitError } from "@/lib/jobs/publication-context";
+import {
   enqueueOperation,
 } from "@/lib/agent-access/operations";
 import { reconcileAgentOperation } from "@/lib/agent-access/reconciliation";
 import {
+  AGENT_OPERATION_CLEANUP_MARGIN_MS,
   AGENT_OPERATION_ITEM_RETRY_LIMIT,
+  AGENT_OPERATION_CANDIDATE_VERIFICATION_RESERVE_MS,
   AGENT_OPERATION_SOFT_DEADLINE_MS,
+  buildAgentOperationContinuationCursor,
+  getAgentOperationRetryReadyWhere,
+  isAgentOperationRetryReady,
   shouldDeferAgentOperation,
 } from "@/lib/agent-access/recovery-policy";
 import { completeSourceUploadDrafts } from "@/lib/skills/uploads";
 import {
   confirmMaterialPlan,
+  MaterialDraftGenerationError,
   planMaterialSkills,
   replanMaterialSkills,
   runMaterialDraftItemJob,
 } from "@/lib/materials/batches";
 import { buildAgentCandidateDuplicateKey } from "@/lib/agent-access/contracts";
+import { CHOICE_VERIFICATION_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   MaterialSourceReferenceError,
   attachMaterialSourceReferencesToSkill,
@@ -58,6 +75,12 @@ const AGENT_OPERATION_INCLUDE = {
   sources: { orderBy: { ordinal: "asc" as const }, include: { sourceFile: true } },
   materialRevision: { select: { materialId: true, status: true } },
 } satisfies Prisma.AgentSkillOperationInclude;
+
+export type AgentSkillWorkerDependencies = {
+  verifyAgentCandidates?: typeof verifyUntrustedAgentExerciseCandidates;
+  activateDraft?: typeof activateSkillDraft;
+  activationOptions?: Partial<ActivateSkillDraftInput>;
+};
 
 type AgentOperationWithItems = Prisma.AgentSkillOperationGetPayload<{
   include: typeof AGENT_OPERATION_INCLUDE;
@@ -93,25 +116,46 @@ export function classifyAgentDuplicate(match: SkillSimilarityMatch | null) {
 }
 
 export function selectAgentOperationItemsForDelivery<
-  T extends { status: AgentOperationItemStatus },
->(items: readonly T[], operationKind: AgentOperationKind = AgentOperationKind.SPEC_BATCH): T[] {
+  T extends {
+    status: AgentOperationItemStatus;
+    errorCode?: string | null;
+    retryCount?: number;
+    updatedAt?: Date;
+  },
+>(
+  items: readonly T[],
+  operationKind: AgentOperationKind = AgentOperationKind.SPEC_BATCH,
+  now = new Date(),
+): T[] {
   const limit = operationKind === AgentOperationKind.MATERIAL_BATCH
     ? MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY
     : 1;
   return items
-    .filter((item) => item.status === AgentOperationItemStatus.QUEUED)
+    .filter((item) =>
+      item.status === AgentOperationItemStatus.QUEUED &&
+      isAgentOperationRetryReady({
+        errorCode: item.errorCode ?? null,
+        retryCount: item.retryCount ?? 0,
+        updatedAt: item.updatedAt ?? now,
+        now,
+      }),
+    )
     .slice(0, limit);
 }
 
-export async function runAgentSkillOperationJob(input: {
-  userId: string;
-  operationId: string;
-  now?: Date;
-  deadlineAt?: Date;
-}) {
+export async function runAgentSkillOperationJob(
+  input: {
+    userId: string;
+    operationId: string;
+    now?: Date;
+    deadlineAt?: Date;
+    deliveryAttempt?: { attempt: number; maxAttempts: number };
+  },
+  dependencies: AgentSkillWorkerDependencies = {},
+) {
   const prisma = getPrisma();
   const now = input.now ?? new Date();
-  const deadlineAt = input.deadlineAt ?? new Date(now.getTime() + AGENT_OPERATION_SOFT_DEADLINE_MS);
+  const deadlineAt = input.deadlineAt ?? new Date(Date.now() + AGENT_OPERATION_SOFT_DEADLINE_MS);
   const clock = input.now ? () => now : () => new Date();
   const operation = await prisma.agentSkillOperation.findFirst({
     where: { id: input.operationId, userId: input.userId },
@@ -136,7 +180,10 @@ export async function runAgentSkillOperationJob(input: {
 
   await prisma.agentSkillOperation.update({
     where: { id: operation.id },
-    data: { startedAt: operation.startedAt ?? now },
+    data: {
+      startedAt: operation.startedAt ?? now,
+      updatedAt: new Date(Math.max(Date.now(), operation.updatedAt.getTime() + 1)),
+    },
   });
 
   const claims = new Map<string, string>();
@@ -148,20 +195,21 @@ export async function runAgentSkillOperationJob(input: {
       deadlineAt,
       clock,
       claims,
+      dependencies,
     });
     if (shouldReconcile) {
       await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
-      await queueAgentOperationContinuation(operation.id, input.userId);
+      await queueAgentOperationContinuation(operation.id, input.userId, clock(), deadlineAt);
     }
     return { status: "processed" as const, operationId: operation.id };
   }
 
   if (operation.kind === AgentOperationKind.QUICK_FILES) {
-    await processFileOperation({ operation, now, deadlineAt, clock, claims });
+    await processFileOperation({ operation, now, deadlineAt, clock, claims, dependencies });
   } else if (operation.kind === AgentOperationKind.TEXT_SOURCE) {
-    await processTextOperation({ operation, now, deadlineAt, clock, claims });
+    await processTextOperation({ operation, now, deadlineAt, clock, claims, dependencies });
   } else {
-    const itemsForDelivery = selectAgentOperationItemsForDelivery(operation.items, operation.kind);
+    const itemsForDelivery = selectAgentOperationItemsForDelivery(operation.items, operation.kind, clock());
     const candidates = itemsForDelivery.flatMap((item) => {
       const snapshot = parseSkillSnapshot(item.skillSnapshot);
       return snapshot ? [{ key: item.id, title: snapshot.title, objective: snapshot.objective }] : [];
@@ -170,10 +218,11 @@ export async function runAgentSkillOperationJob(input: {
       userId: input.userId,
       candidates,
       limitPerCandidate: 3,
+      deadlineAt,
     });
     const byItem = new Map(similarities.candidates.map((candidate) => [candidate.key, candidate]));
     for (const item of itemsForDelivery) {
-      if (shouldDeferAgentOperation(deadlineAt, clock())) break;
+      if (shouldDeferAgentOperation(deadlineAt, clock()) && !item.createdSkillId) break;
       const claimToken = await claimQueuedAgentOperationItem({
         itemId: item.id,
         userId: input.userId,
@@ -187,7 +236,11 @@ export async function runAgentSkillOperationJob(input: {
           await failItem(item.id, input.userId, "QUOTA_EXCEEDED", now, claimToken);
           continue;
         }
-        await activateCreatedDraft(input.userId, item.id, item.createdSkillId, now, claimToken);
+        await activateCreatedDraft(input.userId, item.id, item.createdSkillId, now, claimToken, {
+          deadlineAt,
+          clock,
+          dependencies,
+        });
         continue;
       }
       const snapshot = parseSkillSnapshot(item.skillSnapshot);
@@ -253,16 +306,68 @@ export async function runAgentSkillOperationJob(input: {
         });
         continue;
       }
-      await createAndActivateItem({ userId: input.userId, itemId: item.id, snapshot, now, claimToken });
+      await createAndActivateItem({
+        userId: input.userId,
+        itemId: item.id,
+        snapshot,
+        now,
+        claimToken,
+        deadlineAt,
+        clock,
+        dependencies,
+      });
     }
   }
 
   await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
-  await queueAgentOperationContinuation(operation.id, input.userId);
+  await queueAgentOperationContinuation(operation.id, input.userId, clock(), deadlineAt);
   return { status: "processed" as const, operationId: operation.id };
   } catch (error) {
     for (const [itemId, claimToken] of claims) {
       await releaseClaimForRetry({ itemId, userId: input.userId, now, claimToken });
+    }
+    if (error instanceof JobContinuationLimitError) {
+      await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
+      throw error;
+    }
+    if (isRecoverableWorkerTimeout(error)) {
+      if (operation.kind === AgentOperationKind.MATERIAL_BATCH && claims.size === 0) {
+        const currentItemCount = await prisma.agentSkillOperationItem.count({
+          where: { operationId: operation.id, userId: input.userId },
+        });
+        if (currentItemCount === 0) {
+          const attempt = input.deliveryAttempt?.attempt ?? 0;
+          const maxAttempts = input.deliveryAttempt?.maxAttempts ?? 4;
+          if (attempt >= maxAttempts - 1) {
+            await failTimedOutAgentMaterialPlanning({
+              operationId: operation.id,
+              userId: input.userId,
+              requestPayload: operation.requestPayload,
+              now,
+            });
+            throw new AgentSkillWorkerError(
+              "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+              false,
+            );
+          }
+          throw new AgentSkillWorkerError("MATERIAL_PLANNING_RETRYABLE_TIMEOUT", true);
+        }
+      }
+      if (claims.size === 0) {
+        await retryQueuedAgentItemsAfterPreclaimFailure({
+          operationId: operation.id,
+          userId: input.userId,
+          limit: operation.kind === AgentOperationKind.MATERIAL_BATCH
+            ? MAX_INLINE_OPERATION_ITEMS_PER_DELIVERY
+            : 1,
+          now: clock(),
+        });
+      }
+      await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
+      if (!isContinuationPublishFailure(error)) {
+        await queueAgentOperationContinuation(operation.id, input.userId, clock(), deadlineAt);
+      }
+      return { status: "retry-scheduled" as const, operationId: operation.id };
     }
     await reconcileAgentOperation({ operationId: operation.id, userId: input.userId, now });
     throw new AgentSkillWorkerError(
@@ -270,6 +375,114 @@ export async function runAgentSkillOperationJob(input: {
       true,
     );
   }
+}
+
+async function retryQueuedAgentItemsAfterPreclaimFailure(input: {
+  operationId: string;
+  userId: string;
+  limit: number;
+  now: Date;
+}) {
+  const prisma = getPrisma();
+  const queuedItems = await prisma.agentSkillOperationItem.findMany({
+    where: {
+      operationId: input.operationId,
+      userId: input.userId,
+      status: AgentOperationItemStatus.QUEUED,
+      AND: [getAgentOperationRetryReadyWhere(input.now)],
+    },
+    orderBy: { ordinal: "asc" },
+    take: input.limit,
+    select: { id: true, retryCount: true, updatedAt: true },
+  });
+
+  for (const item of queuedItems) {
+    const exhausted = item.retryCount >= AGENT_OPERATION_ITEM_RETRY_LIMIT - 1;
+    await prisma.agentSkillOperationItem.updateMany({
+      where: {
+        id: item.id,
+        userId: input.userId,
+        status: AgentOperationItemStatus.QUEUED,
+        retryCount: item.retryCount,
+        updatedAt: item.updatedAt,
+      },
+      data: {
+        status: exhausted ? AgentOperationItemStatus.FAILED : AgentOperationItemStatus.QUEUED,
+        activationReservedAt: null,
+        errorCode: "TRANSIENT_WORKER_FAILURE",
+        errorMessage: exhausted
+          ? "The worker repeatedly stopped before processing this item. Retry it manually."
+          : "The worker stopped before processing this item; it will be retried.",
+        retryCount: { increment: 1 },
+        completedAt: exhausted ? input.now : null,
+        workerClaimToken: null,
+        workerClaimedAt: null,
+      },
+    });
+  }
+}
+
+async function failTimedOutAgentMaterialPlanning(input: {
+  operationId: string;
+  userId: string;
+  requestPayload: Prisma.JsonValue | null;
+  now: Date;
+}) {
+  const prisma = getPrisma();
+  const payload = parseRecord(input.requestPayload);
+  const batchId = typeof payload.materialBatchId === "string" ? payload.materialBatchId : null;
+  const errorMessage =
+    "Material planning timed out after the background job retry limit. Try the request again.";
+
+  await prisma.$transaction(async (tx) => {
+    const failed = await tx.agentSkillOperation.updateMany({
+      where: {
+        id: input.operationId,
+        userId: input.userId,
+        status: {
+          notIn: [
+            AgentOperationStatus.SUCCEEDED,
+            AgentOperationStatus.PARTIAL,
+            AgentOperationStatus.FAILED,
+            AgentOperationStatus.CANCELED,
+          ],
+        },
+        items: { none: {} },
+      },
+      data: {
+        status: AgentOperationStatus.FAILED,
+        errorCode: "MATERIAL_PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+        errorMessage,
+        completedAt: input.now,
+      },
+    });
+    if (failed.count !== 1) return;
+
+    await tx.skillDraftBatch.updateMany({
+      where: {
+        ...(batchId ? { id: batchId } : { idempotencyKey: `agent-${input.operationId}` }),
+        userId: input.userId,
+        status: SkillDraftBatchStatus.PLANNING,
+        items: { none: {} },
+      },
+      data: {
+        status: SkillDraftBatchStatus.FAILED,
+        errorCode: "PLANNING_TIMEOUT_RETRIES_EXHAUSTED",
+        errorMessage,
+        completedAt: input.now,
+      },
+    });
+  });
+}
+
+function isRecoverableWorkerTimeout(error: unknown) {
+  if (isJobStageTimeoutError(error)) return true;
+  if (typeof error !== "object" || error === null || !("code" in error)) return false;
+  return ["P2024", "P2028", "P2034", "P1002", "P1008"].includes(String(error.code));
+}
+
+function isContinuationPublishFailure(error: unknown) {
+  return error instanceof Error && error.message === "JOB_PUBLISH_FAILED";
 }
 
 const CLAIMED_ITEM_STATUSES = [
@@ -393,6 +606,26 @@ async function releaseClaimForRetry(input: {
   });
 }
 
+async function deferClaimedAgentItem(input: {
+  itemId: string;
+  userId: string;
+  claimToken: string;
+  now: Date;
+}) {
+  await updateClaimedAgentItem({
+    ...input,
+    data: {
+      status: AgentOperationItemStatus.QUEUED,
+      activationReservedAt: null,
+      errorCode: "DELIVERY_DEFERRED",
+      errorMessage: "The worker saved its progress and continued in a fresh delivery.",
+      completedAt: null,
+      workerClaimToken: null,
+      workerClaimedAt: null,
+    },
+  });
+}
+
 async function waitForActivation(input: {
   itemId: string;
   userId: string;
@@ -417,6 +650,7 @@ async function processMaterialOperation(input: {
   deadlineAt: Date;
   clock: () => Date;
   claims: Map<string, string>;
+  dependencies: AgentSkillWorkerDependencies;
 }): Promise<boolean> {
   const prisma = getPrisma();
   if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return true;
@@ -464,26 +698,30 @@ async function processMaterialOperation(input: {
     let planning;
     if (batchId) {
       planning = await replanMaterialSkills({
-      userId: input.operation.userId,
-      now: input.now,
-      input: {
-        batchId,
-        instruction: planningInstruction,
-        ...(sectionIds.length > 0 ? { sectionIds } : {}),
-      },
-    });
+        userId: input.operation.userId,
+        now: input.now,
+        deadlineAt: input.deadlineAt,
+        preservePlanningOnTimeout: true,
+        input: {
+          batchId,
+          instruction: planningInstruction,
+          ...(sectionIds.length > 0 ? { sectionIds } : {}),
+        },
+      });
     } else {
       planning = await planMaterialSkills({
-      userId: input.operation.userId,
-      now: input.now,
-      input: {
-        materialId,
-        materialRevisionId: input.operation.materialRevisionId,
-        instruction: planningInstruction,
-        idempotencyKey: `agent-${input.operation.id}`,
-        ...(sectionIds.length > 0 ? { sectionIds } : {}),
-      },
-    });
+        userId: input.operation.userId,
+        now: input.now,
+        deadlineAt: input.deadlineAt,
+        preservePlanningOnTimeout: true,
+        input: {
+          materialId,
+          materialRevisionId: input.operation.materialRevisionId,
+          instruction: planningInstruction,
+          idempotencyKey: `agent-${input.operation.id}`,
+          ...(sectionIds.length > 0 ? { sectionIds } : {}),
+        },
+      });
     }
     if (planning.status === "needs-scope") {
       const clarificationPayload: Record<string, unknown> = {
@@ -606,9 +844,10 @@ async function processMaterialOperation(input: {
   const itemsForDelivery = selectAgentOperationItemsForDelivery(
     agentItems,
     AgentOperationKind.MATERIAL_BATCH,
+    input.clock(),
   );
   for (const agentItem of itemsForDelivery) {
-    if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) break;
+    if (shouldDeferAgentOperation(input.deadlineAt, input.clock()) && !agentItem.createdSkillId) break;
     const claimToken = await claimQueuedAgentOperationItem({
       itemId: agentItem.id,
       userId: input.operation.userId,
@@ -633,6 +872,7 @@ async function processMaterialOperation(input: {
         agentItem.createdSkillId,
         input.now,
         claimToken,
+        { deadlineAt: input.deadlineAt, clock: input.clock, dependencies: input.dependencies },
       );
       continue;
     }
@@ -658,8 +898,23 @@ async function processMaterialOperation(input: {
         batchId,
         itemId: materialItem.id,
         now: input.now,
+        deadlineAt: input.deadlineAt,
+        retryTransientOnWorkerDeadline: true,
       });
     } catch (error) {
+      if (error instanceof MaterialDraftGenerationError) {
+        if (error.retryable) {
+          await releaseClaimForRetry({
+            itemId: agentItem.id,
+            userId: input.operation.userId,
+            claimToken,
+            now: input.now,
+          });
+          return true;
+        }
+        await failItem(agentItem.id, input.operation.userId, "MATERIAL_DRAFT_FAILED", input.now, claimToken);
+        continue;
+      }
       await releaseClaimForRetry({
         itemId: agentItem.id,
         userId: input.operation.userId,
@@ -716,7 +971,11 @@ async function processMaterialOperation(input: {
         }),
       },
     });
-    await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now, claimToken);
+      await activateCreatedDraft(input.operation.userId, agentItem.id, skill.id, input.now, claimToken, {
+        deadlineAt: input.deadlineAt,
+        clock: input.clock,
+        dependencies: input.dependencies,
+      });
   }
   return true;
 }
@@ -750,6 +1009,7 @@ async function processFileOperation(input: {
   deadlineAt: Date;
   clock: () => Date;
   claims: Map<string, string>;
+  dependencies: AgentSkillWorkerDependencies;
 }) {
   const item = input.operation.items[0];
   const sourceFileIds = input.operation.sources.map((source) => source.sourceFileId);
@@ -758,7 +1018,7 @@ async function processFileOperation(input: {
     return;
   }
   if (item.status !== AgentOperationItemStatus.QUEUED) return;
-  if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return;
+  if (shouldDeferAgentOperation(input.deadlineAt, input.clock()) && !item.createdSkillId) return;
   const claimToken = await claimQueuedAgentOperationItem({
     itemId: item.id,
     userId: input.operation.userId,
@@ -777,7 +1037,11 @@ async function processFileOperation(input: {
       await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
       return;
     }
-    await activateCreatedDraft(input.operation.userId, item.id, item.createdSkillId, input.now, claimToken);
+    await activateCreatedDraft(input.operation.userId, item.id, item.createdSkillId, input.now, claimToken, {
+      deadlineAt: input.deadlineAt,
+      clock: input.clock,
+      dependencies: input.dependencies,
+    });
     return;
   }
   const reserved = await reserveAgentActivation(
@@ -822,7 +1086,11 @@ async function processFileOperation(input: {
       }),
     },
   });
-  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken);
+  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken, {
+    deadlineAt: input.deadlineAt,
+    clock: input.clock,
+    dependencies: input.dependencies,
+  });
 }
 
 async function processTextOperation(input: {
@@ -831,6 +1099,7 @@ async function processTextOperation(input: {
   deadlineAt: Date;
   clock: () => Date;
   claims: Map<string, string>;
+  dependencies: AgentSkillWorkerDependencies;
 }) {
   const item = input.operation.items[0];
   const source = input.operation.sourceFile;
@@ -839,7 +1108,7 @@ async function processTextOperation(input: {
     return;
   }
   if (item.status !== AgentOperationItemStatus.QUEUED) return;
-  if (shouldDeferAgentOperation(input.deadlineAt, input.clock())) return;
+  if (shouldDeferAgentOperation(input.deadlineAt, input.clock()) && !item.createdSkillId) return;
   const claimToken = await claimQueuedAgentOperationItem({
     itemId: item.id,
     userId: input.operation.userId,
@@ -864,6 +1133,7 @@ async function processTextOperation(input: {
       item.createdSkillId,
       input.now,
       claimToken,
+      { deadlineAt: input.deadlineAt, clock: input.clock, dependencies: input.dependencies },
     );
     return;
   }
@@ -871,7 +1141,6 @@ async function processTextOperation(input: {
   const result = await createSkillDraftFromSource({
     userId: input.operation.userId,
     now: input.now,
-    recoveredSourceFileId: source.id,
     skipUsageLimitCheck: true,
     persistFailedSource: false,
     input: {
@@ -881,8 +1150,13 @@ async function processTextOperation(input: {
       collectionName: typeof payload.collection === "string" ? payload.collection : null,
       tags: Array.isArray(payload.tags) ? payload.tags : [],
     },
+    deadlineAt: input.deadlineAt,
   });
   if (result.status !== "created" || !result.skills[0]) {
+    if (result.status === "not-created" && result.retryable) {
+      await releaseClaimForRetry({ itemId: item.id, userId: input.operation.userId, now: input.now, claimToken });
+      return;
+    }
     await failItem(
       item.id,
       input.operation.userId,
@@ -917,6 +1191,7 @@ async function processTextOperation(input: {
     userId: input.operation.userId,
     candidates: [{ key: item.id, skillId: generated.id, title: generated.title, objective: generated.objective }],
     limitPerCandidate: 3,
+    deadlineAt: input.deadlineAt,
   });
   const duplicate = classifyAgentDuplicate(similar.candidates[0]?.bestMatch ?? null);
   if (duplicate.action !== "create") {
@@ -946,7 +1221,11 @@ async function processTextOperation(input: {
     await failItem(item.id, input.operation.userId, "QUOTA_EXCEEDED", input.now, claimToken);
     return;
   }
-  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken);
+  await activateCreatedDraft(input.operation.userId, item.id, generated.id, input.now, claimToken, {
+    deadlineAt: input.deadlineAt,
+    clock: input.clock,
+    dependencies: input.dependencies,
+  });
 }
 
 async function createAndActivateItem(input: {
@@ -955,6 +1234,9 @@ async function createAndActivateItem(input: {
   snapshot: SkillSnapshot;
   now: Date;
   claimToken: string;
+  deadlineAt: Date;
+  clock: () => Date;
+  dependencies: AgentSkillWorkerDependencies;
 }) {
   const reserved = await reserveAgentActivation(
     input.userId,
@@ -990,6 +1272,7 @@ async function createAndActivateItem(input: {
     draft.skill.id,
     input.now,
     input.claimToken,
+    { deadlineAt: input.deadlineAt, clock: input.clock, dependencies: input.dependencies },
   );
 }
 
@@ -999,14 +1282,27 @@ async function activateCreatedDraft(
   skillId: string,
   now: Date,
   claimToken: string,
+  context: {
+    deadlineAt: Date;
+    clock: () => Date;
+    dependencies: AgentSkillWorkerDependencies;
+  },
 ) {
   const prisma = getPrisma();
   await touchClaimedAgentItem({ itemId, userId, claimToken, now });
   const draft = await prisma.skill.findFirst({
-    where: { id: skillId, userId, status: SkillStatus.DRAFT },
-    select: { id: true, title: true, objective: true },
+    where: { id: skillId, userId },
+    select: { id: true, title: true, objective: true, status: true },
   });
   if (!draft) {
+    await failItem(itemId, userId, "DRAFT_NOT_FOUND", now, claimToken);
+    return;
+  }
+  if (draft.status === SkillStatus.ACTIVE || draft.status === SkillStatus.PAUSED) {
+    await finalizeAlreadyActivatedItem({ itemId, userId, skillId, now, claimToken });
+    return;
+  }
+  if (draft.status !== SkillStatus.DRAFT) {
     await failItem(itemId, userId, "DRAFT_NOT_FOUND", now, claimToken);
     return;
   }
@@ -1017,6 +1313,10 @@ async function activateCreatedDraft(
   const snapshot = parseSkillSnapshot(operationItem?.skillSnapshot);
   let sourceReferenceOutcome: AgentSourceReferenceOutcome | null = null;
   if (snapshot?.source_refs?.length) {
+    if (shouldDeferAgentOperation(context.deadlineAt, context.clock())) {
+      await deferClaimedAgentItem({ itemId, userId, claimToken, now });
+      return;
+    }
     try {
       sourceReferenceOutcome = summarizeAgentSourceReferenceOutcome(
         await attachMaterialSourceReferencesToSkill({
@@ -1041,6 +1341,7 @@ async function activateCreatedDraft(
     userId,
     candidates: [{ key: itemId, skillId, title: draft.title, objective: draft.objective }],
     limitPerCandidate: 3,
+    deadlineAt: context.deadlineAt,
   });
   const duplicate = classifyAgentDuplicate(duplicateResult.candidates[0]?.bestMatch ?? null);
   const reviewItem = await prisma.agentSkillOperationItem.findFirst({
@@ -1087,20 +1388,6 @@ async function activateCreatedDraft(
     }
     return;
   }
-  await updateClaimedAgentItem({
-    itemId,
-    userId,
-    claimToken,
-    now,
-    data: { duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint },
-  });
-  await touchClaimedAgentItem({
-    itemId,
-    userId,
-    claimToken,
-    now,
-    status: AgentOperationItemStatus.VERIFYING,
-  });
   const candidates = await prisma.agentExerciseCandidate.findMany({
     where: { operationItemId: itemId, userId, status: AgentCandidateStatus.VALIDATED },
     orderBy: { ordinal: "asc" },
@@ -1123,15 +1410,42 @@ async function activateCreatedDraft(
     });
   }
   if (uniqueCandidates.length) {
-    const verification = await verifyUntrustedAgentExerciseCandidates({
+    if (context.deadlineAt.getTime() - context.clock().getTime() <= AGENT_OPERATION_CANDIDATE_VERIFICATION_RESERVE_MS) {
+      await deferClaimedAgentItem({ itemId, userId, claimToken, now });
+      return;
+    }
+    await touchClaimedAgentItem({
+      itemId,
       userId,
-      skillId,
+      claimToken,
       now,
-      candidates: uniqueCandidates.map((candidate) => ({
-        candidateId: parseRecord(candidate.normalizedPayload).candidateId as string,
-        normalizedPayload: candidate.normalizedPayload,
-      })),
+      status: AgentOperationItemStatus.VERIFYING,
     });
+    const verification = await withAbortableTimeout({
+      run: (signal) => (context.dependencies.verifyAgentCandidates ?? verifyUntrustedAgentExerciseCandidates)({
+        userId,
+        skillId,
+        now,
+        deadlineAt: context.deadlineAt,
+        signal,
+        candidates: uniqueCandidates.map((candidate) => ({
+          candidateId: parseRecord(candidate.normalizedPayload).candidateId as string,
+          normalizedPayload: candidate.normalizedPayload,
+        })),
+      }),
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt: context.deadlineAt,
+        cleanupMarginMs: AGENT_OPERATION_CLEANUP_MARGIN_MS,
+        maxTimeoutMs: CHOICE_VERIFICATION_TIMEOUT_MS,
+        stage: "agent candidate verification",
+      }),
+      message: "agent candidate verification timed out",
+      stage: "agent candidate verification",
+    });
+    if (verification.status === "not-verified" && verification.retryable) {
+      await releaseClaimForRetry({ itemId, userId, claimToken, now });
+      return;
+    }
     if (verification.status === "verified") {
       for (const decision of verification.decisions) {
         const candidate = uniqueCandidates.find(
@@ -1153,44 +1467,105 @@ async function activateCreatedDraft(
         data: { status: AgentCandidateStatus.REJECTED, verifierReason: verification.reason.toUpperCase() },
       });
     }
+    await touchClaimedAgentItem({
+      itemId,
+      userId,
+      claimToken,
+      now,
+      status: AgentOperationItemStatus.ACTIVATING,
+    });
+    if (shouldDeferAgentOperation(context.deadlineAt, context.clock())) {
+      await deferClaimedAgentItem({ itemId, userId, claimToken, now });
+      return;
+    }
   }
+  if (shouldDeferAgentOperation(context.deadlineAt, context.clock())) {
+    await deferClaimedAgentItem({ itemId, userId, claimToken, now });
+    return;
+  }
+  await updateClaimedAgentItem({
+    itemId,
+    userId,
+    claimToken,
+    now,
+    data: { duplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint },
+  });
   await touchClaimedAgentItem({
     itemId,
     userId,
     claimToken,
     now,
-    status: AgentOperationItemStatus.ACTIVATING,
+    status: AgentOperationItemStatus.VERIFYING,
   });
-  const result = await activateSkillDraft({
+  const result = await (context.dependencies.activateDraft ?? activateSkillDraft)({
+    ...context.dependencies.activationOptions,
     userId,
     skillId,
     now,
+    deadlineAt: context.deadlineAt,
     skipUsageLimitCheck: true,
     verifiedAgentCandidateItemId: itemId,
     expectedDraftFingerprint: operationItem?.candidateFingerprint ?? undefined,
     expectedDuplicateLibraryFingerprint: duplicateResult.duplicateLibraryFingerprint ?? undefined,
   });
   if (result.status !== "activated") {
+    if (result.reason === "activation-superseded") {
+      const currentSkill = await prisma.skill.findFirst({
+        where: { id: skillId, userId },
+        select: { status: true },
+      });
+      if (currentSkill?.status === SkillStatus.ACTIVE || currentSkill?.status === SkillStatus.PAUSED) {
+        await finalizeAlreadyActivatedItem({ itemId, userId, skillId, now, claimToken });
+        return;
+      }
+      const runningActivation = await prisma.generationJob.findFirst({
+        where: {
+          skillId,
+          userId,
+          kind: GenerationJobKind.SKILL_ACTIVATION,
+          status: GenerationJobStatus.RUNNING,
+        },
+        select: { id: true },
+      });
+      if (!runningActivation) {
+        await releaseClaimForRetry({ itemId, userId, claimToken, now });
+        return;
+      }
+    }
     if (result.reason === "activation-in-progress" || result.reason === "activation-superseded") {
       await waitForActivation({ itemId, userId, claimToken, now });
+      return;
+    }
+    if ("retryable" in result && result.retryable) {
+      await releaseClaimForRetry({ itemId, userId, claimToken, now });
       return;
     }
     await failItem(itemId, userId, result.reason, now, claimToken);
     return;
   }
-  await prisma.$transaction(async (tx) => {
+  await finalizeAlreadyActivatedItem({ itemId, userId, skillId, now, claimToken });
+}
+
+async function finalizeAlreadyActivatedItem(input: {
+  itemId: string;
+  userId: string;
+  skillId: string;
+  now: Date;
+  claimToken: string;
+}) {
+  await getPrisma().$transaction(async (tx) => {
     const itemUpdate = await tx.agentSkillOperationItem.updateMany({
       where: {
-        id: itemId,
-        userId,
-        workerClaimToken: claimToken,
-        status: AgentOperationItemStatus.ACTIVATING,
+        id: input.itemId,
+        userId: input.userId,
+        workerClaimToken: input.claimToken,
+        status: { in: [...CLAIMED_ITEM_STATUSES] },
       },
       data: {
         status: AgentOperationItemStatus.ACTIVE,
-        resultSkillId: skillId,
+        resultSkillId: input.skillId,
         activationReservedAt: null,
-        completedAt: now,
+        completedAt: input.now,
         errorCode: null,
         errorMessage: null,
         workerClaimToken: null,
@@ -1199,10 +1574,23 @@ async function activateCreatedDraft(
     });
     if (itemUpdate.count !== 1) throw new AgentSkillWorkerError("AGENT_ITEM_CLAIM_LOST", true);
     await tx.agentExerciseCandidate.updateMany({
-      where: { operationItemId: itemId, userId, status: AgentCandidateStatus.VALIDATED },
+      where: {
+        operationItemId: input.itemId,
+        userId: input.userId,
+        status: AgentCandidateStatus.VALIDATED,
+      },
       data: { status: AgentCandidateStatus.NOT_PROCESSED, verifierReason: "NOT_SELECTED" },
     });
-  });
+    await tx.agentExerciseCandidate.updateMany({
+      where: {
+        operationItemId: input.itemId,
+        userId: input.userId,
+        status: AgentCandidateStatus.VERIFIED,
+        exerciseId: null,
+      },
+      data: { status: AgentCandidateStatus.NOT_PROCESSED, verifierReason: "NOT_SELECTED" },
+    });
+  }, { maxWait: 5_000, timeout: 15_000 });
 }
 
 /**
@@ -1213,18 +1601,67 @@ async function activateCreatedDraft(
 async function queueAgentOperationContinuation(
   operationId: string,
   userId: string,
+  now = new Date(),
+  deadlineAt?: Date,
 ): Promise<boolean> {
+  try {
+    getJobStageTimeoutMs({
+      deadlineAt,
+      cleanupMarginMs: deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+      maxTimeoutMs: 5_000,
+      stage: "agent continuation publish",
+    });
+  } catch (error) {
+    if (isJobStageTimeoutError(error)) return false;
+    throw error;
+  }
   const prisma = getPrisma();
-  const queuedCount = await prisma.agentSkillOperationItem.count({
-    where: {
-      operationId,
-      userId,
-      status: AgentOperationItemStatus.QUEUED,
-    },
+  const [operation, queuedItems] = await Promise.all([
+    prisma.agentSkillOperation.findFirst({
+      where: { id: operationId, userId },
+      select: { updatedAt: true },
+    }),
+    prisma.agentSkillOperationItem.findMany({
+      where: {
+        operationId,
+        userId,
+        status: AgentOperationItemStatus.QUEUED,
+      },
+      select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
+    }),
+  ]);
+  if (!operation) return false;
+  const eligible = queuedItems.filter((item) => isAgentOperationRetryReady({
+    errorCode: item.errorCode,
+    retryCount: item.retryCount,
+    updatedAt: item.updatedAt,
+    now,
+  }));
+  if (eligible.length === 0) return false;
+  const cursor = buildAgentOperationContinuationCursor({
+    operationId,
+    operationUpdatedAt: operation.updatedAt,
+    items: eligible,
   });
-  if (queuedCount === 0) return false;
-  await enqueueOperation(userId, operationId);
-  return true;
+  try {
+    await withAbortableTimeout({
+      run: (signal) => enqueueOperation(userId, operationId, { ...cursor, signal }),
+      timeoutMs: getJobStageTimeoutMs({
+        deadlineAt,
+        cleanupMarginMs: deadlineAt ? AGENT_OPERATION_CLEANUP_MARGIN_MS : 0,
+        maxTimeoutMs: 5_000,
+        stage: "agent continuation publish",
+      }),
+      message: "Agent continuation publication timed out.",
+      stage: "agent continuation publish",
+    });
+    return true;
+  } catch (error) {
+    if (isJobStageTimeoutError(error) || isContinuationPublishFailure(error)) {
+      throw new AgentSkillWorkerError("AGENT_CONTINUATION_PUBLISH_FAILED", true);
+    }
+    throw error;
+  }
 }
 
 export async function reserveAgentActivation(
@@ -1263,7 +1700,11 @@ export async function reserveAgentActivation(
           },
         });
         return claimed.count === 1;
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, {
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        maxWait: 5_000,
+        timeout: 15_000,
+      });
     } catch (error) {
       if (
         !(error instanceof Prisma.PrismaClientKnownRequestError) ||

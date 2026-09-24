@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildLocalizedMaterialContext,
+  createGeminiMaterialOcrGenerator,
   createMetaMuseMaterialOcrGenerator,
   createPdfPageSlice,
 } from "@/lib/materials/evidence";
@@ -109,5 +110,25 @@ describe("localized material evidence", () => {
         },
       ]),
     );
+  });
+
+  it("forwards the worker abort signal to Gemini OCR", async () => {
+    const signal = new AbortController().signal;
+    const generateContent = vi.fn().mockResolvedValue({
+      text: JSON.stringify({ pages: [{ pageNumber: 7, text: "A diagram." }] }),
+    });
+    const generator = createGeminiMaterialOcrGenerator({
+      ai: { models: { generateContent } } as never,
+      model: "gemini-test-model",
+    });
+
+    await expect(generator({
+      pdfBytes: Buffer.from("%PDF slice"),
+      pageNumbers: [7],
+      signal,
+    })).resolves.toEqual({ pages: [{ pageNumber: 7, text: "A diagram." }] });
+    expect(generateContent).toHaveBeenCalledWith(expect.objectContaining({
+      config: expect.objectContaining({ abortSignal: signal }),
+    }));
   });
 });

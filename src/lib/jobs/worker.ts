@@ -8,12 +8,13 @@ import {
   type JobEnvelope,
   type JobEnvironment,
 } from "./contracts";
-import { JOB_SOFT_DEADLINE_MS } from "./timing";
+import { getJobSoftDeadlineMs } from "./timing";
 
 export type JobFailureCode =
   | "JOB_INVALID_MESSAGE"
   | "JOB_ID_CONFLICT"
   | "JOB_NON_RETRYABLE"
+  | "JOB_CONTINUATION_LIMIT_EXCEEDED"
   | "JOB_RETRIES_EXHAUSTED"
   | "JOB_EXECUTION_FAILED";
 
@@ -40,6 +41,7 @@ const MAINTENANCE_LOG_FIELDS = [
   "activationItemsWaiting",
   "activationLegacyItemsPromoted",
   "activationContinuations",
+  "activationContinuationPublishFailures",
 ] as const;
 
 type MaintenanceLogFields = { [Field in typeof MAINTENANCE_LOG_FIELDS[number]]: number };
@@ -79,6 +81,14 @@ export type JobWorkerDependencies = {
 
 function isPermanent(error: unknown): boolean {
   return typeof error === "object" && error !== null && "retryable" in error && error.retryable === false;
+}
+
+function failureReason(error: unknown, permanent: boolean, terminal: boolean): JobFailureCode {
+  if (permanent && typeof error === "object" && error !== null && "failureCode" in error &&
+    error.failureCode === "JOB_CONTINUATION_LIMIT_EXCEEDED") {
+    return "JOB_CONTINUATION_LIMIT_EXCEEDED";
+  }
+  return permanent ? "JOB_NON_RETRYABLE" : terminal ? "JOB_RETRIES_EXHAUSTED" : "JOB_EXECUTION_FAILED";
 }
 
 export function createJobWorker(dependencies: JobWorkerDependencies) {
@@ -126,12 +136,12 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
       executionResult = await dependencies.execute(job, {
         attempt: claim.attempt - 1,
         maxAttempts,
-        deadlineAt: new Date(startedAt + JOB_SOFT_DEADLINE_MS),
+        deadlineAt: new Date(startedAt + getJobSoftDeadlineMs(job.name)),
       });
     } catch (error) {
       const permanent = isPermanent(error);
       const terminal = permanent || claim.attempt >= maxAttempts;
-      const reason = permanent ? "JOB_NON_RETRYABLE" : terminal ? "JOB_RETRIES_EXHAUSTED" : "JOB_EXECUTION_FAILED";
+      const reason = failureReason(error, permanent, terminal);
       // Persist terminal state first. If DLQ publication fails, the next delivery
       // retries publication without re-executing the failed business operation.
       await dependencies.fail(job, claim.token, reason, terminal);

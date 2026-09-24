@@ -15,12 +15,19 @@ import {
   SkillStatus,
 } from "@/generated/prisma/client";
 import { sendAgentSkillOperationRequested } from "@/lib/jobs/events";
+import {
+  isJobStageTimeoutError,
+  withAbortableTimeout,
+} from "@/lib/jobs/deadline";
 import { reconcileMaterialDraftBatch } from "@/lib/materials/batches";
 import { getPrisma } from "@/lib/prisma";
 import {
   AGENT_OPERATION_STALE_AFTER_MS,
   AGENT_OPERATION_ITEM_RETRY_LIMIT,
+  buildAgentOperationContinuationCursor,
   isAgentOperationClaimStale,
+  isAgentOperationRetryReady,
+  getAgentOperationRetryReadyWhere,
 } from "./recovery-policy";
 import { reconcileAgentOperation } from "./reconciliation";
 
@@ -40,7 +47,9 @@ const IN_FLIGHT_ITEM_STATUSES = [
 // narrow compatibility branch for those rows; all newly produced wait states
 // remain ACTIVATING and are handled by the in-flight branch above.
 const LEGACY_ACTIVATION_WAIT_ERROR = "ACTIVATION_IN_PROGRESS";
-const STALE_RECOVERY_ERROR = "TRANSIENT_WORKER_FAILURE";
+// Stale claims already waited past their lease; keep their immediate retry
+// distinct from ordinary worker timeouts, which continue to honor backoff.
+const STALE_RECOVERY_ERROR = "STALE_WORKER_RECOVERY";
 const STALE_RECOVERY_MESSAGE =
   "The activation worker stopped before completion. The item was returned to the queue.";
 const STALE_GENERATION_MESSAGE =
@@ -90,7 +99,12 @@ export async function recoverStaleAgentOperationItems(input: {
       ...(input.operationId ? { operationId: input.operationId } : {}),
       operation: {
         kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
       OR: [
         {
@@ -139,11 +153,14 @@ export async function recoverStaleAgentOperationItems(input: {
     unchanged: 0,
     legacyPromoted: 0,
     continuations: 0,
+    continuationPublishFailures: 0,
   };
 
   for (const candidate of candidates) {
     const result = await recoverCandidate({ candidate, now: input.now });
-    if (result === "requeued") counts.requeued += 1;
+    if (result === "requeued") {
+      counts.requeued += 1;
+    }
     if (result === "finalized") counts.finalized += 1;
     if (result === "waiting") counts.waiting += 1;
     if (result === "promoted") {
@@ -161,15 +178,20 @@ export async function recoverStaleAgentOperationItems(input: {
       ...(input.userId ? { userId: input.userId } : {}),
       ...(input.operationId ? { operationId: input.operationId } : {}),
       status: AgentOperationItemStatus.QUEUED,
-      errorCode: STALE_RECOVERY_ERROR,
+      AND: [getAgentOperationRetryReadyWhere(input.now)],
       operation: {
         kind: { in: [...RECOVERABLE_OPERATION_KINDS] },
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
     },
     orderBy: { updatedAt: "asc" },
     take: Math.min(input.limit ?? RECOVERY_BATCH_LIMIT, RECOVERY_BATCH_LIMIT),
-    select: { id: true, operationId: true, userId: true },
+    select: { id: true, operationId: true, userId: true, errorCode: true, retryCount: true, updatedAt: true },
   });
   const continuationOwners = new Map<string, { operationId: string; userId: string }>();
   for (const operationId of changedOperations) {
@@ -177,7 +199,9 @@ export async function recoverStaleAgentOperationItems(input: {
     if (candidate) continuationOwners.set(operationId, candidate);
   }
   for (const item of queuedRecoveryItems) {
-    continuationOwners.set(item.operationId, item);
+    if (isAgentOperationRetryReady({ ...item, now: input.now })) {
+      continuationOwners.set(item.operationId, item);
+    }
   }
 
   for (const owner of continuationOwners.values()) {
@@ -185,7 +209,12 @@ export async function recoverStaleAgentOperationItems(input: {
       where: {
         id: owner.operationId,
         userId: owner.userId,
-        status: { notIn: [...TERMINAL_OPERATION_STATUSES] },
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
       },
       select: { id: true },
     });
@@ -195,24 +224,61 @@ export async function recoverStaleAgentOperationItems(input: {
       userId: owner.userId,
       now: input.now,
     });
-    const queued = await prisma.agentSkillOperationItem.count({
+    const currentOperation = await prisma.agentSkillOperation.findFirst({
+      where: {
+        id: owner.operationId,
+        userId: owner.userId,
+        status: {
+          notIn: [
+            ...TERMINAL_OPERATION_STATUSES,
+            AgentOperationStatus.AWAITING_UPLOAD,
+          ],
+        },
+      },
+      select: { updatedAt: true },
+    });
+    if (!currentOperation) continue;
+    const queued = await prisma.agentSkillOperationItem.findMany({
       where: {
         operationId: owner.operationId,
         userId: owner.userId,
         status: AgentOperationItemStatus.QUEUED,
       },
+      select: { id: true, retryCount: true, updatedAt: true, errorCode: true },
     });
-    if (queued > 0) {
-      await sendAgentSkillOperationRequested({
-        userId: owner.userId,
+    const eligible = queued.filter((item) =>
+      isAgentOperationRetryReady({ ...item, now: input.now }),
+    );
+    if (eligible.length > 0) {
+      const cursor = buildAgentOperationContinuationCursor({
         operationId: owner.operationId,
-        requestedAt: input.now.toISOString(),
+        operationUpdatedAt: currentOperation.updatedAt,
+        items: eligible,
       });
-      counts.continuations += 1;
+      try {
+        await withAbortableTimeout({
+          run: (signal) => sendAgentSkillOperationRequested({
+            userId: owner.userId,
+            operationId: owner.operationId,
+            requestedAt: cursor.requestedAt,
+          }, { eventId: cursor.eventId, signal }),
+          timeoutMs: 5_000,
+          message: "Agent recovery continuation publication timed out.",
+          stage: "agent recovery continuation publish",
+        });
+        counts.continuations += 1;
+      } catch (error) {
+        if (!isJobStageTimeoutError(error) && !isContinuationPublishFailure(error)) throw error;
+        counts.continuationPublishFailures += 1;
+      }
     }
   }
 
   return counts;
+}
+
+function isContinuationPublishFailure(error: unknown) {
+  return error instanceof Error && error.message === "JOB_PUBLISH_FAILED";
 }
 
 async function recoverCandidate(input: {

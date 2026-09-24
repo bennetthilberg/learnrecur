@@ -17,7 +17,24 @@ user. Draft and activation jobs use two stable per-user lanes. The worker runs
 one message per invocation, with a ten-minute timeout and an eleven-minute
 database lease. SQS visibility is one hour, allowing Lambda's recommended
 timeout margin. Explicit failures shorten visibility using bounded backoff.
-Production concurrency is capped at five, staging at two.
+Production concurrency is capped at five, staging at two. The Lambda reserved
+concurrency and SQS event-source maximum use the same cap.
+
+The worker deliberately publishes follow-up jobs to its own FIFO queue. Lambda
+normally stops a supported recursive chain after about 16 invocations, which
+can interrupt a valid import fan-out. The function therefore opts into AWS's
+`Allow` setting for this intentional pattern. That setting disables Lambda's
+`RecursiveInvocationsDropped` metric, so application limits and queue alarms
+must bound the work: each delivery may publish at most 100 follow-ups; the
+validated envelope depth may not exceed 64; item and job attempts are bounded;
+and the production/staging Lambda reserved concurrency matches the event-source
+cap (five and two). Hitting a continuation limit is a permanent, logged job
+failure sent to the FIFO dead-letter queue. Maintenance rethrows this typed
+limit error instead of converting it into a recoverable scan failure. Queue
+age and the FIFO dead-letter queue have CloudWatch alarms in both environments;
+production also alarms on the scheduler dead-letter queue. Review these limits
+before increasing batch sizes or concurrency. [AWS's recursion guidance](https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html)
+recommends guardrails whenever an intentional recursive pattern is enabled.
 
 `BackgroundJobDelivery` atomically claims an envelope ID and payload hash within
 its environment. Completed duplicate deliveries are acknowledged. Live leases
@@ -110,7 +127,8 @@ file; the queues template does not create access keys.
 
 Production has alarms for queue age, both dead-letter queues, Lambda errors, and
 each of the three scheduled jobs failing to complete. Staging has queue-age,
-worker-error, and job-dead-letter alarms. This totals ten standard alarms.
+worker-error, and job-dead-letter alarms. This totals ten standard alarms
+across the two stacks.
 SNS topics require a confirmed destination and a delivered test alert before
 claiming that owner notification works.
 

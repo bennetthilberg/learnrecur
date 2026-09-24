@@ -2,6 +2,7 @@ import "server-only";
 
 import { getGeminiEnv } from "@/lib/env";
 import { MAX_IMPORT_BATCH_ITEMS } from "@/lib/import-limits";
+import { ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS } from "@/lib/skills/activation-timing";
 import {
   GEMINI_LOW_THINKING_CONFIG,
   getGeminiRuntimeLogContext,
@@ -37,6 +38,7 @@ export type MaterialScopePlannerInput = {
   structuralReferences: StructuralMaterialReference[];
   sections: MaterialPlanningSection[];
   chunks: Array<MaterialPlanningChunk & { text: string; headingText: string | null }>;
+  signal?: AbortSignal;
   validationFeedback?: string;
 };
 
@@ -225,6 +227,7 @@ function createGeminiMaterialDraftTargetRepairer(
     const sourceMedia = repairInput.sourceMedia ?? [];
 
     return runWithGeminiProviderFallback({
+      signal: repairInput.signal,
       fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
         createMetaMuseMaterialDraftTargetRepairer(config)(repairInput),
       ),
@@ -235,6 +238,7 @@ function createGeminiMaterialDraftTargetRepairer(
         runLoggedGeminiOperation({
           config: input.gemini,
           operation: "material draft target repair",
+          signal: repairInput.signal,
           metadata: {
             promptChars: prompt.length,
             schemaName: "draftTargetRepairJsonSchema",
@@ -247,7 +251,7 @@ function createGeminiMaterialDraftTargetRepairer(
               mimeTypes: sourceMedia.map((media) => media.mimeType),
             },
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
               contents: [
@@ -265,6 +269,7 @@ function createGeminiMaterialDraftTargetRepairer(
                 },
               ],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: draftTargetRepairJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -290,6 +295,7 @@ function createGeminiMaterialScopeReviewer(
     const prompt = buildMaterialScopeReviewerPrompt(reviewInput);
 
     return runWithGeminiProviderFallback({
+      signal: reviewInput.signal,
       fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
         createMetaMuseMaterialScopeReviewer(config)(reviewInput),
       ),
@@ -300,15 +306,18 @@ function createGeminiMaterialScopeReviewer(
         runLoggedGeminiOperation({
           config: input.gemini,
           operation: "material scope review",
+          signal: reviewInput.signal,
+          timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
           metadata: {
             promptChars: prompt.length,
             schemaName: "materialScopePlannerJsonSchema",
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
               contents: [{ role: "user", parts: [{ text: prompt }] }],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseSchema: geminiMaterialScopePlannerJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -334,6 +343,7 @@ function createGeminiMaterialScopePlanner(
     const prompt = buildMaterialScopePlannerPrompt(plannerInput);
 
     return runWithGeminiProviderFallback({
+      signal: plannerInput.signal,
       fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
         createMetaMuseMaterialScopePlanner(config)(plannerInput),
       ),
@@ -344,15 +354,18 @@ function createGeminiMaterialScopePlanner(
         runLoggedGeminiOperation({
           config: input.gemini,
           operation: "material scope planning",
+          signal: plannerInput.signal,
+          timeoutMs: ACTIVATION_PROVIDER_CHAIN_TIMEOUT_MS,
           metadata: {
             promptChars: prompt.length,
             schemaName: "materialScopePlannerJsonSchema",
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
               contents: [{ role: "user", parts: [{ text: prompt }] }],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseSchema: geminiMaterialScopePlannerJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -379,6 +392,7 @@ function createGeminiMaterialDraftVerifier(
     const sourceMedia = verificationInput.sourceMedia ?? [];
 
     return runWithGeminiProviderFallback({
+      signal: verificationInput.signal,
       fallback: buildMaterialMetaMuseFallback(input.metaMuseFallback, (config) =>
         createMetaMuseMaterialDraftVerifier(config)(verificationInput),
       ),
@@ -389,6 +403,7 @@ function createGeminiMaterialDraftVerifier(
         runLoggedGeminiOperation({
           config: input.gemini,
           operation: "material draft verification",
+          signal: verificationInput.signal,
           metadata: {
             promptChars: prompt.length,
             schemaName: "draftVerificationJsonSchema",
@@ -401,7 +416,7 @@ function createGeminiMaterialDraftVerifier(
               mimeTypes: sourceMedia.map((media) => media.mimeType),
             },
           },
-          run: async (ai) => {
+          run: async (ai, signal) => {
             const response = await ai.models.generateContent({
               model: input.gemini.model,
               contents: [
@@ -419,6 +434,7 @@ function createGeminiMaterialDraftVerifier(
                 },
               ],
               config: {
+                abortSignal: signal,
                 responseMimeType: "application/json",
                 responseJsonSchema: draftVerificationJsonSchema,
                 thinkingConfig: GEMINI_LOW_THINKING_CONFIG,
@@ -460,6 +476,7 @@ function createMetaMuseMaterialScopePlanner(
 
     return runMetaMuseJsonResponse({
       ...config,
+      signal: plannerInput.signal,
       operation: "material scope planning",
       metadata: {
         promptChars: prompt.length,
@@ -485,6 +502,7 @@ function createMetaMuseMaterialScopeReviewer(
 
     return runMetaMuseJsonResponse({
       ...config,
+      signal: reviewInput.signal,
       operation: "material scope review",
       metadata: {
         promptChars: prompt.length,
@@ -511,6 +529,7 @@ function createMetaMuseMaterialDraftTargetRepairer(
 
     return runMetaMuseJsonResponse({
       ...config,
+      signal: repairInput.signal,
       operation: "material draft target repair",
       metadata: {
         promptChars: prompt.length,
@@ -550,6 +569,7 @@ function createMetaMuseMaterialDraftVerifier(
 
     return runMetaMuseJsonResponse({
       ...config,
+      signal: verificationInput.signal,
       operation: "material draft verification",
       metadata: {
         promptChars: prompt.length,

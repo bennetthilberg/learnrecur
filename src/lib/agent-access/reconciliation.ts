@@ -20,6 +20,17 @@ export async function reconcileAgentOperation(input: {
   now: Date;
 }) {
   return runAgentSerializable(async (tx) => {
+    const operation = await tx.agentSkillOperation.findFirst({
+      where: { id: input.operationId, userId: input.userId },
+      select: {
+        status: true,
+        activeCount: true,
+        reusedCount: true,
+        failedCount: true,
+        completedAt: true,
+      },
+    });
+    if (!operation) return null;
     const items = await tx.agentSkillOperationItem.findMany({
       where: { operationId: input.operationId, userId: input.userId },
       select: { status: true },
@@ -30,20 +41,24 @@ export async function reconcileAgentOperation(input: {
     const reusedCount = items.filter((item) => item.status === AgentOperationItemStatus.REUSED).length;
     const failedCount = items.filter((item) => item.status === AgentOperationItemStatus.FAILED).length;
     const terminal = TERMINAL_OPERATION_STATUSES.includes(status);
-    await tx.agentSkillOperation.updateMany({
-      where: {
-        id: input.operationId,
-        userId: input.userId,
-        status: { notIn: TERMINAL_OPERATION_STATUSES },
-      },
-      data: {
-        status,
-        activeCount,
-        reusedCount,
-        failedCount,
-        completedAt: terminal ? input.now : null,
-      },
-    });
+    const completedAt = terminal ? input.now : null;
+    const alreadyReconciled =
+      TERMINAL_OPERATION_STATUSES.includes(operation.status) ||
+      (operation.status === status &&
+        operation.activeCount === activeCount &&
+        operation.reusedCount === reusedCount &&
+        operation.failedCount === failedCount &&
+        operation.completedAt?.getTime() === completedAt?.getTime());
+    if (!alreadyReconciled) {
+      await tx.agentSkillOperation.updateMany({
+        where: {
+          id: input.operationId,
+          userId: input.userId,
+          status: { notIn: TERMINAL_OPERATION_STATUSES },
+        },
+        data: { status, activeCount, reusedCount, failedCount, completedAt },
+      });
+    }
     return { status, activeCount, reusedCount, failedCount, terminal };
   });
 }

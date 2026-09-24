@@ -1,11 +1,25 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { mockEmbedContent } = vi.hoisted(() => ({ mockEmbedContent: vi.fn() }));
+
+vi.mock("@google/genai", () => ({
+  GoogleGenAI: class {
+    models = { embedContent: mockEmbedContent };
+  },
+}));
 
 import {
   buildMaterialEmbeddingConfig,
+  createGeminiMaterialEmbeddingGenerator,
   resolveMaterialEmbeddingRuntimeConfigs,
 } from "@/lib/materials/embeddings";
 
 describe("material embedding requests", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    mockEmbedContent.mockReset();
+  });
+
   it("preserves enterprise precedence while allowing an explicit 404 fallback", () => {
     const configs = resolveMaterialEmbeddingRuntimeConfigs({
       GEMINI_API_KEY: "developer-key",
@@ -59,5 +73,29 @@ describe("material embedding requests", () => {
       outputDimensionality: 768,
       autoTruncate: true,
     });
+  });
+
+  it("forwards cancellation to Gemini and does not start a fallback request", async () => {
+    const controller = new AbortController();
+    const canceled = new Error("material retrieval deadline reached");
+    mockEmbedContent.mockImplementationOnce(async (request: {
+      config: { abortSignal?: AbortSignal };
+    }) => {
+      expect(request.config.abortSignal).toBe(controller.signal);
+      controller.abort(canceled);
+      throw canceled;
+    });
+    vi.stubEnv("GEMINI_API_KEY", "test-developer-key");
+    vi.stubEnv("GEMINI_ENTERPRISE_AGENT_KEY_PLATFORM_KEY", "test-enterprise-key");
+    vi.stubEnv("GEMINI_EMBEDDING_MODEL", "gemini-embedding-2");
+    vi.stubEnv("GEMINI_EMBEDDING_API_MODE", "auto");
+
+    const generator = createGeminiMaterialEmbeddingGenerator();
+    await expect(generator({
+      texts: ["Direct object pronouns"],
+      signal: controller.signal,
+    })).rejects.toBe(canceled);
+
+    expect(mockEmbedContent).toHaveBeenCalledTimes(1);
   });
 });
