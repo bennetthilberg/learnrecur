@@ -325,7 +325,6 @@ export async function ensureMaterialPageOcr(input: {
       : { status: "not-needed" as const, pages: claimedPages };
   });
 
-  throwIfAborted(input.signal);
   if (claimResult.status === "in-progress") {
     return { status: "in-progress" as const, processedPageCount: 0 };
   }

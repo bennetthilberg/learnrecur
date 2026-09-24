@@ -381,6 +381,83 @@ describeDatabase("localized material OCR evidence", () => {
     }
   });
 
+  it("releases OCR claims when the worker deadline aborts during the claim transaction", async () => {
+    const page = await prisma.materialPage.findFirstOrThrow({
+      where: { userId, materialRevisionId, pageNumber: 4 },
+    });
+    const previousPageState = {
+      textStatus: page.textStatus,
+      ocrText: page.ocrText,
+      contentHash: page.contentHash,
+      tokenEstimate: page.tokenEstimate,
+      metadata:
+        page.metadata === null
+          ? Prisma.JsonNull
+          : page.metadata as Prisma.InputJsonValue,
+    };
+    await prisma.materialPage.update({
+      where: { id: page.id },
+      data: {
+        textStatus: MaterialPageTextStatus.NEEDS_OCR,
+        ocrText: null,
+        metadata: {},
+      },
+    });
+
+    const controller = new AbortController();
+    const canceled = new Error("material OCR worker deadline reached");
+    const originalTransaction = prisma.$transaction.bind(prisma) as unknown as (
+      operation: unknown,
+      options?: { maxWait?: number; timeout?: number },
+    ) => Promise<unknown>;
+    const transactionSpy = vi.spyOn(prisma, "$transaction");
+    let abortedAfterClaim = false;
+    transactionSpy.mockImplementation((async (...args: unknown[]) => {
+      const operation = args[0];
+      const options = args[1] as { maxWait?: number; timeout?: number } | undefined;
+      if (!abortedAfterClaim && typeof operation === "function") {
+        return originalTransaction(async (tx: unknown) => {
+          const result = await (operation as (tx: unknown) => Promise<unknown>)(tx);
+          abortedAfterClaim = true;
+          controller.abort(canceled);
+          return result;
+        }, options);
+      }
+      return originalTransaction(operation, options);
+    }) as typeof prisma.$transaction);
+    const generator = vi.fn(async ({ pageNumbers }: { pageNumbers: number[] }) => ({
+      pages: pageNumbers.map((pageNumber) => ({
+        pageNumber,
+        text: `OCR page ${pageNumber}.`,
+      })),
+    }));
+
+    try {
+      await expect(ensureMaterialPageOcr({
+        userId,
+        materialRevisionId,
+        sourceFile,
+        pageRanges: [{ start: 4, end: 4 }],
+        storage: createStorage(pdfBytes),
+        signal: controller.signal,
+        ocrGenerator: generator,
+      })).rejects.toBe(canceled);
+      expect(abortedAfterClaim).toBe(true);
+      expect(generator).not.toHaveBeenCalled();
+      await expect(prisma.materialPage.findUniqueOrThrow({ where: { id: page.id } }))
+        .resolves.toMatchObject({
+          textStatus: MaterialPageTextStatus.NEEDS_OCR,
+          metadata: { reason: "worker-deadline", retryable: true },
+        });
+    } finally {
+      transactionSpy.mockRestore();
+      await prisma.materialPage.update({
+        where: { id: page.id },
+        data: previousPageState,
+      });
+    }
+  });
+
   it("reports a fresh OCR claim instead of treating it as completed work", async () => {
     const page = await prisma.materialPage.findFirstOrThrow({
       where: { userId, materialRevisionId, pageNumber: 3 },
