@@ -332,3 +332,28 @@ the operation and rethrows that typed permanent error, with a database
 regression test for a rejected continuation at the safety limit. TypeScript,
 lint, and all 1,287 unit tests pass for this follow-up. This second patch is not
 yet committed or pushed; no production changes have been made.
+
+### Full review and hosted CI checkpoint — 2026-09-24 15:24 UTC
+
+PR #154 is at `c431f45`. Hosted `verify` and `authenticated-e2e` passed on this
+revision, including the write-enabled database integration suite and
+authenticated browser tests. Both Vercel previews also deployed successfully.
+The full committed CodeRabbit CLI review covered all 50 changed files and
+reported one trivial test-hardening issue: the MetaMuse cancellation test
+needed to assert that its mocked Gemini request had started before aborting.
+That assertion is now added, and `npx vitest run tests/unit/material-ai.test.ts`
+passes (7 tests). The assertion and this checkpoint are not yet committed.
+
+GitHub currently reports 17 review threads with none unresolved. The PR
+decision still reads `CHANGES_REQUESTED`; CodeRabbit's PR check is paused. The
+manual Codex review request limit has already been used, so no additional manual
+`@codex review` request is available. The local full-diff CodeRabbit review is
+clean apart from the test assertion fixed above.
+
+AWS credentials remain expired: a read-only `aws sts get-caller-identity`
+check at 15:11 UTC returned `Your session has expired`. No `aws login`, queue
+read, message receive/redrive, deployment, or production configuration change
+has occurred since the 04:36 UTC snapshot. The current production Lambda,
+backlog, alarms, and recursive-drop metric therefore remain unverified. The
+mixed-batch acceptance check and import resume are still blocked on live AWS
+access and the reviewed release path; learner state has not been touched.

@@ -201,6 +201,7 @@ describe("material AI MetaMuse fallback", () => {
     for (let turn = 0; turn < 5 && geminiGenerateContentMock.mock.calls.length === 0; turn += 1) {
       await Promise.resolve();
     }
+    expect(geminiGenerateContentMock).toHaveBeenCalledTimes(1);
     controller.abort(reason);
 
     await expect(pending).rejects.toBe(reason);
