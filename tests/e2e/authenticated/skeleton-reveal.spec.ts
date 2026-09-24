@@ -27,15 +27,26 @@ for (const width of [390, 1280]) {
       const calls = (window as unknown as { revealCalls: unknown[] }).revealCalls;
       calls.length = 0;
       const main = document.querySelector("main")!;
-      // Several short loads must not accumulate into one long loading period.
-      for (let index = 0; index < 4; index++) {
-        const skeleton = document.createElement("div");
-        skeleton.className = "routeSkeleton";
-        Object.assign(skeleton.style, { position: "fixed", top: "100px", left: "20px", width: "100px", height: "20px" });
-        main.append(skeleton);
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        skeleton.remove();
-        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const originalNow = Object.getOwnPropertyDescriptor(performance, "now");
+      let elapsed = performance.now();
+      Object.defineProperty(performance, "now", { configurable: true, value: () => elapsed });
+      try {
+        // CI frame scheduling can pause for longer than the 200ms reveal threshold.
+        // Keep each synthetic load at 50ms while still letting the observer scan.
+        for (let index = 0; index < 4; index++) {
+          const skeleton = document.createElement("div");
+          skeleton.className = "routeSkeleton";
+          Object.assign(skeleton.style, { position: "fixed", top: "100px", left: "20px", width: "100px", height: "20px" });
+          main.append(skeleton);
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          elapsed += 50;
+          skeleton.remove();
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          elapsed += 50;
+        }
+      } finally {
+        if (originalNow) Object.defineProperty(performance, "now", originalNow);
+        else Reflect.deleteProperty(performance, "now");
       }
       return calls.length;
     });
