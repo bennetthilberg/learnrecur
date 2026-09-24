@@ -172,25 +172,42 @@ Local verification for this branch:
   verified candidates; stable recovery event IDs; upload-expiry isolation;
   fairness when upload-waiting rows exceed the continuation scan cap; retry
   after continuation publication failure; and synchronous planning timeouts;
-- AWS credentials remain expired. Production queue behavior, production
-  deployment, duplicate-activation checks under a live mixed batch, and the
-  requested production smoke acceptance remain unverified.
+- AWS access was restored on 2026-09-24 and used for read-only inspection.
+  The live worker, recursion metric, alarm, and queue evidence is recorded
+  below. Production deployment, duplicate-activation checks under a live mixed
+  batch, and the requested production smoke acceptance remain unverified.
 
 ### AWS recursive Lambda notification
 
 AWS sent a recursive-invocation termination alert for the jobs worker around
 2026-09-24 00:16 UTC. The alert says Lambda stopped the detected invocation
-chain. Repository code confirms that worker handlers could publish follow-up
-messages directly to their own FIFO-triggered queue, so a sufficiently long
-valid fan-out could reach AWS's recursion threshold. The email alone does not
-identify which job started that chain, and expired AWS credentials prevented
-confirmation against the corresponding CloudWatch event or SQS receipts.
+chain. Read-only CloudWatch inspection on 2026-09-24 confirmed two
+`RecursiveInvocationsDropped` datapoints: one at 00:10 UTC, matching the alert,
+and another at 01:10 UTC. The same window had no Lambda `Errors` datapoints above
+zero; Lambda's recursion-drop metric is separate from the ordinary error metric.
+The second drop confirms this repeated after the email.
+
+The production worker was still the pre-PR deployment at inspection: active,
+last modified 2026-09-23 08:20 UTC, with a 600-second timeout. Its `RecursiveLoop`
+and reserved-concurrency fields were unset, and its enabled FIFO event-source
+mapping used batch size 1 with maximum concurrency 5. The main queue had 1
+visible and 1 in-flight message; its FIFO dead-letter queue had 3 visible
+messages. The production `QueueAge` and `DeadLetterBacklog` alarms were both in
+`ALARM`: queue age crossed 900 seconds at 21:23 UTC on 2026-09-23, and the
+dead-letter alarm's last breaching datapoint was 1 at 04:31 UTC on 2026-09-18.
+
+Repository code confirms that worker handlers can publish follow-up messages
+directly to their own FIFO-triggered queue, so a sufficiently long valid
+fan-out can reach AWS's recursion threshold. The metric confirms recursion was
+dropped twice, but it does not identify which job started either chain. No SQS
+messages were received or changed during this inspection, and no production
+configuration was modified.
 
 PR #154 explicitly allows the intentional SQS/Lambda chain and adds the
 bounded follow-up, continuation-depth, and reserved-concurrency guardrails
-described above. This is a code/template fix only; it is not deployed. Live
-queue cleanup and the mixed-batch acceptance check remain pending an
-authenticated AWS session.
+described above. This is a code/template fix only; it is not deployed. The
+current queue and DLQ backlog need review before any redrive, and the mixed-batch
+acceptance check remains pending the reviewed release path.
 
 After PR CI and review, the operator should deploy through the normal release
 path, run the small mixed batch from the handoff, and verify sibling progress,
