@@ -51,7 +51,7 @@ export async function scanMaterialChunksWithMuse(input: {
   let group: MuseRetrievalChunk[] = [];
   let groupChars = 0;
   let scannedChunkCount = 0;
-  let afterOrdinal = -1;
+  let afterOrdinal = Number.MIN_SAFE_INTEGER;
 
   while (true) {
     throwIfAborted(input.signal);
@@ -98,7 +98,7 @@ export async function scanMaterialChunksWithMuse(input: {
   let nextGroup = 0;
   let failure: unknown;
   try {
-    await Promise.allSettled(Array.from(
+    const settlements = await Promise.allSettled(Array.from(
       { length: Math.min(MAX_CONCURRENT_REQUESTS, groups.length) },
       async () => {
         while (nextGroup < groups.length && failure === undefined) {
@@ -133,7 +133,12 @@ export async function scanMaterialChunksWithMuse(input: {
       },
     ));
     if (failure !== undefined) throw failure;
+    const rejected = settlements.find((settlement) => settlement.status === "rejected");
+    if (rejected?.status === "rejected") throw rejected.reason;
     throwIfAborted(controller.signal);
+    if (scored.some((groupScores) => !groupScores)) {
+      throw new Error("Muse retrieval left a source group unscored.");
+    }
   } finally {
     input.signal?.removeEventListener("abort", abortFromParent);
   }

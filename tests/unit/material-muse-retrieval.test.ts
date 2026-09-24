@@ -48,6 +48,19 @@ describe("Muse material retrieval", () => {
     expect(rank.mock.calls.length).toBeGreaterThan(1);
   });
 
+  it("includes chunks with negative ordinals", async () => {
+    const source = [chunk(-2), chunk(0)];
+    const result = await scanMaterialChunksWithMuse({
+      query: "topic",
+      loadPage: async (afterOrdinal) =>
+        source.filter((item) => item.ordinal > afterOrdinal),
+      rank: async ({ chunks }) => ({
+        scores: chunks.map((item) => ({ id: item.id, relevance: 3 })),
+      }),
+    });
+    expect(result.matches.map((item) => item.id)).toEqual(["chunk--2", "chunk-0"]);
+  });
+
   it.each([
     { label: "missing score", scores: [{ id: "chunk-0", relevance: 3 }] },
     { label: "duplicate score", scores: [{ id: "chunk-0", relevance: 3 }, { id: "chunk-0", relevance: 0 }] },
