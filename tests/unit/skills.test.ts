@@ -498,6 +498,61 @@ describe("validateGeneratedChoiceExercises", () => {
 });
 
 describe("validateGeneratedExactInputExercises", () => {
+  it("rejects a whole-sentence translation with one exact accepted answer", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Traduce al español usando llevar en imperfecto.\n\nHe had been sleeping for three hours when I arrived.",
+        answerSpec: {
+          kind: "text", accepted: ["Llevaba tres horas durmiendo cuando llegué."],
+          normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: false,
+        },
+        correctAnswerDisplay: "Llevaba tres horas durmiendo cuando llegué.",
+      }],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1 });
+  });
+
+  it("rejects full-sentence recall even when the prompt shows a blank", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [
+        {
+          ...validExactInputExercise(1),
+          prompt: "Escribe la frase en español.\n\nI have just arrived. Usa acabar de + infinitivo.",
+          answerSpec: { kind: "text", accepted: ["Acabo de llegar"] },
+          correctAnswerDisplay: "Acabo de llegar",
+        },
+        {
+          ...validExactInputExercise(2),
+          prompt: "Escribe la oración completa en español con doler.\n\nA Juan ___ los pies después de caminar.",
+          answerSpec: { kind: "text", accepted: ["A Juan le duelen los pies después de caminar."] },
+          correctAnswerDisplay: "A Juan le duelen los pies después de caminar.",
+        },
+      ],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 2 });
+  });
+
+  it("keeps a bounded translation cloze and a translation with listed variants", () => {
+    const cloze = {
+      ...validExactInputExercise(1),
+      prompt: "Traduce la forma verbal y completa: Ella ____ dos horas. (llevar, imperfecto)",
+    };
+    const variants = {
+      ...validExactInputExercise(2),
+      prompt: "Translate into Spanish: He had been sleeping for three hours when I arrived.",
+      answerSpec: {
+        kind: "text" as const,
+        accepted: ["Llevaba tres horas durmiendo cuando llegué.", "Él llevaba tres horas durmiendo cuando yo llegué."],
+        normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: false,
+      },
+      correctAnswerDisplay: "Llevaba tres horas durmiendo cuando llegué.",
+    };
+    expect(validateGeneratedExactInputExercises({ exercises: [cloze, variants] })).toMatchObject({
+      status: "ready", rejectedCount: 0,
+    });
+  });
+
   it("retains original slot positions after deterministic rejection", () => {
     const result = validateGeneratedExactInputExercises({
       exercises: [{ ...validExactInputExercise(1), answerSpec: { kind: "invalid" } }, validExactInputExercise(2)],
