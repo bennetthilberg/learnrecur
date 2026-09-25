@@ -611,6 +611,7 @@ describe("validateGeneratedExactInputExercises", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 0,
       rejectedCount: 1,
+      message: "Only 0 of 1 required exact-input exercises passed verification.",
     });
   });
 
@@ -780,6 +781,7 @@ describe("validateGeneratedMathExercises", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 0,
       rejectedCount: 1,
+      message: "Only 0 of 1 required math exercises passed verification.",
     });
   });
 
@@ -1026,6 +1028,7 @@ describe("validateChoiceExerciseVerification", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 1,
       rejectedCount: 2,
+      message: "Only 1 of 3 required choice exercises passed verification.",
     });
   });
 

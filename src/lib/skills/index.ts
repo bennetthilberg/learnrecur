@@ -5522,7 +5522,7 @@ export function validateGeneratedChoiceExercises(
       "too-few-valid-exercises",
       exercises,
       rejectedCount,
-      `Gemini returned ${exercises.length} valid exercises; at least ${minValidExercises} are required.`,
+      `Only ${exercises.length} of ${minValidExercises} required choice exercises passed validation.`,
     );
   }
 
@@ -5878,7 +5878,7 @@ export function validateChoiceExerciseVerification(input: {
       verifiedExercises,
       finalDecisions,
       rejectedCount,
-      `Gemini verified ${verifiedExercises.length} exercises; at least ${minVerifiedExercises} are required.`,
+      `Only ${verifiedExercises.length} of ${minVerifiedExercises} required choice exercises passed verification.`,
     );
   }
 
@@ -5968,7 +5968,7 @@ export function validateGeneratedExactInputExercises(
       "too-few-valid-exercises",
       exercises,
       rejectedCount,
-      `Gemini returned ${exercises.length} valid exact-input exercises; at least ${minValidExercises} are required.`,
+      `Only ${exercises.length} of ${minValidExercises} required exact-input exercises passed validation.`,
     );
   }
 
@@ -6017,7 +6017,7 @@ export function validateGeneratedMathExercises(
       "too-few-valid-exercises",
       exercises,
       rejectedCount,
-      `Gemini returned ${exercises.length} valid math exercises; at least ${minValidExercises} are required.`,
+      `Only ${exercises.length} of ${minValidExercises} required math exercises passed validation.`,
     );
   }
 
@@ -6124,7 +6124,7 @@ export function validateExactInputExerciseVerification(input: {
       verifiedExercises,
       decisions,
       rejectedCount,
-      `Gemini verified ${verifiedExercises.length} exact-input exercises; at least ${minVerifiedExercises} are required.`,
+      `Only ${verifiedExercises.length} of ${minVerifiedExercises} required exact-input exercises passed verification.`,
     );
   }
 
@@ -6213,7 +6213,7 @@ export function validateMathExerciseVerification(input: {
       verifiedExercises,
       decisions,
       rejectedCount,
-      `Gemini verified ${verifiedExercises.length} math exercises; at least ${minVerifiedExercises} are required.`,
+      `Only ${verifiedExercises.length} of ${minVerifiedExercises} required math exercises passed verification.`,
     );
   }
 
