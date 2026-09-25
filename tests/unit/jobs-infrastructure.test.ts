@@ -40,7 +40,7 @@ describe("AWS deployment contract", () => {
     expect(template.Resources.Queue.Properties).toMatchObject({
       FifoQueue: true, ContentBasedDeduplication: true, SqsManagedSseEnabled: true,
       QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
-      RedrivePolicy: { maxReceiveCount: 6 },
+      RedrivePolicy: { maxReceiveCount: 30 },
     });
     expect(template.Resources.Worker.Properties).toMatchObject({
       Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS,

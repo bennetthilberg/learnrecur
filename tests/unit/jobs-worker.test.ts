@@ -173,6 +173,7 @@ describe("SQS worker delivery safety", () => {
     vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private study material"), { code: "P1001" }));
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.execute).not.toHaveBeenCalled();
+    expect(dependencies.retry).toHaveBeenCalledWith(expect.anything(), 30);
     expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
       outcome: "JOB_DELIVERY_FAILED",
       name: "learnrecur/choice-refill.requested",
@@ -181,6 +182,54 @@ describe("SQS worker delivery safety", () => {
       errorCode: "P1001",
     }));
     expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private study material");
+  });
+
+  it("retries a pool connection timeout before the one-hour queue visibility expires", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("Connection terminated due to connection timeout"));
+    const failed = record({
+      attributes: { ...record().attributes, ApproximateReceiveCount: "4" },
+    });
+    expect(await run({ Records: [failed] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.retry).toHaveBeenCalledWith(failed, 240);
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      phase: "claim",
+      errorCode: "DB_CONNECTION_TIMEOUT",
+    }));
+  });
+
+  it("keeps a failed delivery unacknowledged when rescheduling also fails", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("timeout exceeded when trying to connect"));
+    vi.mocked(dependencies.retry).mockRejectedValue(new Error("private SQS response"));
+    expect(await run({ Records: [record()] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_RETRY_SCHEDULE_FAILED",
+      phase: "claim",
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private SQS response");
+  });
+
+  it.each([
+    { count: "invalid", delay: 30 },
+    { count: "0", delay: 30 },
+    { count: "999999999999999999999", delay: 30 },
+    { count: "30", delay: 900 },
+  ])("bounds infrastructure retry for receive count $count", async ({ count, delay }) => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("database unavailable"));
+    const failed = record({
+      attributes: { ...record().attributes, ApproximateReceiveCount: count },
+    });
+    expect(await run({ Records: [failed] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.retry).toHaveBeenCalledWith(failed, delay);
   });
 
   it("does not log arbitrary provider error codes", async () => {
@@ -221,6 +270,7 @@ describe("SQS worker delivery safety", () => {
       .toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.claim).not.toHaveBeenCalled();
     expect(dependencies.deadLetter).not.toHaveBeenCalled();
+    expect(dependencies.retry).not.toHaveBeenCalled();
   });
 
   it("stops after failure and returns all remaining FIFO records unprocessed", async () => {

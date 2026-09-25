@@ -33,7 +33,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
         QueueName: name("jobs.fifo"), FifoQueue: true, ContentBasedDeduplication: true,
         SqsManagedSseEnabled: true, MaximumMessageSize: 65536, MessageRetentionPeriod: 345600,
         VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS, ReceiveMessageWaitTimeSeconds: 20,
-        RedrivePolicy: { deadLetterTargetArn: arn("DeadLetters"), maxReceiveCount: 6 },
+        RedrivePolicy: { deadLetterTargetArn: arn("DeadLetters"), maxReceiveCount: 30 },
       },
     },
     WorkerLogGroup: {

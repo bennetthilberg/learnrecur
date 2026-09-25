@@ -75,6 +75,12 @@ type DeliveryPhase =
 type DeliveryDiagnostic = { job?: JobEnvelope; phase: DeliveryPhase };
 
 function safeErrorCode(error: unknown): string | undefined {
+  if (error instanceof Error && [
+    "timeout exceeded when trying to connect",
+    "Connection terminated due to connection timeout",
+  ].includes(error.message)) {
+    return "DB_CONNECTION_TIMEOUT";
+  }
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   const code = error.code;
   return typeof code === "string" &&
@@ -212,6 +218,25 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
           phase: diagnostic.phase,
           errorCode: safeErrorCode(error),
         });
+        // A transient store or transport failure must not hide this FIFO lane
+        // for the queue's one-hour visibility window. Native redrive remains
+        // bounded, while the next delivery will honor any durable lease.
+        if (event.Records[index].eventSource === "aws:sqs" &&
+            event.Records[index].eventSourceARN === queueArn) {
+          const receiveCount = Number(event.Records[index].attributes.ApproximateReceiveCount);
+          const retryAttempt = Number.isSafeInteger(receiveCount) && receiveCount > 0
+            ? Math.min(receiveCount, 7) : 1;
+          try {
+            await dependencies.retry(event.Records[index], retryDelaySeconds(retryAttempt));
+          } catch {
+            log({
+              outcome: "JOB_RETRY_SCHEDULE_FAILED",
+              name: diagnostic.job?.name,
+              id: diagnostic.job?.id,
+              phase: diagnostic.phase,
+            });
+          }
+        }
       }
       if (!acknowledged) {
         // FIFO ordering requires leaving all subsequent records unprocessed.

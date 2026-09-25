@@ -16,7 +16,12 @@ SQS groups serialize refills for a skill and the applicable operations for a
 user. Draft and activation jobs use two stable per-user lanes. The worker runs
 one message per invocation, with a ten-minute timeout and an eleven-minute
 database lease. SQS visibility is one hour, allowing Lambda's recommended
-timeout margin. Explicit failures shorten visibility using bounded backoff.
+timeout margin. Explicit execution failures and infrastructure exceptions
+shorten visibility using bounded backoff. An exception before the database
+claim retries after 30 seconds to 15 minutes according to the SQS receive
+count, while a durable lease still prevents duplicate execution. The queue
+permits up to 30 native receives before redrive so these quicker retries do
+not exhaust the delivery budget during a brief database outage.
 The SQS event-source mapping caps production concurrency at five and staging at
 two. Lambda reserved concurrency is optional and uses the same cap when enabled.
 Without a reservation, other functions in the account can throttle this worker.
