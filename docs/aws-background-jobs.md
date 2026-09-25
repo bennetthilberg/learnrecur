@@ -86,7 +86,11 @@ NODE_OPTIONS=--conditions=react-server npx tsx scripts/deploy-aws-jobs.ts \
 
 The optional `--reserve-concurrency enabled|disabled` flag controls Lambda
 reserved concurrency. New stacks default to `disabled`; omitting the flag on
-later deploys preserves the stack's current setting. Enable a reservation only
+later deploys preserves the stack's current setting. On the first update of an
+older stack without this parameter, the script reads the live Lambda reservation
+and passes `enabled` when one exists. A zero reservation stops deployment until
+an operator chooses explicitly, so updating cannot silently restart a paused
+worker. Enable a reservation only
 after checking the account's Lambda concurrency quota: AWS requires at least ten
 unreserved slots in addition to existing reservations. The SQS event-source
 cap applies in either mode, but without a Lambda reservation, competing

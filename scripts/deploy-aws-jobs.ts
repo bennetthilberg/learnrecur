@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { parseArgs } from "node:util";
 import { parse } from "dotenv";
 import { createJobsTemplate } from "../infra/aws/jobs-template";
+import { resolveWorkerReservation } from "./aws-jobs-reservation";
 import { selectWorkerEnvironment, workerEnvironmentManifest } from "../src/lib/jobs/environment";
 
 // AWS CLI owns the login session. Secret values use temporary mode-0600 files,
@@ -26,7 +27,9 @@ function aws(args: string[], input?: unknown): Record<string, unknown> {
     const result = spawnSync("aws", [...args, "--region", options.region!, "--output", "json", "--no-cli-pager", ...(filename ? ["--cli-input-json", `file://${filename}`] : [])], { encoding: "utf8" });
     if (result.status !== 0) {
       const code = result.stderr.match(/An error occurred \(([A-Za-z0-9]+)\)/)?.[1] ?? "CLI_ERROR";
-      throw new Error(`AWS ${args.slice(0, 2).join(" ")} failed (${code}); inspect the named stack or CloudTrail for details`);
+      const error = new Error(`AWS ${args.slice(0, 2).join(" ")} failed (${code}); inspect the named stack or CloudTrail for details`) as Error & { missingStack?: boolean };
+      error.missingStack = args[0] === "cloudformation" && args[1] === "describe-stacks" && code === "ValidationError" && /Stack with id .* does not exist/.test(result.stderr);
+      throw error;
     }
     return result.stdout.trim() ? JSON.parse(result.stdout) : {};
   } finally { if (temporary) rmSync(temporary, { recursive: true, force: true }); }
@@ -53,6 +56,25 @@ function main() {
   if (databaseHost !== options["database-host"] || values.S3_BUCKET_NAME !== options["source-bucket"]) throw new Error("Database or source bucket differs from the verified deployment target");
   const identity = aws(["sts", "get-caller-identity"]);
   if (typeof identity.Account !== "string" || !/^\d{12}$/.test(identity.Account)) throw new Error("AWS account unavailable");
+  const stackName = `learnrecur-${environment}-jobs`;
+  let stack: { StackName: string; Parameters?: { ParameterKey: string; ParameterValue?: string }[] } | undefined;
+  try {
+    const described = aws(["cloudformation", "describe-stacks", "--stack-name", stackName]);
+    const stacks = described.Stacks;
+    if (!Array.isArray(stacks) || stacks.length !== 1 || stacks[0]?.StackName !== stackName) throw new Error("Worker stack lookup returned an unexpected result");
+    stack = stacks[0];
+  } catch (error) {
+    if (!(error instanceof Error) || !(error as Error & { missingStack?: boolean }).missingStack) throw error;
+  }
+  let liveReservedConcurrency: number | undefined;
+  if (stack) {
+    const concurrency = aws(["lambda", "get-function-concurrency", "--function-name", `${stackName}-worker`]);
+    if (concurrency.ReservedConcurrentExecutions !== undefined) {
+      if (!Number.isInteger(concurrency.ReservedConcurrentExecutions) || (concurrency.ReservedConcurrentExecutions as number) < 0) throw new Error("Worker reservation lookup returned an invalid value");
+      liveReservedConcurrency = concurrency.ReservedConcurrentExecutions as number;
+    }
+  }
+  const reserveConcurrency = resolveWorkerReservation(options["reserve-concurrency"] as "enabled" | "disabled" | undefined, stack?.Parameters, liveReservedConcurrency);
   const bucket = `learnrecur-job-artifacts-${identity.Account}-${options.region}`;
   const zip = readFileSync(".aws-build/jobs.zip");
   const key = `${environment}/${createHash("sha256").update(zip).digest("hex")}.zip`;
@@ -64,12 +86,12 @@ function main() {
   mkdirSync(".aws-build", { recursive: true });
   const template = resolve(`.aws-build/${environment}-template.json`);
   writeFileSync(template, JSON.stringify(createJobsTemplate(environment), null, 2));
-  console.info(`Deploying learnrecur-${environment}-jobs in ${identity.Account}/${options.region}; schedules ${options.schedules}; reserved concurrency ${options["reserve-concurrency"] ?? "stack setting"}`);
-  const deployed = spawnSync("aws", ["cloudformation", "deploy", "--stack-name", `learnrecur-${environment}-jobs`, "--template-file", template,
+  console.info(`Deploying ${stackName} in ${identity.Account}/${options.region}; schedules ${options.schedules}; reserved concurrency ${reserveConcurrency ?? "stack setting"}`);
+  const deployed = spawnSync("aws", ["cloudformation", "deploy", "--stack-name", stackName, "--template-file", template,
     "--region", options.region!, "--capabilities", "CAPABILITY_NAMED_IAM", "--no-fail-on-empty-changeset", "--parameter-overrides",
     `CodeBucket=${bucket}`, `CodeKey=${key}`, `SourceBucketName=${values.S3_BUCKET_NAME}`, `EnableSchedules=${options.schedules === "enabled"}`,
     `ConfigurationRevision=${configurationRevision}`,
-    ...(options["reserve-concurrency"] === undefined ? [] : [`ReserveWorkerConcurrency=${options["reserve-concurrency"] === "enabled"}`]),
+    ...(reserveConcurrency === undefined ? [] : [`ReserveWorkerConcurrency=${reserveConcurrency === "enabled"}`]),
   ], { stdio: "inherit" });
   if (deployed.status !== 0) throw new Error("CloudFormation deployment failed");
   console.info(`Worker artifact ${key}; synchronized ${Object.keys(values).length} encrypted parameters`);
