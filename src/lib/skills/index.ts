@@ -9177,13 +9177,23 @@ function parseGeneratedExactInputExercise(candidate: unknown): GeneratedExactInp
 
   // A whole-sentence answer admits ordinary subject and wording variants.
   // One exact accepted string cannot grade it fairly; a bounded cloze can.
-  const asksForWholeSentence = /\bescribe\s+la\s+(?:frase|oraci[oó]n)(?:\s+completa)?\s+en\s+espa[nñ]ol\b|\bwrite\s+(?:the\s+)?(?:full|complete)\s+sentence\b/i.test(exercise.prompt);
-  const asksForOpenTranslation = /\b(?:translate|traduce|traduzca)\b/i.test(exercise.prompt) && !/_{3,}/.test(exercise.prompt);
+  const asksForWholeSentence =
+    /\b(?:escribe|redacta)\s+(?:(?:la|una)\s+)?(?:frase|oraci[oó]n)(?:\s+completa)?\b|\b(?:write|compose)\s+(?:(?:a|the|one)\s+)?(?:(?:full|complete|entire)\s+)?sentence\b|\b(?:translate|traduce|traduzca)\b[^.!?\n]{0,80}\b(?:(?:full|whole|entire|complete)\s+sentence|(?:frase|oraci[oó]n)\s+completa)\b/i.test(exercise.prompt);
+  const asksForBoundedCloze = /_{3,}/.test(exercise.prompt) &&
+    /\b(?:fill(?:\s+in)?|blank|complete|completa|hueco|espacio)\b/i.test(exercise.prompt) &&
+    !asksForWholeSentence;
+  const sourceSegment = exercise.prompt.split(/\n\s*\n|:\s+/).slice(1).at(-1)?.trim() ?? "";
+  const quotedSource = exercise.prompt.match(/\b(?:translate|traduce)\s+['"“‘]([^'"”’]+)['"”’]\s+(?:into|al)\b/i)?.[1];
+  const hasBoundedQuotedPhrase = Boolean(quotedSource &&
+    !/[.!?]/.test(quotedSource) && quotedSource.trim().split(/\s+/).length <= 4);
+  const acceptedText = answerSpec.kind === "text" ? answerSpec.accepted[0]?.trim() ?? "" : "";
+  const asksForOpenTranslation = /\b(?:translate|traduce|traduzca)\b/i.test(exercise.prompt) &&
+    !asksForBoundedCloze &&
+    (asksForWholeSentence || (!hasBoundedQuotedPhrase && /[.!?]\s*$/.test(sourceSegment)) || /[.!?]\s*$/.test(acceptedText));
   if (
     answerSpec.kind === "text" &&
     answerSpec.accepted.length === 1 &&
-    (asksForWholeSentence || asksForOpenTranslation) &&
-    answerSpec.accepted[0].trim().split(/\s+/).length >= 3
+    (asksForWholeSentence || asksForOpenTranslation)
   ) {
     return null;
   }

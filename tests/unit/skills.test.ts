@@ -498,6 +498,47 @@ describe("validateGeneratedChoiceExercises", () => {
 });
 
 describe("validateGeneratedExactInputExercises", () => {
+  it.each([
+    ["Write a sentence in Spanish using llevar.", "Llevo tres horas estudiando."],
+    ["Escribe una oración en español con gustar.", "A Juan le gusta."],
+    ["Translate this entire sentence into Spanish: I have ___ arrived.", "Acabo de llegar."],
+    ["Translate into Spanish: I have ___ arrived.", "Acabo de llegar."],
+  ])("rejects an open sentence answer with one accepted form: %s", (prompt, accepted) => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt,
+        answerSpec: { kind: "text", accepted: [accepted] },
+        correctAnswerDisplay: accepted,
+      }],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1 });
+  });
+
+  it("keeps a bounded three-word phrase translation", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish using comer in the present perfect; include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido"] },
+        correctAnswerDisplay: "Él ha comido",
+      }],
+    });
+    expect(result).toMatchObject({ status: "ready", rejectedCount: 0 });
+  });
+
+  it("keeps a quoted short phrase when a colon introduces its constraints", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish: include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido"] },
+        correctAnswerDisplay: "Él ha comido",
+      }],
+    });
+    expect(result).toMatchObject({ status: "ready", rejectedCount: 0 });
+  });
+
   it("rejects a whole-sentence translation with one exact accepted answer", () => {
     const result = validateGeneratedExactInputExercises({
       exercises: [{
