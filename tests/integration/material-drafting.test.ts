@@ -40,6 +40,8 @@ import {
   storeMaterialChunkEmbedding,
 } from "@/lib/materials/retrieval";
 import { recoverBackMatterMaterialScope } from "@/lib/materials/drafting";
+import { materialPageEvidenceId } from "@/lib/materials/evidence-ids";
+import * as museRetrieval from "@/lib/materials/muse-retrieval";
 import { JobStageTimeoutError } from "@/lib/jobs/deadline";
 import { loadLocalizedMaterialEvidence } from "@/lib/materials/evidence";
 import * as materialEvidence from "@/lib/materials/evidence";
@@ -2726,6 +2728,381 @@ describeDatabase("material multi-skill drafting", () => {
     expect(planningInput?.chunks.map((chunk) => chunk.id)).not.toContain(
       decoyChunkIds[0],
     );
+  });
+
+  it("uses a complete Muse scan when Gemini embeddings fail and words do not match", async () => {
+    const rankedIds: string[] = [];
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => {
+        rankedIds.push(...chunks.map((chunk) => chunk.id));
+        return {
+          scores: chunks.map((chunk) => ({
+            id: chunk.id,
+            relevance: chunk.id === indirectChunkId ? 3 : 0,
+          })),
+        };
+      },
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Dative clitics",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "dative-clitics",
+        title: "Choosing le and les",
+        objective: "Choose the correct pronoun for one or several recipients.",
+        includeConcepts: ["recipient number"],
+        excludeConcepts: ["direct object pronouns"],
+        materialSectionIds: [indirectSectionId],
+        evidenceChunkIds: [indirectChunkId],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "make skills for dative clitics",
+        idempotencyKey: `${runId}_muse_semantic_retrieval`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => {
+        throw new Error("Gemini embeddings unavailable");
+      },
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks).toHaveBeenCalled();
+    expect(rankedIds).toContain(indirectChunkId);
+    expect(new Set(rankedIds).size).toBe(81);
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(indirectChunkId);
+    expect(planScope.mock.calls[0]?.[0].sections.map((section) => section.id)).toEqual([
+      indirectSectionId,
+    ]);
+  });
+
+  it("scans unembedded passages even when another chunk has a vector match", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "Partially embedded lesson",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Lesson 1",
+        normalizedTitle: "lesson 1",
+        pageStart: 1,
+        pageEnd: 2,
+        headingPath: ["Lesson 1"],
+      },
+    });
+    const stored = await Promise.all([
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: section.id,
+          ordinal: 0,
+          text: "Noun plurals add s after a vowel.",
+          tokenEstimate: 10,
+          contentHash: `sha256:${runId}:partial-embedding-0`,
+          headingText: section.title,
+          locator: { kind: "pdf", pageRange: { start: 1, end: 1 } },
+        },
+      }),
+      prisma.materialChunk.create({
+        data: {
+          userId,
+          materialRevisionId: revision.id,
+          materialSectionId: section.id,
+          ordinal: 1,
+          text: "La casa blanca.",
+          tokenEstimate: 8,
+          contentHash: `sha256:${runId}:partial-embedding-1`,
+          headingText: section.title,
+          locator: { kind: "pdf", pageRange: { start: 2, end: 2 } },
+        },
+      }),
+    ]);
+    const vector = Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => index === 0 ? 1 : 0);
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: stored[0].id,
+      embedding: vector,
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:partial-embedding`,
+      byteSize: 4_096,
+      pageCount: 2,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/partial-embedding.pdf`,
+    });
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => ({
+        scores: chunks.map((chunk) => ({
+          id: chunk.id,
+          relevance: chunk.id === stored[1].id ? 3 : 0,
+        })),
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Gender concord",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "gender-concord",
+        title: "Matching adjective gender",
+        objective: "Select an adjective form that matches a feminine noun.",
+        includeConcepts: ["feminine adjective agreement"],
+        excludeConcepts: ["noun plurals"],
+        materialSectionIds: [section.id],
+        evidenceChunkIds: [stored[1].id],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for gender concord",
+        idempotencyKey: `${runId}_partial_embedding_muse_scan`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => [vector],
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks).toHaveBeenCalled();
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+      .toContain(stored[1].id);
+  });
+
+  it("keeps lexical evidence and warns when Muse cannot complete its scan", async () => {
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Direct object pronouns",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: Array.from({ length: 20 }, (_, index) => `Fixture warning ${index + 1}`),
+      items: [{
+        key: "direct-object-pronouns",
+        title: "Placing direct object pronouns",
+        objective: "Place a direct object pronoun before a conjugated verb.",
+        includeConcepts: ["pronoun placement"],
+        excludeConcepts: ["indirect object pronouns"],
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      }],
+    }));
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async () => { throw new Error("Meta rate limit"); },
+    );
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId,
+        materialRevisionId,
+        instruction: "make skills for direct object pronouns",
+        idempotencyKey: `${runId}_muse_lexical_degradation`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => { throw new Error("Gemini embeddings unavailable"); },
+    });
+
+    expect(result.status).toBe("planned");
+    if (result.status !== "planned") return;
+    expect(rankChunks).toHaveBeenCalled();
+    expect(result.plan.warnings).toEqual(expect.arrayContaining([
+      expect.stringContaining("Muse could not scan all source text"),
+    ]));
+    expect(result.plan.warnings).toHaveLength(20);
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id)).toContain(directChunkId);
+  });
+
+  it("reserves time for lexical retrieval after a Muse scan timeout", async () => {
+    const budget = vi.spyOn(museRetrieval, "getMuseScanBudgetMs").mockReturnValue(10);
+    let abortReason: unknown;
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ signal }) => new Promise((_, reject) => {
+        const watchdog = setTimeout(() => reject(new Error("Muse child did not time out")), 500);
+        signal?.addEventListener("abort", () => {
+          clearTimeout(watchdog);
+          abortReason = signal.reason;
+          reject(signal.reason);
+        }, { once: true });
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Direct object pronouns",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "direct-object-pronoun-timeout",
+        title: "Placing direct object pronouns",
+        objective: "Place a direct object pronoun before a conjugated verb.",
+        includeConcepts: ["pronoun placement"],
+        excludeConcepts: ["indirect object pronouns"],
+        materialSectionIds: [directSectionId],
+        evidenceChunkIds: [directChunkId],
+      }],
+    }));
+    try {
+      const result = await planMaterialSkills({
+        userId,
+        input: {
+          materialId,
+          materialRevisionId,
+          instruction: "make skills for direct object pronouns",
+          idempotencyKey: `${runId}_muse_scan_timeout`,
+        },
+        now: new Date(),
+        aiSetup: createAiSetup({ planScope, rankChunks }),
+        embeddingGenerator: null,
+      });
+      expect(result.status).toBe("planned");
+      if (result.status !== "planned") return;
+      expect(rankChunks).toHaveBeenCalled();
+      expect((abortReason as Error).name).toBe("TimeoutError");
+      expect(result.plan.warnings).toEqual(expect.arrayContaining([
+        expect.stringContaining("Muse could not scan all source text"),
+      ]));
+      expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+        .toContain(directChunkId);
+    } finally {
+      budget.mockRestore();
+    }
+  });
+
+  it("includes later OCR-only pages despite complete chunk embedding coverage", async () => {
+    const { material, revision } = await createMaterialWithInitialRevision({
+      userId,
+      title: "OCR-only lesson fixture",
+      kind: StudyMaterialKind.PDF,
+    });
+    const section = await prisma.materialSection.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        ordinal: 0,
+        level: 1,
+        title: "Lesson 1",
+        normalizedTitle: "lesson 1",
+        pageStart: 20,
+        pageEnd: 30,
+        headingPath: ["Lesson 1"],
+      },
+    });
+    const storedChunk = await prisma.materialChunk.create({
+      data: {
+        userId,
+        materialRevisionId: revision.id,
+        materialSectionId: section.id,
+        ordinal: 0,
+        text: "Noun plurals add s after a vowel.",
+        tokenEstimate: 10,
+        contentHash: `sha256:${runId}:ocr-only-stored`,
+        headingText: section.title,
+        locator: { kind: "pdf", pageRange: { start: 20, end: 20 } },
+      },
+    });
+    const vector = Array.from({ length: MATERIAL_EMBEDDING_DIMENSIONS },
+      (_, index) => index === 0 ? 1 : 0);
+    await storeMaterialChunkEmbedding({
+      userId,
+      materialRevisionId: revision.id,
+      chunkId: storedChunk.id,
+      embedding: vector,
+    });
+    const targetPageId = `${runId}_ocr_only_target`;
+    await prisma.materialPage.createMany({
+      data: Array.from({ length: 11 }, (_, index) => ({
+        id: index === 10 ? targetPageId : `${runId}_ocr_only_${index}`,
+        userId,
+        materialRevisionId: revision.id,
+        pageNumber: index + 20,
+        ocrText: index === 10
+          ? "Yo me levanto cada mañana."
+          : `Unrelated passage ${index + 1}.`,
+        textStatus: MaterialPageTextStatus.OCR_READY,
+        contentHash: `sha256:${runId}:ocr-only-page-${index}`,
+        tokenEstimate: 10,
+      })),
+    });
+    await finalizeMaterialRevision({
+      userId,
+      materialId: material.id,
+      materialRevisionId: revision.id,
+      contentHash: `sha256:${runId}:ocr-only-material`,
+      byteSize: 16_384,
+      pageCount: 30,
+      storageBucket: "test-materials",
+      storageKey: `${runId}/ocr-only.pdf`,
+    });
+    const targetEvidenceId = materialPageEvidenceId(targetPageId);
+    const rankChunks = vi.fn<NonNullable<MaterialDraftAiSetup["rankChunks"]>>(
+      async ({ chunks }) => ({
+        scores: chunks.map((chunk) => ({
+          id: chunk.id,
+          relevance: chunk.id === targetEvidenceId ? 3 : 0,
+        })),
+      }),
+    );
+    const planScope = vi.fn<MaterialDraftAiSetup["planScope"]>(async () => ({
+      resolutionStatus: "resolved",
+      resolvedScopeLabel: "Personal routines",
+      clarification: null,
+      clarificationOptions: [],
+      warnings: [],
+      items: [{
+        key: "personal-routines",
+        title: "Describing personal routines",
+        objective: "Choose the matching first-person routine expression.",
+        includeConcepts: ["first-person routine expression"],
+        excludeConcepts: ["noun plurals"],
+        materialSectionIds: [section.id],
+        evidenceChunkIds: [targetEvidenceId],
+      }],
+    }));
+
+    const result = await planMaterialSkills({
+      userId,
+      input: {
+        materialId: material.id,
+        materialRevisionId: revision.id,
+        instruction: "make skills for personal routines",
+        idempotencyKey: `${runId}_muse_ocr_only`,
+      },
+      now: new Date(),
+      aiSetup: createAiSetup({ planScope, rankChunks }),
+      embeddingGenerator: async () => [vector],
+    });
+
+    expect(result.status).toBe("planned");
+    expect(rankChunks.mock.calls.flatMap(([call]) => call.chunks.map((chunk) => chunk.id)))
+      .toContain(targetEvidenceId);
+    expect(planScope.mock.calls[0]?.[0].chunks.map((chunk) => chunk.id))
+      .toContain(targetEvidenceId);
   });
 
   it("reserves fallback evidence for later sections before truncating ranked chunks", async () => {
@@ -6987,6 +7364,7 @@ function pdfLocator(input: {
 }
 
 function createAiSetup(input: {
+  rankChunks?: MaterialDraftAiSetup["rankChunks"];
   planScope?: MaterialDraftAiSetup["planScope"];
   reviewScope?: MaterialDraftAiSetup["reviewScope"];
   repairTarget?: MaterialDraftAiSetup["repairTarget"];
@@ -6996,6 +7374,7 @@ function createAiSetup(input: {
 } = {}): MaterialDraftAiSetup {
   return {
     model: "fixture-model",
+    ...(input.rankChunks ? { rankChunks: input.rankChunks } : {}),
     planScope:
       input.planScope ??
       (async () => ({
