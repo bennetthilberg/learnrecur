@@ -468,3 +468,22 @@ deployed, and hash-verified, observe the next hourly failure to identify the
 blocked envelope and underlying phase. Resolve the cause before attempting
 the original handoff's production mixed-batch canary or submitting the 14
 remaining Spanish specs. No learner introductions or reviews were made here.
+
+### Full-source Muse retrieval check — 2026-09-25 04:29 UTC
+
+The production Spanish textbook revision contains 279 stored chunks and
+917,364 source characters. A live Muse scan using the existing 180,000-character
+group limit failed because one request did not score every chunk. The scanner
+rejected the incomplete result, so no partial evidence was used. After reducing
+the group limit to 90,000 characters, the same real-source scan scored all 279
+chunks in 55.96 seconds within the 70-second retrieval budget and returned 48
+ranked matches. No learner records changed. This proves one complete live scan,
+not sustained throughput or exercise quality; the latter still requires the
+original handoff's audit.
+
+The 04:00 UTC worker diagnostic identified the blocked midnight due-reminder
+envelope during its database claim. It returned after 5.005 seconds, matching
+the Postgres connection timeout. A later read-only database check found no
+durable delivery row for that envelope and connected normally. The worker
+retry, SQS redrive, and Muse scan-limit changes in this PR remain undeployed
+at this checkpoint.

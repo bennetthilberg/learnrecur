@@ -73,6 +73,26 @@ describe("Muse material retrieval", () => {
     expect(rank.mock.calls.length).toBeGreaterThan(1);
   });
 
+  it("keeps long textbook chunks in smaller complete scoring requests", async () => {
+    const chunks = Array.from({ length: 279 }, (_, index) =>
+      chunk(index, `Lesson ${index} ${"x".repeat(3_000)}`),
+    );
+    const groupSizes: number[] = [];
+    const result = await scanMaterialChunksWithMuse({
+      query: "daily routines",
+      loadPage: async (afterOrdinal, limit) =>
+        chunks.filter((item) => item.ordinal > afterOrdinal).slice(0, limit),
+      rank: async ({ chunks: group }) => {
+        groupSizes.push(group.length);
+        if (group.length > 30) throw new Error("Muse omitted scores for an oversized group");
+        return { scores: group.map((item) => ({ id: item.id, relevance: 1 })) };
+      },
+    });
+    expect(result.scannedChunkCount).toBe(279);
+    expect(groupSizes.length).toBeGreaterThan(8);
+    expect(Math.max(...groupSizes)).toBeLessThanOrEqual(30);
+  });
+
   it("includes chunks with negative ordinals", async () => {
     const source = [chunk(-2), chunk(0)];
     const result = await scanMaterialChunksWithMuse({

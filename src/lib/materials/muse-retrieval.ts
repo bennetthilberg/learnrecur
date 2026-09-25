@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { MaterialChunkSearchResult } from "@/lib/materials/retrieval";
 
 const PAGE_SIZE = 200;
-const MAX_GROUP_CHARS = 180_000;
+const MAX_GROUP_CHARS = 90_000;
 const MAX_GROUP_CHUNKS = 120;
 const MAX_GROUPS = 24;
 const MAX_CONCURRENT_REQUESTS = 3;
