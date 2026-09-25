@@ -170,9 +170,26 @@ describe("SQS worker delivery safety", () => {
 
   it("does not acknowledge when the database claim fails", async () => {
     const { dependencies, run } = setup();
-    vi.mocked(dependencies.claim).mockRejectedValue(new Error("database unavailable"));
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private study material"), { code: "P1001" }));
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.execute).not.toHaveBeenCalled();
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      name: "learnrecur/choice-refill.requested",
+      id: expect.any(String),
+      phase: "claim",
+      errorCode: "P1001",
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private study material");
+  });
+
+  it("does not log arbitrary provider error codes", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private"), {
+      code: "PRIVATE_STUDY_MATERIAL",
+    }));
+    expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("PRIVATE_STUDY_MATERIAL");
   });
 
   it("does not rerun business logic after completion persistence fails", async () => {
@@ -181,6 +198,10 @@ describe("SQS worker delivery safety", () => {
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     // Keep the running lease; the domain's own idempotency handles eventual recovery.
     expect(dependencies.fail).not.toHaveBeenCalled();
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      phase: "complete",
+    }));
   });
 
   it.each([

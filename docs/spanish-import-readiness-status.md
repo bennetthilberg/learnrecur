@@ -428,3 +428,43 @@ the worker if other Lambda functions consume the quota. Queue age and dead
 letter alarms remain the backstop. The production mixed-batch acceptance and
 Spanish import resume remain pending; preserve zero introductions and reviews
 during that canary and inspect the in-flight operation before resuming it.
+
+### Worker and Muse checkpoint — 2026-09-25 03:28 UTC
+
+The Vercel production deployment serves PR #162's merge commit `24d92b1`, but
+the Lambda worker initially still ran the earlier package. A deployment from
+current `main` first rolled back because its template again required five
+reserved concurrency slots under the account's ten-slot quota. Reusing the
+deployed template with `ReserveWorkerConcurrency=false` and changing only the
+content-addressed code key succeeded. CloudFormation is `UPDATE_COMPLETE`;
+the live Lambda code hash `Pn8lRgJNJv4jYwdcAaiy6ibplXv32wLjKgx0WgG31VY=`
+matches the package built from `24d92b1`. Configuration revision and enabled
+schedules were preserved. PR #155 carries the optional-reservation fix for
+future deployments and is being refreshed against current `main`.
+
+The live provider-handoff smoke forced a synthetic Gemini 503 and exercised
+real Muse generation and independent verification. Muse generated five choice
+exercises, four passed verification, and the contradictory control was
+rejected. The live handoff passed. The evaluation command's overall verdict
+remained `pause` because its offline sample contains 17 runs against a
+30-run release threshold. This smoke does not prove full textbook import
+quality or sustained fallback capacity.
+
+The production worker is still **not healthy**: QueueAge and DeadLetterBacklog
+are in `ALARM`, the main FIFO queue had three visible and one in-flight
+message after the release, and the jobs DLQ held eight. One delivery logged
+`JOB_DELIVERY_FAILED` near the top of each hour from 00:00 through 03:00 UTC.
+The current log omits message identity and failure phase, while the production
+delivery table shows no current non-completed row. The eight DLQ messages were
+inspected without deletion or redrive: three are agent-skill operations, two
+are maintenance, two are exercise refills, and one is a due reminder. Several
+were native SQS redrives without an application failure code. Their side
+effects must be checked individually before any replay.
+
+PR #155 now includes redacted failure diagnostics with validated job identity,
+phase, and allowlisted infrastructure error code. Focused tests, lint, and
+TypeScript checks passed locally. Once that exact worker artifact is reviewed,
+deployed, and hash-verified, observe the next hourly failure to identify the
+blocked envelope and underlying phase. Resolve the cause before attempting
+the original handoff's production mixed-batch canary or submitting the 14
+remaining Spanish specs. No learner introductions or reviews were made here.
