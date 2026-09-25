@@ -21,3 +21,12 @@ it("reuses one bounded PostgreSQL pool across warm production invocations", () =
     transactionOptions: { maxWait: 5_000, timeout: 15_000 },
   }));
 });
+it("uses the longer connection window in the AWS jobs worker", () => {
+  delete cache.prisma;
+  vi.stubEnv("JOBS_ENVIRONMENT", "production");
+  getPrisma();
+  expect(mocks.adapter).toHaveBeenCalledWith(expect.objectContaining({
+    connectionTimeoutMillis: 20_000,
+    max: 2,
+  }));
+});

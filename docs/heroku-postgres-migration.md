@@ -27,8 +27,9 @@ worker URLs must point to the same database within each environment. Credentials
 live in Vercel secrets and versioned AWS SSM SecureStrings, never repository files.
 
 `src/lib/postgres-config.ts` limits each application pool to two connections,
-with a five-second connection timeout and ten-second idle timeout. Production
-Lambda concurrency is five, so its pools can consume ten connections. Web
+with a five-second web connection timeout, a 20-second AWS worker connection
+timeout for slow initial database handshakes, and a ten-second idle timeout.
+Production Lambda concurrency is five, so its pools can consume ten connections. Web
 instances and operator sessions share the remaining capacity; this is not a
 hard global pool limit. Revisit pooling before increasing traffic or concurrency.
 `DATABASE_POOL_MAX` accepts 1–5; database integration tests use five because lock

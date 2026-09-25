@@ -2,7 +2,7 @@ import type { PoolConfig } from "pg";
 import rdsCa from "./rds-us-east-1-ca.json";
 
 /** Heroku Essential uses RDS certificates. Never disable certificate validation. */
-export function getPostgresPoolConfig(connectionString: string): PoolConfig {
+export function getPostgresPoolConfig(connectionString: string, options: { worker?: boolean } = {}): PoolConfig {
   const url = new URL(connectionString);
   const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (!local && ["disable", "no-verify"].includes(url.searchParams.get("sslmode") ?? "")) {
@@ -19,7 +19,7 @@ export function getPostgresPoolConfig(connectionString: string): PoolConfig {
   return {
     connectionString: url.toString(),
     max,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: options.worker ? 20_000 : 5_000,
     idleTimeoutMillis: 10_000,
     ssl: local ? false : {
       rejectUnauthorized: true,

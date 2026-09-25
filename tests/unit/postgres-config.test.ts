@@ -18,6 +18,12 @@ describe("PostgreSQL connection security", () => {
     expect(config.ssl).toEqual({ rejectUnauthorized: true });
     expect(new URL(config.connectionString!).searchParams.has("sslmode")).toBe(false);
   });
+  it("gives workers a longer cold connection window without delaying web failures", () => {
+    const connectionString = "postgres://user:password@db.example.com/db";
+    expect(getPostgresPoolConfig(connectionString).connectionTimeoutMillis).toBe(5_000);
+    expect(getPostgresPoolConfig(connectionString, { worker: true }).connectionTimeoutMillis).toBe(20_000);
+    expect(getPostgresPoolConfig(connectionString, { worker: true }).max).toBe(2);
+  });
   it("allows explicitly unencrypted loopback databases for disposable CI", () => {
     expect(getPostgresPoolConfig("postgres://localhost/test?sslmode=disable").ssl).toBe(false);
   });

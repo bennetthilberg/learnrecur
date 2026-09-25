@@ -16,7 +16,9 @@ export function getPrisma(): PrismaClient {
 
   const { DATABASE_URL } = getDatabaseEnv();
 
-  const adapter = new PrismaPg(getPostgresPoolConfig(DATABASE_URL));
+  const adapter = new PrismaPg(getPostgresPoolConfig(DATABASE_URL, {
+    worker: process.env.JOBS_ENVIRONMENT === "production" || process.env.JOBS_ENVIRONMENT === "staging",
+  }));
   const prisma = new PrismaClient({
     adapter,
     transactionOptions: {
