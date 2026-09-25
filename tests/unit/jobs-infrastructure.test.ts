@@ -87,8 +87,9 @@ describe("AWS deployment contract", () => {
     expect(alarms).toHaveLength(7);
     expect(alarms.every((alarm) => Array.isArray(alarm.Properties.AlarmActions) && alarm.Properties.AlarmActions.length > 0)).toBe(true);
     expect(resources.QueueAge.Properties).toMatchObject({
-      MetricName: "ApproximateAgeOfOldestMessage", Threshold: 300, Period: 300,
+      MetricName: "ApproximateAgeOfOldestMessage", Threshold: 900, Period: 300,
     });
+    expect(resources.QueueAge.Properties.Threshold).toBeGreaterThan(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS / 1_000);
   });
 
   it("keeps worker self-publication and Lambda concurrency explicitly bounded", () => {
