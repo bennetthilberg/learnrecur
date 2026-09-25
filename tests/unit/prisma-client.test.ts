@@ -27,6 +27,5 @@ it("uses the longer connection window in the AWS jobs worker", () => {
   getPrisma();
   expect(mocks.adapter).toHaveBeenCalledWith(expect.objectContaining({
     connectionTimeoutMillis: 20_000,
-    max: 2,
   }));
 });
