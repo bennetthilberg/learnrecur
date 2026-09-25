@@ -73,6 +73,49 @@ describe("Muse material retrieval", () => {
     expect(rank.mock.calls.length).toBeGreaterThan(1);
   });
 
+  it("keeps long textbook chunks in smaller complete scoring requests", async () => {
+    const chunks = Array.from({ length: 279 }, (_, index) =>
+      chunk(index, `Lesson ${index} ${"x".repeat(3_000)}`),
+    );
+    const groupSizes: number[] = [];
+    const result = await scanMaterialChunksWithMuse({
+      query: "daily routines",
+      loadPage: async (afterOrdinal, limit) =>
+        chunks.filter((item) => item.ordinal > afterOrdinal).slice(0, limit),
+      rank: async ({ chunks: group }) => {
+        groupSizes.push(group.length);
+        if (group.length > 30) throw new Error("Muse omitted scores for an oversized group");
+        return { scores: group.map((item) => ({ id: item.id, relevance: 1 })) };
+      },
+    });
+    expect(result.scannedChunkCount).toBe(279);
+    expect(groupSizes.length).toBeGreaterThan(8);
+    expect(Math.max(...groupSizes)).toBeLessThanOrEqual(30);
+  });
+
+  it("runs up to five bounded scoring requests at once", async () => {
+    const chunks = Array.from({ length: 12 }, (_, index) =>
+      chunk(index, "x".repeat(50_000)),
+    );
+    let inFlight = 0;
+    let peakInFlight = 0;
+    const result = await scanMaterialChunksWithMuse({
+      query: "topic",
+      loadPage: async (afterOrdinal, limit) =>
+        chunks.filter((item) => item.ordinal > afterOrdinal).slice(0, limit),
+      rank: async ({ chunks: group }) => {
+        inFlight += 1;
+        peakInFlight = Math.max(peakInFlight, inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight -= 1;
+        return { scores: group.map((item) => ({ id: item.id, relevance: 1 })) };
+      },
+    });
+    expect(result.scannedChunkCount).toBe(12);
+    expect(peakInFlight).toBe(5);
+    expect(inFlight).toBe(0);
+  });
+
   it("includes chunks with negative ordinals", async () => {
     const source = [chunk(-2), chunk(0)];
     const result = await scanMaterialChunksWithMuse({
@@ -106,8 +149,68 @@ describe("Muse material retrieval", () => {
     expect(result.matches.map((item) => item.id)).toEqual([ocr.id]);
   });
 
+  it("fills omitted scores without rescoring completed chunks", async () => {
+    const calls: string[][] = [];
+    const result = await scanMaterialChunksWithMuse({
+      query: "topic",
+      loadPage: async (afterOrdinal) =>
+        afterOrdinal < 0 ? [chunk(0), chunk(1), chunk(2)] : [],
+      rank: async ({ chunks }) => {
+        calls.push(chunks.map((item) => item.id));
+        return calls.length === 1
+          ? { scores: [{ id: "chunk-0", relevance: 3 }] }
+          : { scores: chunks.map((item) => ({ id: item.id, relevance: 2 })) };
+      },
+    });
+
+    expect(calls).toEqual([
+      ["chunk-0", "chunk-1", "chunk-2"],
+      ["chunk-1", "chunk-2"],
+    ]);
+    expect(result.scannedChunkCount).toBe(3);
+    expect(result.matches.map((item) => item.id)).toEqual([
+      "chunk-0", "chunk-1", "chunk-2",
+    ]);
+  });
+
+  it("re-scores duplicated and unknown IDs without trusting their scores", async () => {
+    const calls: string[][] = [];
+    const result = await scanMaterialChunksWithMuse({
+      query: "topic",
+      loadPage: async (afterOrdinal) =>
+        afterOrdinal < 0 ? [chunk(0), chunk(1), chunk(2)] : [],
+      rank: async ({ chunks }) => {
+        calls.push(chunks.map((item) => item.id));
+        return calls.length === 1
+          ? { scores: [
+            { id: "chunk-0", relevance: 3 },
+            { id: "chunk-0", relevance: 0 },
+            { id: "chunk-1", relevance: 2 },
+            { id: "foreign", relevance: 3 },
+          ] }
+          : { scores: chunks.map((item) => ({ id: item.id, relevance: 1 })) };
+      },
+    });
+    expect(calls).toEqual([
+      ["chunk-0", "chunk-1", "chunk-2"],
+      ["chunk-0", "chunk-2"],
+    ]);
+    expect(result.matches.map((item) => item.id)).toEqual([
+      "chunk-1", "chunk-0", "chunk-2",
+    ]);
+  });
+
+  it("rejects a batch that stays incomplete after bounded retries", async () => {
+    const rank = vi.fn(async () => ({ scores: [] }));
+    await expect(scanMaterialChunksWithMuse({
+      query: "topic",
+      loadPage: async (afterOrdinal) => afterOrdinal < 0 ? [chunk(0)] : [],
+      rank,
+    })).rejects.toThrow("Muse retrieval did not score every source chunk.");
+    expect(rank).toHaveBeenCalledTimes(3);
+  });
+
   it.each([
-    { label: "missing score", scores: [{ id: "chunk-0", relevance: 3 }] },
     { label: "duplicate score", scores: [{ id: "chunk-0", relevance: 3 }, { id: "chunk-0", relevance: 0 }] },
     { label: "unknown id", scores: [{ id: "chunk-0", relevance: 3 }, { id: "foreign", relevance: 0 }] },
     { label: "invalid score", scores: [{ id: "chunk-0", relevance: 4 }, { id: "chunk-1", relevance: 0 }] },

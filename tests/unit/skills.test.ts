@@ -498,6 +498,116 @@ describe("validateGeneratedChoiceExercises", () => {
 });
 
 describe("validateGeneratedExactInputExercises", () => {
+  it.each([
+    ["Write a sentence in Spanish using llevar.", "Llevo tres horas estudiando."],
+    ["Escribe una oración en español con gustar.", "A Juan le gusta."],
+    ["Translate this entire sentence into Spanish: I have ___ arrived.", "Acabo de llegar."],
+    ["Translate into Spanish: I have ___ arrived.", "Acabo de llegar."],
+  ])("rejects an open sentence answer with one accepted form: %s", (prompt, accepted) => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt,
+        answerSpec: { kind: "text", accepted: [accepted] },
+        correctAnswerDisplay: accepted,
+      }],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1 });
+  });
+
+  it("keeps a bounded three-word phrase translation", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish using comer in the present perfect; include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido"] },
+        correctAnswerDisplay: "Él ha comido",
+      }],
+    });
+    expect(result).toMatchObject({ status: "ready", rejectedCount: 0 });
+  });
+
+  it("keeps a quoted short phrase when a colon introduces its constraints", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish: include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido"] },
+        correctAnswerDisplay: "Él ha comido",
+      }],
+    });
+    expect(result).toMatchObject({ status: "ready", rejectedCount: 0 });
+  });
+
+  it("rejects a bounded phrase whose only accepted answer requires unprompted punctuation", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish: include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido."] },
+        correctAnswerDisplay: "Él ha comido.",
+      }],
+    });
+    expect(result).toMatchObject({
+      status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1,
+    });
+  });
+
+  it("rejects a whole-sentence translation with one exact accepted answer", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Traduce al español usando llevar en imperfecto.\n\nHe had been sleeping for three hours when I arrived.",
+        answerSpec: {
+          kind: "text", accepted: ["Llevaba tres horas durmiendo cuando llegué."],
+          normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: false,
+        },
+        correctAnswerDisplay: "Llevaba tres horas durmiendo cuando llegué.",
+      }],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1 });
+  });
+
+  it("rejects full-sentence recall even when the prompt shows a blank", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [
+        {
+          ...validExactInputExercise(1),
+          prompt: "Escribe la frase en español.\n\nI have just arrived. Usa acabar de + infinitivo.",
+          answerSpec: { kind: "text", accepted: ["Acabo de llegar"] },
+          correctAnswerDisplay: "Acabo de llegar",
+        },
+        {
+          ...validExactInputExercise(2),
+          prompt: "Escribe la oración completa en español con doler.\n\nA Juan ___ los pies después de caminar.",
+          answerSpec: { kind: "text", accepted: ["A Juan le duelen los pies después de caminar."] },
+          correctAnswerDisplay: "A Juan le duelen los pies después de caminar.",
+        },
+      ],
+    });
+    expect(result).toMatchObject({ status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 2 });
+  });
+
+  it("keeps a bounded translation cloze and a translation with listed variants", () => {
+    const cloze = {
+      ...validExactInputExercise(1),
+      prompt: "Traduce la forma verbal y completa: Ella ____ dos horas. (llevar, imperfecto)",
+    };
+    const variants = {
+      ...validExactInputExercise(2),
+      prompt: "Translate into Spanish: He had been sleeping for three hours when I arrived.",
+      answerSpec: {
+        kind: "text" as const,
+        accepted: ["Llevaba tres horas durmiendo cuando llegué.", "Él llevaba tres horas durmiendo cuando yo llegué."],
+        normalizeCase: true, normalizeWhitespace: true, normalizeDiacritics: false,
+      },
+      correctAnswerDisplay: "Llevaba tres horas durmiendo cuando llegué.",
+    };
+    expect(validateGeneratedExactInputExercises({ exercises: [cloze, variants] })).toMatchObject({
+      status: "ready", rejectedCount: 0,
+    });
+  });
+
   it("retains original slot positions after deterministic rejection", () => {
     const result = validateGeneratedExactInputExercises({
       exercises: [{ ...validExactInputExercise(1), answerSpec: { kind: "invalid" } }, validExactInputExercise(2)],
@@ -611,6 +721,7 @@ describe("validateGeneratedExactInputExercises", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 0,
       rejectedCount: 1,
+      message: "Only 0 of 1 required exact-input exercises passed verification.",
     });
   });
 
@@ -780,6 +891,7 @@ describe("validateGeneratedMathExercises", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 0,
       rejectedCount: 1,
+      message: "Only 0 of 1 required math exercises passed verification.",
     });
   });
 
@@ -1026,6 +1138,7 @@ describe("validateChoiceExerciseVerification", () => {
       reason: "too-few-verified-exercises",
       verifiedCount: 1,
       rejectedCount: 2,
+      message: "Only 1 of 3 required choice exercises passed verification.",
     });
   });
 

@@ -19,7 +19,7 @@
         "QueueName": "learnrecur-local-jobs.fifo", "FifoQueue": true, "ContentBasedDeduplication": true,
         "SqsManagedSseEnabled": true, "MaximumMessageSize": 65536, "MessageRetentionPeriod": 345600,
         "VisibilityTimeout": 3600, "ReceiveMessageWaitTimeSeconds": 20,
-        "RedrivePolicy": { "deadLetterTargetArn": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "maxReceiveCount": 6 }
+        "RedrivePolicy": { "deadLetterTargetArn": { "Fn::GetAtt": ["DeadLetters", "Arn"] }, "maxReceiveCount": 30 }
       }
     },
     "QueueTransportPolicy": {

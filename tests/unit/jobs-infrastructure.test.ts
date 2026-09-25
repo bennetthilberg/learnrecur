@@ -35,19 +35,21 @@ describe("AWS deployment contract", () => {
   it.each(["staging", "production"] as const)("keeps %s encrypted, bounded, isolated, and initially unscheduled", (environment) => {
     const template = createJobsTemplate(environment);
     expect(template.Parameters.EnableSchedules.Default).toBe("false");
+    expect(template.Parameters.ReserveWorkerConcurrency.Default).toBe("false");
+    expect(template.Conditions.WorkerConcurrencyReserved).toEqual({ "Fn::Equals": [{ Ref: "ReserveWorkerConcurrency" }, "true"] });
     expect(template.Resources.Queue.Properties).toMatchObject({
       FifoQueue: true, ContentBasedDeduplication: true, SqsManagedSseEnabled: true,
       QueueName: `learnrecur-${environment}-jobs.fifo`, VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS,
-      RedrivePolicy: { maxReceiveCount: 6 },
+      RedrivePolicy: { maxReceiveCount: 30 },
     });
     expect(template.Resources.Worker.Properties).toMatchObject({
       Runtime: "nodejs24.x", Architectures: ["arm64"], Timeout: JOB_TIMEOUT_SECONDS,
-      ReservedConcurrentExecutions: { Ref: "MaximumConcurrency" }, RecursiveLoop: "Allow",
+      ReservedConcurrentExecutions: { "Fn::If": ["WorkerConcurrencyReserved", { Ref: "MaximumConcurrency" }, { Ref: "AWS::NoValue" }] }, RecursiveLoop: "Allow",
     });
     expect(SQS_VISIBILITY_TIMEOUT_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(JOB_LEASE_SECONDS).toBeGreaterThan(JOB_TIMEOUT_SECONDS);
     expect(template.Resources.Worker.Properties).not.toHaveProperty("VpcConfig");
-    expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"] });
+    expect(template.Resources.EventSource.Properties).toMatchObject({ BatchSize: 1, FunctionResponseTypes: ["ReportBatchItemFailures"], ScalingConfig: { MaximumConcurrency: { Ref: "MaximumConcurrency" } } });
     expect(template.Resources.EventSource.Properties).not.toHaveProperty("ProvisionedPollerConfig");
     expect(template.Resources.PublisherPolicy.Properties.PolicyDocument).toEqual({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["sqs:SendMessage", "sqs:GetQueueAttributes"], Resource: { "Fn::GetAtt": ["Queue", "Arn"] } }] });
     expect(template.Resources.SchedulerDeadLetters.Properties).not.toHaveProperty("FifoQueue");
@@ -80,9 +82,14 @@ describe("AWS deployment contract", () => {
   });
 
   it("includes queue age, dead letters, worker failures, and all three cron silence alarms", () => {
-    const alarms = Object.values(createJobsTemplate("production").Resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
+    const resources = createJobsTemplate("production").Resources;
+    const alarms = Object.values(resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
     expect(alarms).toHaveLength(7);
     expect(alarms.every((alarm) => Array.isArray(alarm.Properties.AlarmActions) && alarm.Properties.AlarmActions.length > 0)).toBe(true);
+    expect(resources.QueueAge.Properties).toMatchObject({
+      MetricName: "ApproximateAgeOfOldestMessage", Threshold: 900, Period: 300,
+    });
+    expect(resources.QueueAge.Properties.Threshold).toBeGreaterThan(AGENT_SKILL_OPERATION_SOFT_DEADLINE_MS / 1_000);
   });
 
   it("keeps worker self-publication and Lambda concurrency explicitly bounded", () => {

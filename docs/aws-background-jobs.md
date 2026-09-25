@@ -16,9 +16,15 @@ SQS groups serialize refills for a skill and the applicable operations for a
 user. Draft and activation jobs use two stable per-user lanes. The worker runs
 one message per invocation, with a ten-minute timeout and an eleven-minute
 database lease. SQS visibility is one hour, allowing Lambda's recommended
-timeout margin. Explicit failures shorten visibility using bounded backoff.
-Production concurrency is capped at five, staging at two. The Lambda reserved
-concurrency and SQS event-source maximum use the same cap.
+timeout margin. Explicit execution failures and infrastructure exceptions
+shorten visibility using bounded backoff. An exception before the database
+claim retries after 30 seconds to 15 minutes according to the SQS receive
+count, while a durable lease still prevents duplicate execution. The queue
+permits up to 30 native receives before redrive so these quicker retries do
+not exhaust the delivery budget during a brief database outage.
+The SQS event-source mapping caps production concurrency at five and staging at
+two. Lambda reserved concurrency is optional and uses the same cap when enabled.
+Without a reservation, other functions in the account can throttle this worker.
 
 The worker deliberately publishes follow-up jobs to its own FIFO queue. Lambda
 normally stops a supported recursive chain after about 16 invocations, which
@@ -27,8 +33,8 @@ can interrupt a valid import fan-out. The function therefore opts into AWS's
 `RecursiveInvocationsDropped` metric, so application limits and queue alarms
 must bound the work: each delivery may publish at most 100 follow-ups; the
 validated envelope depth may not exceed 64; item and job attempts are bounded;
-and the production/staging Lambda reserved concurrency matches the event-source
-cap (five and two). Hitting a continuation limit is a permanent, logged job
+and the SQS event source caps concurrency at five in production and two in
+staging. Hitting a continuation limit is a permanent, logged job
 failure sent to the FIFO dead-letter queue. Maintenance rethrows this typed
 limit error instead of converting it into a recoverable scan failure. Queue
 age and the FIFO dead-letter queue have CloudWatch alarms in both environments;
@@ -77,6 +83,19 @@ NODE_OPTIONS=--conditions=react-server npx tsx scripts/deploy-aws-jobs.ts \
   --source-bucket VERIFIED_STAGING_BUCKET --database-host VERIFIED_STAGING_HOST \
   --schedules disabled
 ```
+
+The optional `--reserve-concurrency enabled|disabled` flag controls Lambda
+reserved concurrency. New stacks default to `disabled`; omitting the flag on
+later deploys preserves the stack's current setting. On the first update of an
+older stack without this parameter, the script reads the live Lambda reservation
+and passes `enabled` when one exists. A zero reservation stops deployment until
+an operator chooses explicitly, so updating cannot silently restart a paused
+worker. Enable a reservation only
+after checking the account's Lambda concurrency quota: AWS requires at least ten
+unreserved slots in addition to existing reservations. The SQS event-source
+cap applies in either mode, but without a Lambda reservation, competing
+functions can throttle this worker. Watch the queue-age and dead-letter alarms
+when using shared concurrency.
 
 The script checks the database host and bucket against the explicit targets,
 uploads a content-addressed worker artifact, writes a complete revision of

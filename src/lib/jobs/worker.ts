@@ -64,7 +64,50 @@ type JobWorkerLogEvent = {
   id?: string;
   attempt?: number;
   durationMs?: number;
+  phase?: DeliveryPhase;
+  errorCode?: string;
+  sqlState?: string;
 } & Partial<MaintenanceLogFields>;
+
+type DeliveryPhase =
+  | "received" | "source" | "parse" | "dead-letter-invalid" | "claim"
+  | "retry-busy" | "dead-letter-claimed" | "execute" | "fail"
+  | "dead-letter-terminal" | "retry-execution" | "complete";
+type DeliveryDiagnostic = { job?: JobEnvelope; phase: DeliveryPhase };
+
+function safeErrorCode(error: unknown): string | undefined {
+  if (error instanceof Error && [
+    "timeout exceeded when trying to connect",
+    "Connection terminated due to connection timeout",
+  ].includes(error.message)) {
+    return "DB_CONNECTION_TIMEOUT";
+  }
+  if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
+  const code = error.code;
+  return typeof code === "string" &&
+    (/^P\d{4}$/.test(code) || /^(?:08|22|23|40|42|53|55|57|58|XX)[0-9A-Z]{3}$/.test(code) ||
+      ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"].includes(code))
+    ? code : undefined;
+}
+
+function safeSqlState(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error) || error.code !== "P2010" ||
+      !("meta" in error) || typeof error.meta !== "object" || error.meta === null) return undefined;
+  const meta = error.meta as Record<string, unknown>;
+  const adapter = meta.driverAdapterError;
+  const cause = typeof adapter === "object" && adapter !== null && "cause" in adapter
+    ? adapter.cause : undefined;
+  let nested: unknown;
+  if (typeof cause === "object" && cause !== null) {
+    nested = "originalCode" in cause ? cause.originalCode : "code" in cause ? cause.code : undefined;
+  }
+  for (const value of [meta.code, nested]) {
+    if (typeof value === "string" && /^(?:08|22|23|25|40|42|53|55|57|58|XX)[0-9A-Z]{3}$/.test(value)) {
+      return value;
+    }
+  }
+  return undefined;
+}
 
 export type JobWorkerDependencies = {
   environment: JobEnvironment;
@@ -94,7 +137,8 @@ function failureReason(error: unknown, permanent: boolean, terminal: boolean): J
 export function createJobWorker(dependencies: JobWorkerDependencies) {
   const { environment, queueArn, log } = dependencies;
 
-  async function processRecord(record: SQSRecord): Promise<boolean> {
+  async function processRecord(record: SQSRecord, diagnostic: DeliveryDiagnostic): Promise<boolean> {
+    diagnostic.phase = "source";
     // Never forward a message from an unexpected source, including to the DLQ.
     if (record.eventSource !== "aws:sqs" || record.eventSourceARN !== queueArn) {
       log({ outcome: "JOB_SOURCE_REJECTED" });
@@ -103,27 +147,33 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
 
     let job: JobEnvelope;
     try {
+      diagnostic.phase = "parse";
       job = parseJobEnvelope(record.body, environment);
       if (record.attributes.MessageGroupId !== getJobMessageGroupId(job)) {
         throw new Error("JOB_GROUP_MISMATCH");
       }
     } catch {
+      diagnostic.phase = "dead-letter-invalid";
       await dependencies.deadLetter(record, "JOB_INVALID_MESSAGE");
       log({ outcome: "JOB_INVALID_MESSAGE" });
       return true;
     }
 
+    diagnostic.job = job;
+    diagnostic.phase = "claim";
     const claim = await dependencies.claim(job);
     if (claim.status === "complete") {
       log({ outcome: "duplicate", name: job.name, id: job.id });
       return true;
     }
     if (claim.status === "busy") {
+      diagnostic.phase = "retry-busy";
       await dependencies.retry(record, claim.retryAfterSeconds);
       log({ outcome: "leased", name: job.name, id: job.id });
       return false;
     }
     if (claim.status === "dead-letter") {
+      diagnostic.phase = "dead-letter-claimed";
       await dependencies.deadLetter(record, claim.reason);
       log({ outcome: claim.reason, name: job.name, id: job.id });
       return true;
@@ -133,6 +183,7 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
     const startedAt = dependencies.now().getTime();
     let executionResult: unknown;
     try {
+      diagnostic.phase = "execute";
       executionResult = await dependencies.execute(job, {
         attempt: claim.attempt - 1,
         maxAttempts,
@@ -144,15 +195,22 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
       const reason = failureReason(error, permanent, terminal);
       // Persist terminal state first. If DLQ publication fails, the next delivery
       // retries publication without re-executing the failed business operation.
+      diagnostic.phase = "fail";
       await dependencies.fail(job, claim.token, reason, terminal);
-      if (terminal) await dependencies.deadLetter(record, reason);
-      else await dependencies.retry(record, retryDelaySeconds(claim.attempt));
+      if (terminal) {
+        diagnostic.phase = "dead-letter-terminal";
+        await dependencies.deadLetter(record, reason);
+      } else {
+        diagnostic.phase = "retry-execution";
+        await dependencies.retry(record, retryDelaySeconds(claim.attempt));
+      }
       log({ outcome: reason, name: job.name, id: job.id, attempt: claim.attempt });
       return terminal;
     }
 
     // Completion storage failures must keep the lease. Do not treat them as
     // execution failures and immediately rerun an already-applied side effect.
+    diagnostic.phase = "complete";
     await dependencies.complete(job, claim.token);
     log({
       outcome: "completed",
@@ -168,11 +226,38 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
   return async (event: SQSEvent): Promise<SQSBatchResponse> => {
     for (let index = 0; index < event.Records.length; index += 1) {
       let acknowledged = false;
+      const diagnostic: DeliveryDiagnostic = { phase: "received" };
       try {
-        acknowledged = await processRecord(event.Records[index]);
-      } catch {
+        acknowledged = await processRecord(event.Records[index], diagnostic);
+      } catch (error) {
         // Exception messages may contain SQL, provider responses, or source text.
-        log({ outcome: "JOB_DELIVERY_FAILED" });
+        log({
+          outcome: "JOB_DELIVERY_FAILED",
+          name: diagnostic.job?.name,
+          id: diagnostic.job?.id,
+          phase: diagnostic.phase,
+          errorCode: safeErrorCode(error),
+          sqlState: safeSqlState(error),
+        });
+        // A transient store or transport failure must not hide this FIFO lane
+        // for the queue's one-hour visibility window. Native redrive remains
+        // bounded, while the next delivery will honor any durable lease.
+        if (event.Records[index].eventSource === "aws:sqs" &&
+            event.Records[index].eventSourceARN === queueArn) {
+          const receiveCount = Number(event.Records[index].attributes.ApproximateReceiveCount);
+          const retryAttempt = Number.isSafeInteger(receiveCount) && receiveCount > 0
+            ? Math.min(receiveCount, 7) : 1;
+          try {
+            await dependencies.retry(event.Records[index], retryDelaySeconds(retryAttempt));
+          } catch {
+            log({
+              outcome: "JOB_RETRY_SCHEDULE_FAILED",
+              name: diagnostic.job?.name,
+              id: diagnostic.job?.id,
+              phase: diagnostic.phase,
+            });
+          }
+        }
       }
       if (!acknowledged) {
         // FIFO ordering requires leaving all subsequent records unprocessed.

@@ -398,3 +398,92 @@ the handoff's production mixed-batch acceptance and Spanish import resume are
 still pending the reviewed release path. Poll existing operation IDs before
 resuming; preserve zero new introductions/reviews during that canary, and do
 not redrive the 7 DLQ messages without identifying and reviewing them.
+
+### Post-merge release checkpoint — 2026-09-24 17:20 UTC
+
+PR #154 merged as `3818819`. GitHub Actions `ci` passed on that commit, but the
+Vercel production build failed while resolving `next/font/google` through
+Turbopack. The agent-staging Vercel build of the same commit passed. A Vercel
+production redeploy without build cache compiled successfully, became Ready,
+and was aliased to `alpha.learnrecur.com`; the live site returned HTTP 200 and
+the merge commit's Vercel status changed to success. No application code change
+was needed for that build failure.
+
+The first AWS worker deployment of `3818819` rolled back: the template tried
+to reserve five Lambda concurrency slots, while the AWS account's concurrency
+quota is ten and AWS requires ten slots to stay unreserved. This follow-up
+changes the template so reservation is optional and disabled by default. The
+SQS event-source mapping still caps worker concurrency at five. The successful
+stack update reused configuration revision
+`bb2607c5-bfa1-43f8-a8a6-878a70d2e02e`, kept schedules enabled, and
+completed at 17:19 UTC. The live Lambda code hash
+`UeCztfe2H9hK9H52+l4DRx6rGJW4Tu6S9xlZbLJKuGg=` matches the package built
+from merge commit `3818819`; its recursion configuration is `Allow`, and the
+SQS mapping is enabled with batch size one and maximum concurrency five.
+
+At the 17:20 UTC snapshot, the main FIFO queue had zero visible and one
+in-flight message. The existing jobs DLQ still had seven visible messages; it
+was not redriven. Shared unreserved account concurrency can still throttle
+the worker if other Lambda functions consume the quota. Queue age and dead
+letter alarms remain the backstop. The production mixed-batch acceptance and
+Spanish import resume remain pending; preserve zero introductions and reviews
+during that canary and inspect the in-flight operation before resuming it.
+
+### Worker and Muse checkpoint — 2026-09-25 03:28 UTC
+
+The Vercel production deployment serves PR #162's merge commit `24d92b1`, but
+the Lambda worker initially still ran the earlier package. A deployment from
+current `main` first rolled back because its template again required five
+reserved concurrency slots under the account's ten-slot quota. Reusing the
+deployed template with `ReserveWorkerConcurrency=false` and changing only the
+content-addressed code key succeeded. CloudFormation is `UPDATE_COMPLETE`;
+the live Lambda code hash `Pn8lRgJNJv4jYwdcAaiy6ibplXv32wLjKgx0WgG31VY=`
+matches the package built from `24d92b1`. Configuration revision and enabled
+schedules were preserved. PR #155 carries the optional-reservation fix for
+future deployments and is being refreshed against current `main`.
+
+The live provider-handoff smoke forced a synthetic Gemini 503 and exercised
+real Muse generation and independent verification. Muse generated five choice
+exercises, four passed verification, and the contradictory control was
+rejected. The live handoff passed. The evaluation command's overall verdict
+remained `pause` because its offline sample contains 17 runs against a
+30-run release threshold. This smoke does not prove full textbook import
+quality or sustained fallback capacity.
+
+The production worker is still **not healthy**: QueueAge and DeadLetterBacklog
+are in `ALARM`, the main FIFO queue had three visible and one in-flight
+message after the release, and the jobs DLQ held eight. One delivery logged
+`JOB_DELIVERY_FAILED` near the top of each hour from 00:00 through 03:00 UTC.
+The current log omits message identity and failure phase, while the production
+delivery table shows no current non-completed row. The eight DLQ messages were
+inspected without deletion or redrive: three are agent-skill operations, two
+are maintenance, two are exercise refills, and one is a due reminder. Several
+were native SQS redrives without an application failure code. Their side
+effects must be checked individually before any replay.
+
+PR #155 now includes redacted failure diagnostics with validated job identity,
+phase, and allowlisted infrastructure error code. Focused tests, lint, and
+TypeScript checks passed locally. Once that exact worker artifact is reviewed,
+deployed, and hash-verified, observe the next hourly failure to identify the
+blocked envelope and underlying phase. Resolve the cause before attempting
+the original handoff's production mixed-batch canary or submitting the 14
+remaining Spanish specs. No learner introductions or reviews were made here.
+
+### Full-source Muse retrieval check — 2026-09-25 04:29 UTC
+
+The production Spanish textbook revision contains 279 stored chunks and
+917,364 source characters. A live Muse scan using the existing 180,000-character
+group limit failed because one request did not score every chunk. The scanner
+rejected the incomplete result, so no partial evidence was used. After reducing
+the group limit to 90,000 characters, the same real-source scan scored all 279
+chunks in 55.96 seconds within the 70-second retrieval budget and returned 48
+ranked matches. No learner records changed. This proves one complete live scan,
+not sustained throughput or exercise quality; the latter still requires the
+original handoff's audit.
+
+The 04:00 UTC worker diagnostic identified the blocked midnight due-reminder
+envelope during its database claim. It returned after 5.005 seconds, matching
+the Postgres connection timeout. A later read-only database check found no
+durable delivery row for that envelope and connected normally. The worker
+retry, SQS redrive, and Muse scan-limit changes in this PR remain undeployed
+at this checkpoint.

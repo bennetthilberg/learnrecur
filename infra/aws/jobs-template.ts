@@ -33,7 +33,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
         QueueName: name("jobs.fifo"), FifoQueue: true, ContentBasedDeduplication: true,
         SqsManagedSseEnabled: true, MaximumMessageSize: 65536, MessageRetentionPeriod: 345600,
         VisibilityTimeout: SQS_VISIBILITY_TIMEOUT_SECONDS, ReceiveMessageWaitTimeSeconds: 20,
-        RedrivePolicy: { deadLetterTargetArn: arn("DeadLetters"), maxReceiveCount: 6 },
+        RedrivePolicy: { deadLetterTargetArn: arn("DeadLetters"), maxReceiveCount: 30 },
       },
     },
     WorkerLogGroup: {
@@ -64,7 +64,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
       Properties: {
         FunctionName: name("jobs-worker"), Runtime: "nodejs24.x", Architectures: ["arm64"],
         Handler: "index.handler", MemorySize: 1024, Timeout: JOB_TIMEOUT_SECONDS,
-        ReservedConcurrentExecutions: ref("MaximumConcurrency"), RecursiveLoop: "Allow",
+        ReservedConcurrentExecutions: { "Fn::If": ["WorkerConcurrencyReserved", ref("MaximumConcurrency"), ref("AWS::NoValue")] }, RecursiveLoop: "Allow",
         Role: arn("WorkerRole"), Code: { S3Bucket: ref("CodeBucket"), S3Key: ref("CodeKey") },
         Environment: { Variables: { NODE_ENV: "production", LEARNRECUR_DEPLOYMENT_TIER: environment, JOBS_ENVIRONMENT: environment, JOBS_QUEUE_URL: ref("Queue"), JOBS_CONFIG_REVISION: ref("ConfigurationRevision") } },
       },
@@ -147,9 +147,13 @@ export function createJobsTemplate(environment: "staging" | "production") {
       ConfigurationRevision: { Type: "String", AllowedPattern: "[a-zA-Z0-9-]{1,80}" },
       WebPublisherUserName: { Type: "String", Default: environment === "production" ? "learnrecur-prod-s3-app" : "learnrecur-agent-staging-vercel" },
       EnableSchedules: { Type: "String", AllowedValues: ["true", "false"], Default: "false" },
+      ReserveWorkerConcurrency: { Type: "String", AllowedValues: ["true", "false"], Default: "false" },
       MaximumConcurrency: { Type: "Number", Default: environment === "production" ? 5 : 2, MinValue: 2, MaxValue: 5 },
     },
-    Conditions: { SchedulesEnabled: { "Fn::Equals": [ref("EnableSchedules"), "true"] } },
+    Conditions: {
+      SchedulesEnabled: { "Fn::Equals": [ref("EnableSchedules"), "true"] },
+      WorkerConcurrencyReserved: { "Fn::Equals": [ref("ReserveWorkerConcurrency"), "true"] },
+    },
     Resources: resources,
     Outputs: { QueueUrl: { Value: ref("Queue") }, QueueArn: { Value: arn("Queue") }, WorkerName: { Value: ref("Worker") }, AlertTopicArn: { Value: ref("Alerts") }, DeadLetterQueueUrl: { Value: ref("DeadLetters") }, SchedulerDeadLetterQueueUrl: { Value: ref("SchedulerDeadLetters") } },
   };

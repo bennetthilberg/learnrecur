@@ -170,9 +170,95 @@ describe("SQS worker delivery safety", () => {
 
   it("does not acknowledge when the database claim fails", async () => {
     const { dependencies, run } = setup();
-    vi.mocked(dependencies.claim).mockRejectedValue(new Error("database unavailable"));
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private study material"), { code: "P1001" }));
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.execute).not.toHaveBeenCalled();
+    expect(dependencies.retry).toHaveBeenCalledWith(expect.anything(), 30);
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      name: "learnrecur/choice-refill.requested",
+      id: expect.any(String),
+      phase: "claim",
+      errorCode: "P1001",
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private study material");
+  });
+
+  it.each([
+    { meta: { code: "57P01", message: "private query and password" }, sqlState: "57P01" },
+    { meta: { driverAdapterError: { cause: { originalCode: "08006", message: "private source text" } } }, sqlState: "08006" },
+    { meta: { driverAdapterError: { cause: { code: "53300", message: "private source text" } } }, sqlState: "53300" },
+    { meta: { code: "TOKEN", driverAdapterError: { cause: { originalCode: "private" } } }, sqlState: undefined },
+  ])("logs a safe PostgreSQL code from a failed Prisma claim", async ({ meta, sqlState }) => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private material"), {
+      code: "P2010", meta,
+    }));
+
+    expect(await run({ Records: [record()] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED", phase: "claim", errorCode: "P2010", sqlState,
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toMatch(/private|TOKEN/);
+  });
+
+  it("retries a pool connection timeout before the one-hour queue visibility expires", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("Connection terminated due to connection timeout"));
+    const failed = record({
+      attributes: { ...record().attributes, ApproximateReceiveCount: "4" },
+    });
+    expect(await run({ Records: [failed] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.retry).toHaveBeenCalledWith(failed, 240);
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      phase: "claim",
+      errorCode: "DB_CONNECTION_TIMEOUT",
+    }));
+  });
+
+  it("keeps a failed delivery unacknowledged when rescheduling also fails", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("timeout exceeded when trying to connect"));
+    vi.mocked(dependencies.retry).mockRejectedValue(new Error("private SQS response"));
+    expect(await run({ Records: [record()] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_RETRY_SCHEDULE_FAILED",
+      phase: "claim",
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private SQS response");
+  });
+
+  it.each([
+    { count: "invalid", delay: 30 },
+    { count: "0", delay: 30 },
+    { count: "999999999999999999999", delay: 30 },
+    { count: "30", delay: 900 },
+  ])("bounds infrastructure retry for receive count $count", async ({ count, delay }) => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(new Error("database unavailable"));
+    const failed = record({
+      attributes: { ...record().attributes, ApproximateReceiveCount: count },
+    });
+    expect(await run({ Records: [failed] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.retry).toHaveBeenCalledWith(failed, delay);
+  });
+
+  it("does not log arbitrary provider error codes", async () => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private"), {
+      code: "TOKEN",
+    }));
+    expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("TOKEN");
   });
 
   it("does not rerun business logic after completion persistence fails", async () => {
@@ -181,6 +267,10 @@ describe("SQS worker delivery safety", () => {
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     // Keep the running lease; the domain's own idempotency handles eventual recovery.
     expect(dependencies.fail).not.toHaveBeenCalled();
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED",
+      phase: "complete",
+    }));
   });
 
   it.each([
@@ -200,6 +290,7 @@ describe("SQS worker delivery safety", () => {
       .toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
     expect(dependencies.claim).not.toHaveBeenCalled();
     expect(dependencies.deadLetter).not.toHaveBeenCalled();
+    expect(dependencies.retry).not.toHaveBeenCalled();
   });
 
   it("stops after failure and returns all remaining FIFO records unprocessed", async () => {
