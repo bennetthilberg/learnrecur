@@ -6,10 +6,11 @@ const PAGE_SIZE = 200;
 const MAX_GROUP_CHARS = 90_000;
 const MAX_GROUP_CHUNKS = 120;
 const MAX_GROUPS = 24;
-const MAX_CONCURRENT_REQUESTS = 3;
+const MAX_CONCURRENT_REQUESTS = 5;
 const MAX_MATCHES = 48;
 const MAX_SCAN_BUDGET_MS = 70_000;
 const FALLBACK_RESERVE_MS = 20_000;
+const MAX_MISSING_SCORE_RETRIES = 2;
 
 const scoreResponseSchema = z.object({
   scores: z.array(z.object({
@@ -130,19 +131,29 @@ export async function scanMaterialChunksWithMuse(input: {
           const index = nextGroup++;
           const chunks = groups[index];
           try {
-            const response = scoreResponseSchema.parse(await input.rank({
-              query: input.query,
-              chunks,
-              signal: controller.signal,
-            }));
-            throwIfAborted(controller.signal);
-            if (response.scores.length !== chunks.length) {
-              throw new Error("Muse retrieval did not score every source chunk.");
+            const byId = new Map<string, number>();
+            let missing = chunks;
+            for (let attempt = 0; attempt <= MAX_MISSING_SCORE_RETRIES && missing.length > 0; attempt++) {
+              const response = scoreResponseSchema.parse(await input.rank({
+                query: input.query,
+                chunks: missing,
+                signal: controller.signal,
+              }));
+              throwIfAborted(controller.signal);
+              const expected = new Set(missing.map((chunk) => chunk.id));
+              const received = new Map<string, number>();
+              const duplicated = new Set<string>();
+              for (const score of response.scores) {
+                if (!expected.has(score.id) || duplicated.has(score.id)) continue;
+                if (received.has(score.id)) {
+                  received.delete(score.id);
+                  duplicated.add(score.id);
+                } else received.set(score.id, score.relevance);
+              }
+              for (const [id, relevance] of received) byId.set(id, relevance);
+              missing = missing.filter((chunk) => !received.has(chunk.id));
             }
-            const byId = new Map(response.scores.map((score) => [score.id, score.relevance]));
-            if (byId.size !== chunks.length || chunks.some((chunk) => !byId.has(chunk.id))) {
-              throw new Error("Muse retrieval returned duplicate or unknown chunk IDs.");
-            }
+            if (missing.length > 0) throw new Error("Muse retrieval did not score every source chunk.");
             scored[index] = chunks.map((chunk) => ({
               chunk,
               relevance: byId.get(chunk.id)!,
