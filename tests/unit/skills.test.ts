@@ -539,6 +539,20 @@ describe("validateGeneratedExactInputExercises", () => {
     expect(result).toMatchObject({ status: "ready", rejectedCount: 0 });
   });
 
+  it("rejects a bounded phrase whose only accepted answer requires unprompted punctuation", () => {
+    const result = validateGeneratedExactInputExercises({
+      exercises: [{
+        ...validExactInputExercise(1),
+        prompt: "Translate 'he has eaten' into Spanish: include the explicit subject pronoun.",
+        answerSpec: { kind: "text", accepted: ["Él ha comido."] },
+        correctAnswerDisplay: "Él ha comido.",
+      }],
+    });
+    expect(result).toMatchObject({
+      status: "invalid", reason: "too-few-valid-exercises", rejectedCount: 1,
+    });
+  });
+
   it("rejects a whole-sentence translation with one exact accepted answer", () => {
     const result = validateGeneratedExactInputExercises({
       exercises: [{
