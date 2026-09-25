@@ -66,6 +66,7 @@ type JobWorkerLogEvent = {
   durationMs?: number;
   phase?: DeliveryPhase;
   errorCode?: string;
+  sqlState?: string;
 } & Partial<MaintenanceLogFields>;
 
 type DeliveryPhase =
@@ -87,6 +88,25 @@ function safeErrorCode(error: unknown): string | undefined {
     (/^P\d{4}$/.test(code) || /^(?:08|22|23|40|42|53|55|57|58|XX)[0-9A-Z]{3}$/.test(code) ||
       ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"].includes(code))
     ? code : undefined;
+}
+
+function safeSqlState(error: unknown): string | undefined {
+  if (typeof error !== "object" || error === null || !("code" in error) || error.code !== "P2010" ||
+      !("meta" in error) || typeof error.meta !== "object" || error.meta === null) return undefined;
+  const meta = error.meta as Record<string, unknown>;
+  const adapter = meta.driverAdapterError;
+  const cause = typeof adapter === "object" && adapter !== null && "cause" in adapter
+    ? adapter.cause : undefined;
+  let nested: unknown;
+  if (typeof cause === "object" && cause !== null) {
+    nested = "originalCode" in cause ? cause.originalCode : "code" in cause ? cause.code : undefined;
+  }
+  for (const value of [meta.code, nested]) {
+    if (typeof value === "string" && /^(?:08|22|23|25|40|42|53|55|57|58|XX)[0-9A-Z]{3}$/.test(value)) {
+      return value;
+    }
+  }
+  return undefined;
 }
 
 export type JobWorkerDependencies = {
@@ -217,6 +237,7 @@ export function createJobWorker(dependencies: JobWorkerDependencies) {
           id: diagnostic.job?.id,
           phase: diagnostic.phase,
           errorCode: safeErrorCode(error),
+          sqlState: safeSqlState(error),
         });
         // A transient store or transport failure must not hide this FIFO lane
         // for the queue's one-hour visibility window. Native redrive remains

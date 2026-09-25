@@ -112,7 +112,7 @@ export function createJobsTemplate(environment: "staging" | "production") {
       EvaluationPeriods: 1, TreatMissingData: "notBreaching", ComparisonOperator: "GreaterThanOrEqualToThreshold", Threshold: 1, Period: 300, Statistic: "Sum", ...properties,
     } };
   }
-  alarm("QueueAge", { Namespace: "AWS/SQS", MetricName: "ApproximateAgeOfOldestMessage", Statistic: "Maximum", Threshold: 900, Dimensions: [{ Name: "QueueName", Value: name("jobs.fifo") }] });
+  alarm("QueueAge", { Namespace: "AWS/SQS", MetricName: "ApproximateAgeOfOldestMessage", Statistic: "Maximum", Threshold: 300, Dimensions: [{ Name: "QueueName", Value: name("jobs.fifo") }] });
   alarm("DeadLetterBacklog", { Namespace: "AWS/SQS", MetricName: "ApproximateNumberOfMessagesVisible", Statistic: "Maximum", Dimensions: [{ Name: "QueueName", Value: name("jobs-dlq.fifo") }] });
   if (environment === "production") alarm("SchedulerDeadLetterBacklog", { Namespace: "AWS/SQS", MetricName: "ApproximateNumberOfMessagesVisible", Statistic: "Maximum", Dimensions: [{ Name: "QueueName", Value: name("scheduler-dlq") }] });
   alarm("WorkerErrors", { Namespace: "AWS/Lambda", MetricName: "Errors", Dimensions: [{ Name: "FunctionName", Value: ref("Worker") }] });

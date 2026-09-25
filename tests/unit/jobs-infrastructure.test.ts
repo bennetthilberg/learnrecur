@@ -82,9 +82,13 @@ describe("AWS deployment contract", () => {
   });
 
   it("includes queue age, dead letters, worker failures, and all three cron silence alarms", () => {
-    const alarms = Object.values(createJobsTemplate("production").Resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
+    const resources = createJobsTemplate("production").Resources;
+    const alarms = Object.values(resources).filter((resource) => resource.Type === "AWS::CloudWatch::Alarm");
     expect(alarms).toHaveLength(7);
     expect(alarms.every((alarm) => Array.isArray(alarm.Properties.AlarmActions) && alarm.Properties.AlarmActions.length > 0)).toBe(true);
+    expect(resources.QueueAge.Properties).toMatchObject({
+      MetricName: "ApproximateAgeOfOldestMessage", Threshold: 300, Period: 300,
+    });
   });
 
   it("keeps worker self-publication and Lambda concurrency explicitly bounded", () => {

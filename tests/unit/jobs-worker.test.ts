@@ -184,6 +184,26 @@ describe("SQS worker delivery safety", () => {
     expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("private study material");
   });
 
+  it.each([
+    { meta: { code: "57P01", message: "private query and password" }, sqlState: "57P01" },
+    { meta: { driverAdapterError: { cause: { originalCode: "08006", message: "private source text" } } }, sqlState: "08006" },
+    { meta: { driverAdapterError: { cause: { code: "53300", message: "private source text" } } }, sqlState: "53300" },
+    { meta: { code: "TOKEN", driverAdapterError: { cause: { originalCode: "private" } } }, sqlState: undefined },
+  ])("logs a safe PostgreSQL code from a failed Prisma claim", async ({ meta, sqlState }) => {
+    const { dependencies, run } = setup();
+    vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private material"), {
+      code: "P2010", meta,
+    }));
+
+    expect(await run({ Records: [record()] })).toEqual({
+      batchItemFailures: [{ itemIdentifier: "message-a" }],
+    });
+    expect(dependencies.log).toHaveBeenCalledWith(expect.objectContaining({
+      outcome: "JOB_DELIVERY_FAILED", phase: "claim", errorCode: "P2010", sqlState,
+    }));
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toMatch(/private|TOKEN/);
+  });
+
   it("retries a pool connection timeout before the one-hour queue visibility expires", async () => {
     const { dependencies, run } = setup();
     vi.mocked(dependencies.claim).mockRejectedValue(new Error("Connection terminated due to connection timeout"));
