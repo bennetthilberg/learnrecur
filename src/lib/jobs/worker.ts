@@ -78,7 +78,7 @@ function safeErrorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   const code = error.code;
   return typeof code === "string" &&
-    (/^P\d{4}$/.test(code) || /^[0-9A-Z]{5}$/.test(code) ||
+    (/^P\d{4}$/.test(code) || /^(?:08|22|23|40|42|53|55|57|58|XX)[0-9A-Z]{3}$/.test(code) ||
       ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ENOTFOUND", "EAI_AGAIN"].includes(code))
     ? code : undefined;
 }

@@ -186,10 +186,10 @@ describe("SQS worker delivery safety", () => {
   it("does not log arbitrary provider error codes", async () => {
     const { dependencies, run } = setup();
     vi.mocked(dependencies.claim).mockRejectedValue(Object.assign(new Error("private"), {
-      code: "PRIVATE_STUDY_MATERIAL",
+      code: "TOKEN",
     }));
     expect(await run({ Records: [record()] })).toEqual({ batchItemFailures: [{ itemIdentifier: "message-a" }] });
-    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("PRIVATE_STUDY_MATERIAL");
+    expect(JSON.stringify(vi.mocked(dependencies.log).mock.calls)).not.toContain("TOKEN");
   });
 
   it("does not rerun business logic after completion persistence fails", async () => {
