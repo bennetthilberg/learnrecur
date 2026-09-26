@@ -25,3 +25,9 @@ updates:
           - "react-native"
           - "vitest"
           - "@vitest/coverage-v8"
+    # CI and Vercel run Node 24. Keep its types on that major until the
+    # runtime is upgraded too; patch updates within Node 24 remain eligible.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
