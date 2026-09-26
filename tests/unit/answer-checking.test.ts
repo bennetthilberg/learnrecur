@@ -399,6 +399,25 @@ describe("checkAnswer math answers", () => {
     });
   });
 
+  it.each([
+    ["(x-y)(x+y)", "x^2-y^2", true],
+    ["2(x+3)", "2x+6", true],
+    ["1/2+1/3", "5/6", true],
+    ["(x+1)^2", "x^2+2x+2", false],
+    ["(x-y)^2", "x^2-y^2", false],
+    ["1/2+1/3", "2/5", false],
+  ])("grades %s against %s correctly", (submittedAnswer, acceptedExpression, isCorrect) => {
+    expect(
+      checkAnswer({
+        answerSpec: { kind: "math", acceptedExpressions: [acceptedExpression] },
+        submittedAnswer,
+      }),
+    ).toMatchObject({
+      status: isCorrect ? "correct" : "incorrect",
+      isCorrect,
+    });
+  });
+
   it("returns structured invalid input for empty or malformed math answers", () => {
     expect(
       checkAnswer({
