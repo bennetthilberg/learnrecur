@@ -18,9 +18,10 @@ updates:
         update-types:
           - minor
           - patch
-        # Compute Engine 0.x minor updates can change math grading behavior.
-        # Review them alone, and keep Vitest with its matching coverage peer.
+        # Compute Engine and React Native 0.x updates can change behavior or
+        # require matching overrides. Review them alone; keep Vitest paired.
         exclude-patterns:
           - "@cortex-js/compute-engine"
+          - "react-native"
           - "vitest"
           - "@vitest/coverage-v8"
