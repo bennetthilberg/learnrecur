@@ -4,12 +4,23 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    # Keep routine minor and patch updates reviewable as one low-risk batch.
+    # Keep routine minor and patch updates reviewable as one batch.
     # Security updates remain enabled through the repository's Dependabot
     # security-update settings and are not disabled or folded into this group.
     groups:
+      vitest-tooling:
+        applies-to: version-updates
+        patterns:
+          - "vitest"
+          - "@vitest/coverage-v8"
       low-risk-npm-updates:
         applies-to: version-updates
         update-types:
           - minor
           - patch
+        # Compute Engine 0.x minor updates can change math grading behavior.
+        # Review them alone, and keep Vitest with its matching coverage peer.
+        exclude-patterns:
+          - "@cortex-js/compute-engine"
+          - "vitest"
+          - "@vitest/coverage-v8"
