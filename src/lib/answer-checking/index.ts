@@ -540,7 +540,14 @@ function areMathExpressionsEquivalent(left: Expression, right: Expression): bool
       return true;
     }
 
-    return left.simplify().isEqual(right.simplify()) === true;
+    if (left.simplify().isEqual(right.simplify()) === true) {
+      return true;
+    }
+
+    // Newer Compute Engine versions can leave an exact polynomial identity
+    // undecided by isEqual(). Accept it only when symbolic subtraction reduces
+    // to an exact zero; approximate equality would misgrade small differences.
+    return left.sub(right).simplify().isSame(0);
   } catch {
     return false;
   }
