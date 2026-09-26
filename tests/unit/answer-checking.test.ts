@@ -384,6 +384,21 @@ describe("checkAnswer math answers", () => {
     });
   });
 
+  it("does not treat a small symbolic difference as an identity", () => {
+    expect(
+      checkAnswer({
+        answerSpec: {
+          kind: "math",
+          acceptedExpressions: ["x + 0.000000000001"],
+        },
+        submittedAnswer: "x",
+      }),
+    ).toMatchObject({
+      status: "incorrect",
+      isCorrect: false,
+    });
+  });
+
   it("returns structured invalid input for empty or malformed math answers", () => {
     expect(
       checkAnswer({
