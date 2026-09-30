@@ -628,7 +628,7 @@ def disable_help_button(widget: QWidget) -> None:
 
 def setWindowIcon(widget: QWidget) -> None:
     icon = QIcon()
-    icon.addPixmap(QPixmap("icons:anki.png"), QIcon.Mode.Normal, QIcon.State.Off)
+    icon.addPixmap(QPixmap("icons:learnrecur.png"), QIcon.Mode.Normal, QIcon.State.Off)
     widget.setWindowIcon(icon)
 
 

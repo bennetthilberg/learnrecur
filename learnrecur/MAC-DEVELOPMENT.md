@@ -79,4 +79,4 @@ On September 30, 2026, the packaged app passed this check with “What is 2 + 3?
 
 After the review fixes, the rebuilt package and ad hoc signature passed again. A fresh synthetic profile with a loopback server URL showed the server-account login dialog with Username and Password fields and no AnkiWeb link. No credentials were entered or sent. The independent clock check also succeeded against its live HTTPS endpoint.
 
-That check proves a native review persists in LearnRecur storage. Ordinary-deck export and import compatibility still need the next milestone's round-trip checks.
+The ordinary-deck package checks and native review results are recorded in [ORDINARY-DECKS.md](ORDINARY-DECKS.md). The Mac app and Qt windows now use the blue seahorse icon; its SVG source and regeneration command are in [qt/icons/README.md](../qt/icons/README.md).

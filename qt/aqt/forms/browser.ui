@@ -18,7 +18,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>:/icons/anki.png</normaloff>:/icons/anki.png</iconset>
+    <normaloff>:/icons/learnrecur.png</normaloff>:/icons/learnrecur.png</iconset>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout_3">
