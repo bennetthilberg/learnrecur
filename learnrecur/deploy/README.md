@@ -1,11 +1,11 @@
 # Deployment
 
-This directory is reserved for reproducible hosting, backup, restore, and host-migration configuration. No infrastructure has been provisioned.
+This directory is for setting up hosting, backups, restores, and moves between hosts. No hosting has been set up yet.
 
-Deploy Anki's pinned standalone sync server and the companion API/worker as separate components. Give each its own persistent storage; sync-server storage must also be separate from desktop profiles. Restrict access to the personal account and use HTTPS or a private network.
+Run Anki's pinned sync server and the companion API and worker as separate components. Give each its own persistent storage, and keep sync-server storage separate from desktop profiles. Limit access to the personal account and use HTTPS or a private network.
 
-Choose a host after measuring resource needs. Total hosting must stay at or below $5/month; the Windows utility PC is the fallback. Generation has a separate configurable $5/month estimated-use limit. Obtain authorization before incurring costs.
+Measure resource needs before choosing a host. Hosting must cost no more than $5/month out of pocket. AI generation has a separate configurable $5/month estimated out-of-pocket limit. Apply eligible student discounts, credits, promotions, and similar offers before checking these limits, and track when they expire. The Windows utility PC is the hosting fallback. Get authorization before spending money.
 
-Backups must cover the sync collection and media, companion database, and durable job state. Demonstrate restoration on a different host and recovery after reboot before claiming operational readiness. Keep local credentials, runtime state, and backups out of Git.
+Back up the sync collection and media, companion database, and job state. Check that those backups restore on another host and that jobs recover after reboot before calling the setup reliable. Keep local credentials, runtime data, and backups out of Git.
 
-Implement this during roadmap milestone 4. See [ROADMAP.md](../../ROADMAP.md) and [AGENTS.md](../../AGENTS.md).
+Build this during milestone 4. See [ROADMAP.md](../../ROADMAP.md) and [AGENTS.md](../../AGENTS.md).
