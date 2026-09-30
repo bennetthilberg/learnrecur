@@ -36,6 +36,8 @@ Launching `./run` or the packaged app without an override uses `~/Library/Applic
 
 Anki's desktop updater is disabled. Sync requires a separate server URL in Preferences. The desktop's old `--syncserver` shortcut is disabled; server setup belongs to a later milestone.
 
+On startup, a separate background check compares the system clock with Cloudflare's HTTPS `Date` header. It sends no profile or collection data and warns before closing the app if the clock differs by more than five minutes, allowing for response time. This check still runs with updates disabled. If the network, certificate verification, or response is unavailable, offline review remains available and the clock isn't verified.
+
 ## Check
 
 ```sh
@@ -51,7 +53,7 @@ The Qt suite includes installer checks that need the Mac template:
 git submodule update --init qt/installer/mac-template
 ```
 
-Isolation tests use fake Anki folders in temporary directories. They check ignored Anki settings, rejected existing folders, symbolic links, updater entry points, and the missing sync-server case. They don't read the user's Anki data.
+Isolation tests use fake Anki folders in temporary directories. They check ignored Anki settings, rejected existing folders, symbolic links, downgrade paths, updater entry points, custom-server login, and clock checks. They don't read the user's Anki data.
 
 ## Build a local package
 
@@ -63,6 +65,8 @@ codesign --verify --deep --strict \
 
 The app is in `out/installer/build/anki/macos/app/LearnRecur.app`; the disk image is in `out/installer/dist/`. The inherited internal Briefcase key is still `anki`, but the executable and app are named LearnRecur and the bundle ID is `io.github.bennetthilberg.learnrecur.anki`.
 
+Installer builds and packaging are restricted to Mac. Linux and Windows still have inherited Anki installation paths and must be isolated before those packages can be enabled.
+
 Run the full package target before checking the signature. The build target alone changes Python resources after Briefcase signs them; the package step signs the final bundle again. Without `SIGN_IDENTITY`, it uses an ad hoc signature. This has been checked locally, but notarization and distribution on other Macs haven't been checked.
 
 Rust 1.97.1's debug stripping produced a library macOS 27 couldn't load. The bridge's development and release profiles disable stripping to avoid that [Rust issue](https://github.com/rust-lang/rust/issues/157750). Keep the workaround until a tested toolchain update makes it unnecessary.
@@ -72,5 +76,7 @@ Rust 1.97.1's debug stripping produced a library macOS 27 couldn't load. The bri
 Create a synthetic Basic card in a disposable LearnRecur profile. Open its deck, study it, reveal the answer, and rate it Good. Quit normally, then reopen with the same base folder. Check that the card and its review state remain. Use Browse > Card Info to inspect its history.
 
 On September 30, 2026, the packaged app passed this check with “What is 2 + 3?” and “5”. Good recorded one review with rating 3, one repetition, and a learning state. After restart, the deck showed one learning card and one studied card. The disabled updater and separate-server sync message were checked in the app too.
+
+After the review fixes, the rebuilt package and ad hoc signature passed again. A fresh synthetic profile with a loopback server URL showed the server-account login dialog with Username and Password fields and no AnkiWeb link. No credentials were entered or sent. The independent clock check also succeeded against its live HTTPS endpoint.
 
 That check proves a native review persists in LearnRecur storage. Ordinary-deck export and import compatibility still need the next milestone's round-trip checks.

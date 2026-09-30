@@ -242,6 +242,26 @@ def test_platform_suffix(monkeypatch, platform: str, machine: str, suffix: str) 
     assert get_platform_suffix() == suffix
 
 
+@pytest.mark.parametrize("platform", ["linux", "win32"])
+@pytest.mark.parametrize("operation", [build, package])
+def test_unsupported_installer_cannot_modify_output(
+    monkeypatch, mocker, tmp_path: Path, platform: str, operation
+) -> None:
+    monkeypatch.setattr("sys.platform", platform)
+    monkeypatch.setattr("tools.build_installer.out_dir", tmp_path)
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    sentinel = dist / "existing-package"
+    sentinel.write_bytes(b"keep this package")
+    subprocess = mocker.patch("tools.build_installer.subprocess.check_call")
+
+    with pytest.raises(RuntimeError, match="only on Mac"):
+        operation(argparse.Namespace(version="0.0.1"))
+
+    subprocess.assert_not_called()
+    assert sentinel.read_bytes() == b"keep this package"
+
+
 def _to_cmd_list(parsed: dict[str, str]) -> list[str]:
     cmd_list = []
     for k, v in parsed.items():

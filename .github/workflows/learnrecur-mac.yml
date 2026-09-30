@@ -29,4 +29,4 @@ jobs:
         run: |
           PYTHONPATH=pylib:qt:out/pylib:out/qt:qt/tools out/pyenv/bin/python -m pytest qt/tests/test_learnrecur.py -q
           ./ninja check:pytest:pylib check:pytest:aqt
-          out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/tests/test_learnrecur.py
+          out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/aqt/main.py qt/aqt/profiles.py qt/aqt/sync.py qt/aqt/update.py qt/tools/build_installer.py qt/tests/test_learnrecur.py qt/tests/test_installer.py

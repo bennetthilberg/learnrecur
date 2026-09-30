@@ -44,9 +44,7 @@ def _seed_prefs(base: Path) -> None:
         "suppressUpdate": True,
         "firstRun": False,
         "defaultLang": "en_US",
-        # The real switch for setup_auto_update — checked in
-        # qt/aqt/main.py:setup_auto_update via pm.check_for_updates().
-        # "suppressUpdate" only suppresses a single dismissed version string.
+        # LearnRecur disables desktop updates independently of these legacy flags.
         "check_for_updates": False,
     }
     profile = {

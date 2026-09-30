@@ -319,10 +319,21 @@ class ProfileManager:
         return self._ensureExists(os.path.join(self.profileFolder(), "backups"))
 
     def collectionPath(self) -> str:
-        path = os.path.join(self.profileFolder(), "collection.anki2")
-        for suffix in ("", "-wal", "-shm"):
+        self.profileFolder()
+        return self._collection_path(self.name)
+
+    def _collection_path(self, name: str) -> str:
+        profile = storage_path(self.base, os.path.join(self.base, name))
+        path = storage_path(self.base, os.path.join(profile, "collection.anki2"))
+        for suffix in ("-journal", "-wal", "-shm"):
             storage_path(self.base, path + suffix)
-        for suffix in (".media", ".media.db2", ".media.db2-wal", ".media.db2-shm"):
+        for suffix in (
+            ".media",
+            ".media.db2",
+            ".media.db2-journal",
+            ".media.db2-wal",
+            ".media.db2-shm",
+        ):
             storage_path(self.base, str(Path(path).with_suffix(suffix)))
         return path
 
@@ -336,14 +347,14 @@ class ProfileManager:
         "Downgrade all profiles. Return a list of profiles that couldn't be opened."
         problem_profiles = []
         for name in profiles:
-            path = os.path.join(self.base, name, "collection.anki2")
-            if not os.path.exists(path):
-                continue
-            with DB(path) as db:
-                if db.scalar("select ver from col") == 11:
-                    # nothing to do
-                    continue
             try:
+                path = self._collection_path(name)
+                if not os.path.exists(path):
+                    continue
+                with DB(path) as db:
+                    if db.scalar("select ver from col") == 11:
+                        # nothing to do
+                        continue
                 c = Collection(path)
                 c.close(downgrade=True)
             except Exception as e:

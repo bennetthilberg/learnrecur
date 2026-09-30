@@ -306,14 +306,24 @@ def bundle_fcitx(out_dir: Path) -> None:
             )
 
 
+def require_mac_installer() -> None:
+    if sys.platform != "darwin":
+        raise RuntimeError(
+            "LearnRecur installers are supported only on Mac. "
+            "Other platforms still use Anki installation paths."
+        )
+
+
 def build(args: argparse.Namespace) -> None:
+    require_mac_installer()
     version = args.version
     shutil.copytree(app_dir, out_dir, dirs_exist_ok=True)
     constraints_path = export_constraints(out_dir)
     config_args = get_briefcase_config_args(args, constraints_path)
     shutil.copy("LICENSE", out_dir / "LICENSE")
     (out_dir / "CHANGELOG").write_text(
-        "Please see https://github.com/bennetthilberg/learnrecur/releases", encoding="utf-8"
+        "Please see https://github.com/bennetthilberg/learnrecur/releases",
+        encoding="utf-8",
     )
     subprocess.check_call(
         [
@@ -360,6 +370,7 @@ def get_signing_args() -> list[str]:
 
 
 def package(args: argparse.Namespace) -> None:
+    require_mac_installer()
     version = args.version
     config_args = get_briefcase_config_args(args)
     shutil.rmtree(out_dir / "dist", ignore_errors=True)
