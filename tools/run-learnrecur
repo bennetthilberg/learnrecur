@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+export LEARNRECUR_BASE="${LEARNRECUR_BASE:-$(pwd)/out/learnrecur/dev-data}"
+exec ./run "$@"

@@ -34,11 +34,7 @@ except UnicodeEncodeError:
 
 # if sync server enabled, bypass the rest of the startup
 if "--syncserver" in sys.argv:
-    from anki.syncserver import run_sync_server
-    from anki.utils import is_mac
-
-    # does not return
-    run_sync_server()
+    raise SystemExit("LearnRecur sync server setup is not available yet.")
 
 import argparse
 import builtins
@@ -56,6 +52,7 @@ from anki.collection import Collection
 from anki.consts import HELP_SITE
 from anki.utils import checksum, is_gnome, is_lin, is_mac
 from aqt import gui_hooks
+from aqt.learnrecur import APP_ID, APP_NAME
 from aqt.log import setup_logging
 from aqt.qt import *
 from aqt.qt import sip
@@ -80,8 +77,8 @@ except AttributeError:
         sys.stderr = sys.stdout = open(os.devnull, "w", encoding="utf8")
 
 appVersion = _version
-appWebsite = "https://apps.ankiweb.net/"
-appWebsiteDownloadSection = "https://apps.ankiweb.net/#download"
+appWebsite = "https://github.com/bennetthilberg/learnrecur"
+appWebsiteDownloadSection = "https://github.com/bennetthilberg/learnrecur/releases"
 appDonate = "https://docs.ankiweb.net/contrib.html"
 appShared = "https://ankiweb.net/shared/"
 appUpdate = "https://ankiweb.net/update/desktop"
@@ -332,10 +329,7 @@ class AnkiApp(QApplication):
 
     appMsg = pyqtSignal(str)
 
-    KEY = (
-        os.environ.get("ANKI_SINGLE_INSTANCE_KEY")
-        or f"anki{checksum(getpass.getuser())}"
-    )
+    KEY = f"learnrecur{checksum(getpass.getuser())}"
     TMOUT = 30000
 
     def __init__(self, argv: list[str]) -> None:
@@ -485,7 +479,7 @@ def parseArgs(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
     # as there's no such profile
     if is_mac and len(argv) > 1 and argv[1].startswith("-psn"):
         argv = [argv[0]]
-    parser = argparse.ArgumentParser(description=f"Anki {appVersion}")
+    parser = argparse.ArgumentParser(description=f"{APP_NAME} {appVersion}")
     parser.usage = "%(prog)s [OPTIONS] [file to import/add-on to install]"
     parser.add_argument("-b", "--base", help="path to base folder", default="")
     parser.add_argument("-p", "--profile", help="profile name to load", default="")
@@ -606,7 +600,7 @@ def write_profile_results() -> None:
 
 
 def run() -> None:
-    print(f"Starting Anki {_version}...")
+    print(f"Starting {APP_NAME} {_version}...")
     try:
         _run()
     except Exception:
@@ -638,7 +632,7 @@ def _run(argv: list[str] | None = None, exec: bool = True) -> AnkiApp | None:
     opts, args = parseArgs(argv)
 
     if opts.version:
-        print(f"Anki {appVersion}")
+        print(f"{APP_NAME} {appVersion}")
         return None
 
     if PROFILE_CODE:
@@ -671,6 +665,7 @@ def _run(argv: list[str] | None = None, exec: bool = True) -> AnkiApp | None:
     # profile manager
     i18n_setup = False
     pm = None
+    data_folder_error = "Unable to create the LearnRecur data folder."
     try:
         base_folder = ProfileManager.get_created_base_folder(opts.base)
 
@@ -683,9 +678,10 @@ def _run(argv: list[str] | None = None, exec: bool = True) -> AnkiApp | None:
         pmLoadResult = pm.setupMeta()
 
         Collection.initialize_backend_logging()
-    except Exception:
+    except Exception as exc:
         # will handle below
         traceback.print_exc()
+        data_folder_error = str(exc)
         pm = None
 
     # Opt-in to full HiDPI support?
@@ -706,10 +702,14 @@ def _run(argv: list[str] | None = None, exec: bool = True) -> AnkiApp | None:
         os.environ["QT_QPA_PLATFORM"] = "windows:altgr"
 
     # create the app
-    QCoreApplication.setApplicationName("Anki")
-    QGuiApplication.setDesktopFileName("anki")
+    QCoreApplication.setApplicationName(APP_NAME)
+    QCoreApplication.setOrganizationName(APP_NAME)
+    QCoreApplication.setOrganizationDomain(APP_ID)
+    QGuiApplication.setDesktopFileName("learnrecur")
     app = AnkiApp(argv)
-    if app.secondInstance():
+    if pm:
+        app.KEY = f"learnrecur{checksum(pm.base)}"
+    if pm and app.secondInstance():
         # we've signaled the primary instance, so we should close
         return None
 
@@ -725,10 +725,10 @@ def _run(argv: list[str] | None = None, exec: bool = True) -> AnkiApp | None:
             QMessageBox.critical(
                 None,
                 tr.qt_misc_error(),
-                tr.profiles_could_not_create_data_folder(),
+                data_folder_error,
             )
         else:
-            QMessageBox.critical(None, "Startup Failed", "Unable to create data folder")
+            QMessageBox.critical(None, "LearnRecur could not start", data_folder_error)
         return None
 
     setup_logging(

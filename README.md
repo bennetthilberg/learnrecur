@@ -4,9 +4,9 @@ LearnRecur is a Mac-first fork of Anki that helps learners keep skills fresh wit
 
 ## Status
 
-The repository is based on Anki 26.09.3, with its history and source layout preserved. We've prepared the repository, but haven't built LearnRecur's features or companion service, or checked that the app launches with its own profile.
+The repository is based on Anki 26.09.3, with its history and source layout preserved. The Mac app builds and runs with its own identity and storage. A synthetic review survives a restart. Skill cards and the companion service haven't been built yet.
 
-Read [AGENTS.md](AGENTS.md) before working on the code. Use synthetic data or disposable copies, and leave existing Anki installations and collections untouched. Before launching the app, set up and check a separate profile path.
+Read [AGENTS.md](AGENTS.md) before working on the code. Use synthetic data. LearnRecur must never discover, load, copy, or migrate local Anki data, in development or production.
 
 ## Structure
 
@@ -21,7 +21,7 @@ These components share one Git repository. Anki's submodules for translations an
 
 [ROADMAP.md](ROADMAP.md) records the order of work and what has been checked. [PRODUCT-SEED.md](learnrecur/PRODUCT-SEED.md) preserves the original plan. Later decisions appear in the roadmap and agent guidance.
 
-Use Anki's [development documentation](docs/development.md) and `justfile` as build references after reading the LearnRecur guidance. Inherited workflow jobs do not run here. We'll add application CI once we've established the build.
+Use the [Mac build guide](learnrecur/MAC-DEVELOPMENT.md) for LearnRecur's build and run commands. Anki's [development documentation](docs/development.md) and `justfile` remain useful references. A LearnRecur workflow checks the Mac build, isolation rules, and Python tests; inherited workflow jobs remain disabled.
 
 ## License
 

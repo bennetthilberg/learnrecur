@@ -1,0 +1,32 @@
+name: LearnRecur Mac
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: learnrecur-mac-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mac:
+    if: github.repository == 'bennetthilberg/learnrecur'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: ./.github/actions/setup-anki
+      - name: Get the Mac installer template
+        run: git submodule update --init qt/installer/mac-template
+      - name: Build
+        run: ./ninja pylib qt
+      - name: Check isolation and Python behavior
+        run: |
+          PYTHONPATH=pylib:qt:out/pylib:out/qt:qt/tools out/pyenv/bin/python -m pytest qt/tests/test_learnrecur.py -q
+          ./ninja check:pytest:pylib check:pytest:aqt
+          out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/aqt/main.py qt/aqt/profiles.py qt/aqt/sync.py qt/aqt/update.py qt/tools/build_installer.py qt/tests/test_learnrecur.py qt/tests/test_installer.py

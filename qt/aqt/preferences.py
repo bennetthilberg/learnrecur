@@ -236,6 +236,7 @@ class Preferences(QDialog):
         self.form.network_timeout.setValue(self.mw.pm.network_timeout())
 
         self.form.check_for_updates.setChecked(self.mw.pm.check_for_updates())
+        self.form.check_for_updates.setEnabled(False)
         qconnect(self.form.check_for_updates.stateChanged, self.mw.pm.set_update_check)
 
         self.form.check_for_addon_updates.setChecked(

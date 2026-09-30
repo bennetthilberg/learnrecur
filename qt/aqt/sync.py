@@ -11,7 +11,6 @@ from concurrent.futures import Future
 import aqt
 import aqt.main
 from anki.errors import Interrupted, SyncError, SyncErrorKind
-from anki.lang import without_unicode_isolation
 from anki.sync import SyncOutput, SyncStatus
 from anki.sync_pb2 import SyncAuth
 from anki.utils import plat_desc
@@ -310,6 +309,12 @@ def sync_login(
     username: str = "",
     password: str = "",
 ) -> None:
+    if not mw.pm.custom_sync_url():
+        showWarning(
+            "Set a LearnRecur sync server in Preferences before syncing.", parent=mw
+        )
+        return
+
     def on_future_done(fut: Future[SyncAuth], username: str, password: str) -> None:
         try:
             auth = fut.result()
@@ -357,17 +362,12 @@ def get_id_and_pass_from_user(
     disable_help_button(diag)
     diag.setWindowModality(Qt.WindowModality.WindowModal)
     vbox = QVBoxLayout()
-    info_label = QLabel(
-        without_unicode_isolation(
-            tr.sync_account_required(link="https://ankiweb.net/account/register")
-        )
-    )
-    info_label.setOpenExternalLinks(True)
+    info_label = QLabel("Sign in with your LearnRecur sync server account.")
     info_label.setWordWrap(True)
     vbox.addWidget(info_label)
     vbox.addSpacing(20)
     g = QGridLayout()
-    l1 = QLabel(tr.sync_ankiweb_id_label())
+    l1 = QLabel("Username")
     g.addWidget(l1, 0, 0)
     user = QLineEdit()
     user.setText(username)

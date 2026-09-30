@@ -1,110 +1,82 @@
 # Copyright: Ankitects Pty Ltd and contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+"""Keep clock checks separate from the disabled upstream updater."""
+
 from __future__ import annotations
 
+import time
+from email.utils import parsedate_to_datetime
 from typing import Callable
 
+import requests
+
 import aqt
-from anki.buildinfo import buildhash
-from anki.collection import CheckForUpdateResponse, Collection, GithubRelease
-from anki.utils import dev_mode, int_time, int_version, plat_desc
+from anki.collection import GithubRelease
 from aqt.operations import QueryOp
-from aqt.package import (
-    download_github_update_and_install as _download_github_update_and_install,
-)
-from aqt.qt import *
-from aqt.utils import openLink, show_warning, showText, tr
+from aqt.qt import Qt, QWidget
+from aqt.utils import show_warning, tr
+
+CLOCK_URL = "https://www.cloudflare.com/"
 
 
-def check_for_update() -> None:
-    from aqt import mw
+def clock_offset() -> float:
+    """Check HTTPS response time without sending profile or collection data."""
+    started = time.monotonic()
+    with requests.head(
+        CLOCK_URL,
+        headers={"Cache-Control": "no-cache"},
+        timeout=5,
+        allow_redirects=False,
+        verify=True,
+    ) as response:
+        if response.status_code != 200:
+            raise ValueError("Clock check did not receive a successful response.")
+        server_date = parsedate_to_datetime(response.headers["Date"])
+        if server_date.tzinfo is None:
+            raise ValueError("Clock check received a date without a time zone.")
+        age = int(response.headers.get("Age", "0"))
+        if age < 0:
+            raise ValueError("Clock check received an invalid response age.")
+        elapsed = time.monotonic() - started
+        # Allow for response travel time and the Date header's one-second precision.
+        difference = abs(time.time() - (server_date.timestamp() + age))
+        return max(0, difference - elapsed - 1)
 
-    def do_check(_col: Collection) -> CheckForUpdateResponse:
-        return mw.backend.check_for_update(
-            version=int_version(),
-            buildhash=buildhash,
-            os=plat_desc(),
-            install_id=mw.pm.meta["id"],
-            last_message_id=max(0, mw.pm.meta["lastMsg"]),
-        )
 
-    def on_done(resp: CheckForUpdateResponse) -> None:
-        # is clock off?
-        if not dev_mode:
-            diff = abs(resp.current_time - int_time())
-            if diff > 300:
-                diff_text = tr.qt_misc_second(count=diff)
-                warn = (
-                    tr.qt_misc_in_order_to_ensure_your_collection(val="%s") % diff_text
-                )
-                show_warning(
-                    warn,
-                    parent=mw,
-                    textFormat=Qt.TextFormat.RichText,
-                    callback=mw.app.closeAllWindows,
-                )
-                return
-        # should we show a message?
-        if msg := resp.message:
-            showText(msg, parent=mw, type="html")
-            mw.pm.meta["lastMsg"] = resp.last_message_id
-        # has Anki been updated?
-        if ver := resp.new_version:
-            if mw.pm.meta.get("suppressUpdate", None) != ver:
-                prompt_to_update(mw, ver)
+def check_system_clock(mw: aqt.AnkiQt) -> None:
+    def on_done(difference: float) -> None:
+        if difference > 300:
+            diff_text = tr.qt_misc_second(count=int(difference))
+            warning = (
+                tr.qt_misc_in_order_to_ensure_your_collection(val="%s") % diff_text
+            )
+            show_warning(
+                warning,
+                parent=mw,
+                textFormat=Qt.TextFormat.RichText,
+                callback=mw.app.closeAllWindows,
+            )
 
-    def on_fail(exc: Exception) -> None:
-        print(f"update check failed: {exc}")
+    def on_fail(_exc: Exception) -> None:
+        # Offline use remains available, as it did with the upstream update check.
+        print("LearnRecur could not check the system clock.")
 
-    QueryOp(parent=mw, op=do_check, success=on_done).failure(
+    QueryOp(parent=mw, op=lambda _col: clock_offset(), success=on_done).failure(
         on_fail
     ).without_collection().run_in_background()
 
 
+def check_for_update() -> None:
+    return
+
+
 def prompt_to_update(mw: aqt.AnkiQt, ver: str) -> None:
-    msg = (
-        tr.qt_misc_anki_updatedanki_has_been_released(val=ver)
-        + tr.qt_misc_would_you_like_to_download_it()
-    )
-
-    msgbox = QMessageBox(mw)
-    msgbox.setStandardButtons(
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-    )
-    msgbox.setIcon(QMessageBox.Icon.Information)
-    msgbox.setText(msg)
-
-    button = QPushButton(tr.qt_misc_ignore_this_update())
-    msgbox.addButton(button, QMessageBox.ButtonRole.RejectRole)
-    msgbox.setDefaultButton(QMessageBox.StandardButton.Yes)
-    ret = msgbox.exec()
-
-    if msgbox.clickedButton() == button:
-        # ignore this update
-        mw.pm.meta["suppressUpdate"] = ver
-    elif ret == QMessageBox.StandardButton.Yes:
-        openLink(aqt.appWebsiteDownloadSection)
+    raise RuntimeError("LearnRecur does not install Anki updates.")
 
 
 def prompt_and_install_github_update(mw: aqt.AnkiQt, release: GithubRelease) -> None:
-    msg = (
-        tr.qt_misc_anki_updatedanki_has_been_released(val=release.tag_name)
-        + tr.qt_misc_would_you_like_to_download_it()
-    )
-
-    msgbox = QMessageBox(mw)
-    msgbox.setStandardButtons(
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-    )
-    msgbox.setIcon(QMessageBox.Icon.Information)
-    msgbox.setText(msg)
-
-    msgbox.setDefaultButton(QMessageBox.StandardButton.Yes)
-    ret = msgbox.exec()
-
-    if ret == QMessageBox.StandardButton.Yes:
-        _download_github_update_and_install(release)
+    raise RuntimeError("LearnRecur does not install Anki updates.")
 
 
 def get_latest_release_op(
@@ -112,10 +84,4 @@ def get_latest_release_op(
     include_prerelease: bool,
     on_success: Callable[[GithubRelease], None],
 ) -> QueryOp:
-    return QueryOp(
-        parent=parent,
-        op=lambda col: col._backend.get_latest_release(
-            include_prerelease=include_prerelease
-        ),
-        success=on_success,
-    )
+    raise RuntimeError("LearnRecur update checks are not available yet.")

@@ -205,8 +205,8 @@ class MediaServer(threading.Thread):
 
     def run(self) -> None:
         try:
-            desired_host = os.getenv("ANKI_API_HOST", "127.0.0.1")
-            desired_port = int(os.getenv("ANKI_API_PORT") or 0)
+            desired_host = os.getenv("LEARNRECUR_API_HOST", "127.0.0.1")
+            desired_port = int(os.getenv("LEARNRECUR_API_PORT") or 0)
             self.server = create_server(
                 app,
                 host=desired_host,
@@ -491,7 +491,7 @@ def _handle_builtin_file_request(request: BundledFileRequest) -> Response:
 
 @app.route("/<path:pathin>", methods=["GET", "POST"])
 def handle_request(pathin: str) -> Response:
-    if os.environ.get("ANKI_API_HOST") != "0.0.0.0":
+    if os.environ.get("LEARNRECUR_API_HOST") != "0.0.0.0":
         host = request.headers.get("Host", "").lower()
         origin = request.headers.get("Origin", "").lower()
         allowed_hosts = tuple(f"{h}:" for h in _LOCALHOST_HOSTS)
@@ -1372,7 +1372,7 @@ _APIKEY = secrets.token_urlsafe(32)
 def _have_api_access() -> bool:
     return (
         request.headers.get("Authorization") == f"Bearer {_APIKEY}"
-        or os.environ.get("ANKI_API_HOST") == "0.0.0.0"
+        or os.environ.get("LEARNRECUR_API_HOST") == "0.0.0.0"
     )
 
 

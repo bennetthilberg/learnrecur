@@ -3,18 +3,18 @@ requires-python = ">=3.10"
 
 # This project was generated with 0.3.26 using template: https://github.com/beeware/briefcase-template @ v0.3.26
 [tool.briefcase]
-project_name = "Anki"
-bundle = "net.ankiweb"
-url = "https://apps.ankiweb.net"
+project_name = "LearnRecur"
+bundle = "io.github.bennetthilberg.learnrecur"
+url = "https://github.com/bennetthilberg/learnrecur"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE"]
 author = "Damien Elmes"
 env_manager = "uv"
 
 [tool.briefcase.app.anki]
-formal_name = "Anki"
-description = "An intelligent spaced-repetition learning system"
-long_description = """Anki is a flashcard program that helps you spend more time on challenging material, and less on what you already know."""
+formal_name = "LearnRecur"
+description = "Spaced repetition for facts and skills"
+long_description = """LearnRecur is an Anki fork for ordinary decks and skill practice."""
 sources = [
   "src/anki",
 ]
