@@ -1,3 +1,4 @@
+# Upstream jobs stay inactive in LearnRecur until adapted and reviewed.
 name: Publish anki-audio to PyPI
 run-name: "Publish anki-audio (sign-macos=${{ inputs.sign-macos }}, testpypi=${{ inputs['publish-testpypi'] }}, pypi=${{ inputs['publish-pypi'] }})"
 
@@ -27,6 +28,7 @@ env:
 
 jobs:
   prepare:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-latest
     steps:
       - name: Reject incompatible inputs
@@ -40,6 +42,7 @@ jobs:
           SIGN: ${{ inputs.sign-macos }}
 
   build:
+    if: github.repository == 'ankitects/anki'
     needs: prepare
     strategy:
       matrix:
@@ -101,11 +104,10 @@ jobs:
   publish-testpypi:
     needs: [prepare, build]
     if: >-
-      ${{ always()
-      && (inputs['publish-testpypi'] == true || inputs['publish-pypi'] == true)
-      && needs.prepare.result == 'success'
-      && needs.build.result == 'success'
-      }}
+      github.repository == 'ankitects/anki'
+      && (
+        always() && (inputs['publish-testpypi'] == true || inputs['publish-pypi'] == true) && needs.prepare.result == 'success' && needs.build.result == 'success'
+      )
     runs-on: ubuntu-latest
     environment: testpypi
     permissions:
@@ -128,10 +130,10 @@ jobs:
   publish-pypi:
     needs: publish-testpypi
     if: >-
-      ${{ always()
-      && inputs['publish-pypi'] == true
-      && needs.publish-testpypi.result == 'success'
-      }}
+      github.repository == 'ankitects/anki'
+      && (
+        always() && inputs['publish-pypi'] == true && needs.publish-testpypi.result == 'success'
+      )
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

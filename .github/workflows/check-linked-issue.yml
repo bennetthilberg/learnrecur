@@ -1,3 +1,4 @@
+# Upstream jobs stay inactive in LearnRecur until adapted and reviewed.
 name: Check Linked Issue
 
 on:
@@ -6,6 +7,7 @@ on:
 
 jobs:
   check-linked-issue:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

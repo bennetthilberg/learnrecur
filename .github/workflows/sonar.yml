@@ -1,3 +1,4 @@
+# Upstream jobs stay inactive in LearnRecur until adapted and reviewed.
 name: SonarCloud
 
 on:
@@ -27,9 +28,11 @@ jobs:
     # PR-context artifacts were uploaded (their upload steps are gated on
     # success too), so an internal scan always has coverage.
     if: >-
-      github.event.workflow_run.conclusion == 'success'
-      && (github.event.workflow_run.event == 'push'
-          || github.event.workflow_run.event == 'pull_request')
+      github.repository == 'ankitects/anki'
+      && (
+        github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.event == 'push'
+        || github.event.workflow_run.event == 'pull_request')
+      )
     env:
       # A fork PR's head repository differs from ours. Its tests, coverage, and
       # coverage regression check still run in CI, but the privileged Sonar job

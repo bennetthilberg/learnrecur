@@ -1,3 +1,4 @@
+# Upstream jobs stay inactive in LearnRecur until adapted and reviewed.
 name: Auto-close PRs without linked issue
 
 on:
@@ -7,6 +8,7 @@ on:
 
 jobs:
   auto-close:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

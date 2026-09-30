@@ -1,3 +1,4 @@
+# Upstream jobs stay inactive in LearnRecur until adapted and reviewed.
 name: CI
 
 on:
@@ -20,7 +21,11 @@ jobs:
   # Publish the PR number as a locator. The privileged SonarCloud workflow
   # verifies it against the GitHub API before treating it as trusted metadata.
   sonar-context:
-    if: github.event_name == 'pull_request'
+    if: >-
+      github.repository == 'ankitects/anki'
+      && (
+        github.event_name == 'pull_request'
+      )
     runs-on: ubuntu-24.04
     steps:
       - name: Save PR number for SonarCloud
@@ -40,6 +45,7 @@ jobs:
           retention-days: 1
 
   minilints:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v4
@@ -75,6 +81,7 @@ jobs:
   # Lightweight formatting checks (no build outputs needed).
   # Uses individual tool installs instead of setup-anki to stay fast.
   format:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 #v4
@@ -103,6 +110,7 @@ jobs:
 
   # Linux runs on every PR and push to main.
   check-linux:
+    if: github.repository == 'ankitects/anki'
     runs-on: ubuntu-24.04
     name: check (linux)
     steps:
@@ -263,9 +271,10 @@ jobs:
   # with the check:linux label (not on every push to main).
   check-linux-arm:
     if: >-
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/'))
-      || github.event_name == 'workflow_dispatch'
-      || contains(github.event.pull_request.labels.*.name, 'check:linux')
+      github.repository == 'ankitects/anki'
+      && (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'check:linux')
+      )
     runs-on: ubuntu-24.04-arm
     name: check (linux-arm)
     steps:
@@ -336,9 +345,10 @@ jobs:
   # with the check:macos label (not on every push to main).
   check-macos-intel:
     if: >-
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/'))
-      || github.event_name == 'workflow_dispatch'
-      || contains(github.event.pull_request.labels.*.name, 'check:macos')
+      github.repository == 'ankitects/anki'
+      && (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'check:macos')
+      )
     runs-on: macos-15-intel
     name: check (macos-intel)
     steps:
@@ -410,9 +420,10 @@ jobs:
   # Runs on pushes to main or on PRs with the check:macos label.
   check-macos:
     if: >-
-      github.event_name == 'push'
-      || github.event_name == 'workflow_dispatch'
-      || contains(github.event.pull_request.labels.*.name, 'check:macos')
+      github.repository == 'ankitects/anki'
+      && (
+        github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'check:macos')
+      )
     runs-on: macos-latest
     name: check (macos)
     steps:
@@ -484,9 +495,10 @@ jobs:
   # Runs on pushes to main or on PRs with the check:windows label.
   check-windows:
     if: >-
-      github.event_name == 'push'
-      || github.event_name == 'workflow_dispatch'
-      || contains(github.event.pull_request.labels.*.name, 'check:windows')
+      github.repository == 'ankitects/anki'
+      && (
+        github.event_name == 'push' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'check:windows')
+      )
     runs-on: windows-latest
     name: check (windows)
     # Colocate CARGO_HOME and TEMP on D: to keep all I/O on the same fast
@@ -567,9 +579,10 @@ jobs:
   # PRs with the check:windows label (not on every push to main).
   check-windows-arm:
     if: >-
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/'))
-      || github.event_name == 'workflow_dispatch'
-      || contains(github.event.pull_request.labels.*.name, 'check:windows')
+      github.repository == 'ankitects/anki'
+      && (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'check:windows')
+      )
     runs-on: windows-11-vs2026-arm
     name: check (windows-arm)
     # Unlike the x64 Windows runner, windows-11-arm has no D: drive, so we use

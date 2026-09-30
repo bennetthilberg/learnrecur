@@ -24,3 +24,10 @@ ts/.svelte-kit
 docs/_build/
 docs/autoapi/
 .complexipy_cache
+
+# Local LearnRecur credentials and runtime state.
+/learnrecur/**/.env
+/learnrecur/**/.env.*
+!/learnrecur/**/.env.example
+/learnrecur/deploy/state/
+/learnrecur/deploy/backups/
