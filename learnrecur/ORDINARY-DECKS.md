@@ -31,15 +31,85 @@ ANKI_TEST_MODE=1 PYTHONPATH=pylib:out/pylib \
   "$PWD/out/learnrecur/package-check/source/collection.anki2" \
   "$PWD/out/learnrecur/package-check/synthetic.apkg" \
   > out/learnrecur/package-check/source.json
-./tools/run-learnrecur -b "$PWD/out/learnrecur/package-check/desktop" \
+PYTHONPATH=qt/tests out/pyenv/bin/python - <<'PY'
+from pathlib import Path
+from launch_anki_for_e2e import _seed_prefs
+base = Path("out/learnrecur/package-check/desktop")
+base.mkdir()
+_seed_prefs(base)
+PY
+./tools/run-learnrecur -b "$PWD/out/learnrecur/package-check/desktop" -p test \
   "$PWD/out/learnrecur/package-check/synthetic.apkg"
 ```
 
 Import the package, edit the Basic answer, and study the deck. Check typed-answer feedback, both Cloze cards, the styled image, ratings, and Edit > Undo Answer Card. Export an Anki Deck Package with media and learning progress, then compare it in separate upstream storage. Never use the user's Anki profiles for this check.
 
+### Repeat the native upstream check
+
+Save the GUI export as `out/learnrecur/package-check/reviewed.apkg`, with media, scheduling information, and deck presets included. Quit LearnRecur before taking the expected snapshot:
+
+```sh
+PYTHONPATH=pylib:out/pylib out/pyenv/bin/python - <<'PY'
+import json
+from pathlib import Path
+from anki.collection import Collection
+from tests.learnrecur_deck_fixture import DECK, content, scheduling
+root = Path("out/learnrecur/package-check").resolve()
+col = Collection(str(root / "desktop/test/collection.anki2"))
+try:
+    preset = col.decks.config_dict_for_deck_id(col.decks.id(DECK))
+    for key in ("id", "mod", "usn"):
+        preset.pop(key, None)
+    snapshot = {"content": content(col), "scheduling": scheduling(col), "preset": preset}
+    (root / "expected.json").write_text(json.dumps(snapshot))
+finally:
+    col.close()
+PY
+curl -fL https://github.com/ankitects/anki/releases/download/26.09.3/anki-26.09.3-mac-apple.dmg \
+  -o out/learnrecur/package-check/anki.dmg
+out/pyenv/bin/python qt/tools/prepare_anki_compatibility_app.py \
+  out/learnrecur/package-check/anki.dmg \
+  out/learnrecur/package-check/reviewed.apkg \
+  out/learnrecur/package-check/upstream
+out/learnrecur/package-check/upstream/AnkiCompatibility.app/Contents/MacOS/Anki \
+  "$PWD/out/learnrecur/package-check/reviewed.apkg"
+```
+
+The preparation script checks the exact release hash and signature, requires fresh storage below this checkout's `out/learnrecur`, and rejects symlinked paths. The copied app always uses its new test profile, even when opened without arguments. Its wrapper permits only the named synthetic package. It has a separate bundle identity and single-instance key, with no document associations. The script verifies the final signature and checks that the upstream Rust bridge remains byte-identical.
+
+In Anki's native importer, enable learning progress and deck presets, then import. Check the deck and a reveal without rating another card. Quit the app before comparing its saved collection. This command loads the release's own library and bridge and checks their paths:
+
+```sh
+PYTHONPATH="$PWD/out/learnrecur/package-check/upstream/AnkiCompatibility.app/Contents/Resources/app_packages:$PWD/pylib" \
+  out/pyenv/bin/python - <<'PY'
+import inspect
+import json
+from pathlib import Path
+from anki import _rsbridge
+from anki.collection import Collection
+from tests.learnrecur_deck_fixture import DECK, content, scheduling
+root = Path("out/learnrecur/package-check").resolve()
+packages = root / "upstream/AnkiCompatibility.app/Contents/Resources/app_packages"
+assert Path(inspect.getfile(Collection)).is_relative_to(packages)
+assert Path(_rsbridge.__file__).is_relative_to(packages)
+col = Collection(str(root / "upstream/upstream-profile/test/collection.anki2"))
+try:
+    preset = col.decks.config_dict_for_deck_id(col.decks.id(DECK))
+    for key in ("id", "mod", "usn"):
+        preset.pop(key, None)
+    actual = {"content": content(col), "scheduling": scheduling(col), "preset": preset}
+    assert actual == json.loads((root / "expected.json").read_text())
+    assert col.db.scalar("pragma integrity_check") == "ok"
+    (root / "restored.json").write_text(json.dumps(actual))
+    print("Content, media, deck preset, scheduling, and review history match")
+finally:
+    col.close()
+PY
+```
+
 ## Checked on September 30, 2026
 
-All eight package cases passed locally. The full suites passed with 192 library tests and 171 Qt tests. The Mac package built, its ad hoc signature passed verification, and its bundled icon matched the new seahorse ICNS.
+All eight package cases passed locally. The full suites passed with 192 library tests and 178 Qt tests, including seven checks of the upstream preparation script's storage guards. The prepared app passed another native import and exact persisted collection comparison. The Mac package built, its ad hoc signature passed verification, and its bundled icon matched the new seahorse ICNS.
 
 The packaged app imported four synthetic notes and five cards through its native importer. Editing the Basic answer changed its reveal. Typed-answer feedback, Cloze reveal, HTML/CSS, and the PNG displayed correctly. Again, Hard, Good, Easy, and menu-based review undo worked. After quitting, the saved collection contained the edited answer and three reviews with ratings 3, 4, and 2. Exporting that collection through the native collection API and importing it through the pinned upstream library preserved the content, media, and scheduling snapshot.
 
@@ -67,7 +137,7 @@ To reopen this prepared test app without importing again:
 out/learnrecur/milestone2/AnkiCompatibility.app/Contents/MacOS/Anki
 ```
 
-For another run, download a fresh upstream app into disposable storage and apply the same launch guards before opening it. Never launch the installed Anki app for this check. Close the GUI before opening its collection through the fixture's `content()` and `scheduling()` helpers. Load upstream's `Contents/Resources/app_packages` first on `PYTHONPATH` so the comparison uses its own library and bridge.
+For another run, use the preparation script and comparison commands above. Never launch the installed Anki app for this check.
 
 ### Remaining limits
 
