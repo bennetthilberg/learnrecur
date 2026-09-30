@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>LearnRecur seahorse</title>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="#e2eff8"/>
+  <g transform="translate(-28 -40) scale(.94)">
+    <path fill="#397caa" d="M263 126 274 100 290 129C319 129 342 148 342 174L397 187Q408 190 403 203L398 216 340 207Q330 226 311 229C293 238 292 251 302 267 324 291 342 317 342 352 342 397 314 426 282 449L256 433C246 416 242 400 243 381L218 373 239 349Q233 330 240 311L221 295 248 289Q254 268 272 250C286 237 282 221 272 216 252 205 247 188 248 168Q249 146 263 126Z"/>
+    <path d="M270 438C237 463 236 507 272 519 307 531 339 504 329 478 319 453 287 459 289 482" fill="none" stroke="#397caa" stroke-width="27" stroke-linecap="round"/>
+    <circle cx="318" cy="169" r="8" fill="#e2eff8"/>
+  </g>
+</svg>

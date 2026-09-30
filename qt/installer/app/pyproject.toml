@@ -18,7 +18,7 @@ long_description = """LearnRecur is an Anki fork for ordinary decks and skill pr
 sources = [
   "src/anki",
 ]
-icon = "resources/anki"
+icon = "resources/learnrecur"
 cleanup_paths = [
   # document_type icons
   "anki-*.ico",
@@ -94,7 +94,7 @@ supported = false
 [tool.briefcase.app.anki.document_type.apkg]
 description = "Anki deck package"
 extension = "apkg"
-icon = "resources/anki"
+icon = "resources/learnrecur"
 mime_type = "application/x-apkg"
 url = "https://docs.ankiweb.net/exporting.html#deck-apkg"
 macOS.CFBundleTypeRole = "Editor"
@@ -102,7 +102,7 @@ macOS.CFBundleTypeRole = "Editor"
 [tool.briefcase.app.anki.document_type.colpkg]
 description = "Anki collection package"
 extension = "colpkg"
-icon = "resources/anki"
+icon = "resources/learnrecur"
 mime_type = "application/x-colpkg"
 url = "https://docs.ankiweb.net/exporting.html#collection-colpkg"
 macOS.CFBundleTypeRole = "Editor"
@@ -110,7 +110,7 @@ macOS.CFBundleTypeRole = "Editor"
 [tool.briefcase.app.anki.document_type.ankiaddon]
 description = "Anki add-on package"
 extension = "ankiaddon"
-icon = "resources/anki"
+icon = "resources/learnrecur"
 mime_type = "application/x-ankiaddon"
 url = "https://addon-docs.ankiweb.net/sharing.html"
 macOS.CFBundleTypeRole = "Editor"
