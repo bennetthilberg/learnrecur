@@ -171,6 +171,12 @@ debug = 0
 debug = 0
 [profile.dev.package.rsbridge]
 debug = 0
+# Rust 1.97.1's debug stripping can misalign dylibs rejected by macOS 27.
+# https://github.com/rust-lang/rust/issues/157750
+strip = "none"
+
+[profile.release.package.rsbridge]
+strip = "none"
 
 [profile.release-lto]
 inherits = "release"

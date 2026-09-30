@@ -5,7 +5,7 @@
 """
 Standalone launcher for Playwright TS e2e tests.
 
-Seeds a throwaway ANKI_BASE so Anki skips the language picker and the
+Seeds a throwaway LearnRecur folder so the app skips the language picker and the
 profile chooser, then spawns Anki with mediasrv pinned to a known local
 port. Playwright's webServer config invokes this script and polls an HTTP
 page served by mediasrv before letting tests run.
@@ -29,11 +29,12 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-MEDIASRV_PORT = int(os.environ.get("ANKI_API_PORT", "40000"))
+MEDIASRV_PORT = int(os.environ.get("LEARNRECUR_API_PORT", "40000"))
 TEST_PROFILE = "test"
 
 
 def _seed_prefs(base: Path) -> None:
+    (base / ".learnrecur-data").write_text("learnrecur-data-v1\n")
     meta = {
         "ver": 0,
         "updates": False,
@@ -81,21 +82,20 @@ def _seed_prefs(base: Path) -> None:
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="anki-e2e-") as base_str:
+    with tempfile.TemporaryDirectory(prefix="learnrecur-e2e-") as base_str:
         base = Path(base_str)
         _seed_prefs(base)
 
         env = {
             **os.environ,
-            "ANKI_BASE": str(base),
-            "ANKI_API_PORT": str(MEDIASRV_PORT),
-            "ANKI_SINGLE_INSTANCE_KEY": f"anki-e2e-{base.name}",
+            "LEARNRECUR_BASE": str(base),
+            "LEARNRECUR_API_PORT": str(MEDIASRV_PORT),
             # Documented testing escape: makes _have_api_access() return True
             # for all /_anki/* requests so external clients (Playwright's own
             # Chromium) can hit the API without injecting Authorization
             # headers. Side effect: mediasrv binds to all interfaces. Tolerable
             # on a dev machine; do not enable in shared environments.
-            "ANKI_API_HOST": "0.0.0.0",
+            "LEARNRECUR_API_HOST": "0.0.0.0",
             "ANKIDEV": "1",
             "PYTHONPYCACHEPREFIX": str(REPO_ROOT / "out" / "pycache"),
             "RUST_BACKTRACE": "1",

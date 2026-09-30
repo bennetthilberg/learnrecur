@@ -17,14 +17,15 @@ Read [ROADMAP.md](ROADMAP.md) before starting work. It records the product decis
 - This is one Git repository based on `ankitects/anki`, with its history and directory layout preserved. `origin` is `bennetthilberg/learnrecur`; `upstream` is `ankitects/anki`.
 - Keep desktop changes in the existing `qt/`, `ts/`, `pylib/`, `rslib/`, and `proto/` paths. The standalone sync-server executable is in `rslib/sync/`; its shared implementation is in `rslib/src/sync/`. There is no separate desktop or sync-server subrepository.
 - Put the companion API and generation worker in `learnrecur/companion/`. Put configuration for hosting, backups, and moving between hosts in `learnrecur/deploy/`. These components can build and deploy independently from the same repository.
+- For GitHub operations, explicitly target `bennetthilberg/learnrecur` with an explicit repository argument so upstream cannot be selected by mistake.
 - [learnrecur/UPSTREAM.md](learnrecur/UPSTREAM.md) records the exact upstream commit and how to update it. Preserve Anki's existing submodules for translations and installer templates.
 - Inherited workflow jobs are restricted to `ankitects/anki` and do not run here. Add or adapt workflows for the checks LearnRecur needs. After each upstream merge, check job conditions, publishing targets, agent instructions, and dependency-update settings.
 
 ## Protect the user's existing data
 
 - Never update, delete, move, migrate, or replace the user's current Anki decks, collection, media, backups, profile configuration, or official Anki installation during development. This includes `~/Library/Application Support/Anki2` and any other existing Anki data location.
-- Read-only inspection and copying for examples are allowed. Take a consistent read-only snapshot when needed. Do not open the original collection through code that might write to it. Run imports, exports, reviews, migrations, and tests only on synthetic data or disposable copies.
-- Give LearnRecur its own application identity, data directory, profiles, sync storage, and update behavior. A development launch must never fall back to the user's official Anki profile or update the official app.
+- Do not discover, read, copy, import, or migrate the user's local Anki data or settings into LearnRecur. This applies to development and production. Use synthetic data for development and tests. Ordinary deck transfer uses packages the user explicitly chooses, not their local Anki profiles.
+- Give LearnRecur its own application identity, data directory, profiles, temporary files, sync storage, and update behavior. Every launch must use LearnRecur storage, even without a development launcher. Ignore Anki's data-path settings and reject existing Anki folders. Never update the official app.
 - Leave `/Users/main/repos/learnrecur-old` and its deployed services, database, uploads, and configuration intact. Its web stack and repository policies do not govern this fork. Preserve unrelated work in any checkout.
 
 ## Product boundaries

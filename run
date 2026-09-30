@@ -11,10 +11,10 @@ export QTWEBENGINE_CHROMIUM_FLAGS=${QTWEBENGINE_CHROMIUM_FLAGS---remote-allow-or
 export PYENV=${PYENV-out/pyenv}
 
 # The pages can be accessed by, e.g. surfing to
-# http://localhost:40000/_anki/pages/deckconfig.html
+# http://localhost:<port>/_anki/pages/deckconfig.html
 # Useful in conjunction with tools/web-watch for auto-rebuilding.
-export ANKI_API_PORT=${ANKI_API_PORT-40000}
-export ANKI_API_HOST=${ANKI_API_HOST-127.0.0.1}
+export LEARNRECUR_API_PORT=${LEARNRECUR_API_PORT-0}
+export LEARNRECUR_API_HOST=${LEARNRECUR_API_HOST-127.0.0.1}
 
 ./ninja pylib qt
-${PYENV}/bin/python tools/run.py $*
+${PYENV}/bin/python tools/run.py "$@"

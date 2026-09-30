@@ -13,7 +13,7 @@ Use this commit as the base when reviewing LearnRecur's changes. The desktop app
 
 Desktop changes belong in Anki's existing source tree. The standalone sync-server executable is in `rslib/sync/`, and shared sync code is in `rslib/src/sync/`. The companion service goes in `learnrecur/companion/`, and deployment configuration goes in `learnrecur/deploy/`.
 
-Anki uses four submodules for translations and installer templates. Their pinned references are unchanged, but we haven't downloaded them yet. Initialize the dependencies needed for the build when working on milestone 1.
+Anki uses four submodules for translations and installer templates. Their pinned references are unchanged. All four have been initialized locally for the Mac build and package checks.
 
 ## Inspect the fork
 
@@ -25,7 +25,7 @@ git diff 26.09.3 --stat
 git diff 26.09.3 -- qt ts pylib rslib proto
 ```
 
-So far, we've changed documentation and automation. We haven't checked the build, application identity, separate profile path, or sync behavior. Read `AGENTS.md` before following upstream run instructions.
+LearnRecur now changes application identity, storage, updater behavior, and build configuration. The Mac build, package, isolation tests, and a synthetic review have passed locally. Read `AGENTS.md` and [MAC-DEVELOPMENT.md](MAC-DEVELOPMENT.md) before following upstream run instructions. Hosted sync hasn't been checked.
 
 ## Update from upstream
 
@@ -37,6 +37,6 @@ So far, we've changed documentation and automation. We haven't checked the build
 
 ## Workflow status
 
-All eight inherited workflows still contain their original jobs, with added conditions that allow them to run only in `ankitects/anki`. Their 32 jobs do not run in LearnRecur. These include CI, SonarCloud, release and package publishing, cache pruning, and PR-management bots. We haven't added LearnRecur application CI yet.
+All eight inherited workflows still contain their original jobs, with added conditions that allow them to run only in `ankitects/anki`. Their 32 jobs do not run in LearnRecur. These include CI, SonarCloud, release and package publishing, cache pruning, and PR-management bots. The separate `learnrecur-mac.yml` workflow builds and tests LearnRecur on Mac. It doesn't publish packages or deploy services.
 
 Dependabot's four version-update groups have `open-pull-requests-limit: 0` while the fork is pinned. GitHub security-update settings are separate. Revisit dependency updates after the first build, and check for security fixes when reviewing upstream releases.

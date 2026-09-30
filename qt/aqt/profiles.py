@@ -24,6 +24,7 @@ from anki.lang import without_unicode_isolation
 from anki.sync import SyncAuth
 from anki.utils import int_time, int_version, is_mac, is_win
 from aqt import appHelpSite, gui_hooks
+from aqt.learnrecur import default_base, ensure_data_folder, storage_path
 from aqt.qt import *
 from aqt.qt import sip
 from aqt.theme import Theme, WidgetStyle, theme_manager
@@ -130,14 +131,14 @@ class ProfileManager:
     last_run_version: int = 0
 
     def __init__(self, base: Path) -> None:
-        "base should be retrieved via ProfileMangager.get_created_base_folder"
+        "Use a new or existing LearnRecur data folder."
         ## Settings which should be forgotten each Anki restart
         self.session: dict[str, Any] = {}
         self.name: str | None = None
         self.db: DB | None = None
         self.profile: dict | None = None
         self.invalid_profile_provided_on_commandline = False
-        self.base = str(base)
+        self.base = str(ensure_data_folder(str(base)))
 
     def setupMeta(self) -> LoadMetaResult:
         # load metadata
@@ -306,7 +307,7 @@ class ProfileManager:
     ######################################################################
 
     def profileFolder(self, create: bool = True) -> str:
-        path = os.path.join(self.base, self.name)
+        path = storage_path(self.base, os.path.join(self.base, self.name))
         if create:
             self._ensureExists(path)
         return path
@@ -318,7 +319,12 @@ class ProfileManager:
         return self._ensureExists(os.path.join(self.profileFolder(), "backups"))
 
     def collectionPath(self) -> str:
-        return os.path.join(self.profileFolder(), "collection.anki2")
+        path = os.path.join(self.profileFolder(), "collection.anki2")
+        for suffix in ("", "-wal", "-shm"):
+            storage_path(self.base, path + suffix)
+        for suffix in (".media", ".media.db2", ".media.db2-wal", ".media.db2-shm"):
+            storage_path(self.base, str(Path(path).with_suffix(suffix)))
+        return path
 
     def addon_logs(self) -> str:
         return self._ensureExists(os.path.join(self.base, "logs"))
@@ -349,44 +355,28 @@ class ProfileManager:
     ######################################################################
 
     def _ensureExists(self, path: str) -> str:
+        path = storage_path(self.base, path)
         if not os.path.exists(path):
             os.makedirs(path)
         return path
 
     @staticmethod
     def get_created_base_folder(path_override: str | None) -> Path:
-        "Create the base folder and return it, using provided path or default."
-        path = Path(
-            path_override
-            or os.environ.get("ANKI_BASE")
-            or ProfileManager._default_base()
-        )
-        path.mkdir(parents=True, exist_ok=True)
-        return path.resolve()
+        return ensure_data_folder(path_override)
 
     @staticmethod
     def _default_base() -> str:
-        if is_win:
-            from aqt.winpaths import get_appdata
-
-            return os.path.join(get_appdata(), "Anki2")
-        elif is_mac:
-            return os.path.expanduser("~/Library/Application Support/Anki2")
-        else:
-            dataDir = os.environ.get(
-                "XDG_DATA_HOME", os.path.expanduser("~/.local/share")
-            )
-            if not os.path.exists(dataDir):
-                os.makedirs(dataDir)
-            return os.path.join(dataDir, "Anki2")
+        return str(default_base())
 
     def _loadMeta(self, retrying: bool = False) -> LoadMetaResult:
         result = LoadMetaResult()
         result.firstTime = False
         result.loadError = retrying
 
-        opath = os.path.join(self.base, "prefs.db")
-        path = os.path.join(self.base, "prefs21.db")
+        opath = storage_path(self.base, os.path.join(self.base, "prefs.db"))
+        path = storage_path(self.base, os.path.join(self.base, "prefs21.db"))
+        for suffix in ("-journal", "-wal", "-shm"):
+            storage_path(self.base, path + suffix)
         if not retrying and os.path.exists(opath) and not os.path.exists(path):
             shutil.copy(opath, path)
 
@@ -487,7 +477,7 @@ create table if not exists profiles
         name = obj[0]
         r = QMessageBox.question(
             None,
-            "Anki",
+            "LearnRecur",
             tr.profiles_confirm_lang_choice(lang=name),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,  # type: ignore
@@ -511,7 +501,7 @@ create table if not exists profiles
             fname = "gldriver"
         else:
             fname = "gldriver6"
-        return os.path.join(self.base, fname)
+        return storage_path(self.base, os.path.join(self.base, fname))
 
     def video_driver(self) -> VideoDriver:
         path = self._gldriver_path()
@@ -666,7 +656,7 @@ create table if not exists profiles
         self.profile["hostNum"] = val or 0
 
     def check_for_updates(self) -> bool:
-        return self.meta.get("check_for_updates", True)
+        return False
 
     def set_update_check(self, on: bool) -> None:
         self.meta["check_for_updates"] = on
@@ -679,6 +669,8 @@ create table if not exists profiles
         return self.profile.get("autoSync", True)
 
     def sync_auth(self) -> SyncAuth | None:
+        if not self.custom_sync_url():
+            return None
         if not (hkey := self.profile.get("syncKey")):
             return None
         return SyncAuth(

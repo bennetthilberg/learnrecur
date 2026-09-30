@@ -104,7 +104,7 @@ impl BuildAction for CargoBuild<'_> {
         build.add_inputs("", &self.inputs);
         build.add_inputs(
             "",
-            inputs![".cargo/config.toml", "rust-toolchain.toml", "Cargo.lock"],
+            inputs![".cargo/config.toml", "rust-toolchain.toml", "Cargo.toml", "Cargo.lock"],
         );
         build.add_variable("release_arg", release_arg);
         build.add_variable("target_arg", target_arg);

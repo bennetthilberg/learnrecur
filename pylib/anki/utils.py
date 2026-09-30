@@ -170,7 +170,7 @@ def tmpdir() -> str:
         import atexit
 
         atexit.register(cleanup)
-        _tmpdir = os.path.join(tempfile.gettempdir(), "anki_temp")
+        _tmpdir = tempfile.mkdtemp(prefix="learnrecur-")
     try:
         os.mkdir(_tmpdir)
     except FileExistsError:

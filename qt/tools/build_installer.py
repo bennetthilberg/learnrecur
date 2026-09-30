@@ -121,7 +121,7 @@ def get_briefcase_sources_path(out_dir: Path) -> Path:
             / "anki"
             / "macos"
             / "app"
-            / "Anki.app"
+            / "LearnRecur.app"
             / "Contents"
             / "Resources"
         )
@@ -313,7 +313,7 @@ def build(args: argparse.Namespace) -> None:
     config_args = get_briefcase_config_args(args, constraints_path)
     shutil.copy("LICENSE", out_dir / "LICENSE")
     (out_dir / "CHANGELOG").write_text(
-        "Please see https://apps.ankiweb.net/", encoding="utf-8"
+        "Please see https://github.com/bennetthilberg/learnrecur/releases", encoding="utf-8"
     )
     subprocess.check_call(
         [
@@ -379,7 +379,7 @@ def package(args: argparse.Namespace) -> None:
     )
     package_path = next((out_dir / "dist").iterdir())
     package_path.rename(
-        package_path.with_stem(f"anki-{version}{get_platform_suffix()}")
+        package_path.with_stem(f"learnrecur-{version}{get_platform_suffix()}")
     )
 
 

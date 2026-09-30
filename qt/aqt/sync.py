@@ -310,6 +310,12 @@ def sync_login(
     username: str = "",
     password: str = "",
 ) -> None:
+    if not mw.pm.custom_sync_url():
+        showWarning(
+            "Set a LearnRecur sync server in Preferences before syncing.", parent=mw
+        )
+        return
+
     def on_future_done(fut: Future[SyncAuth], username: str, password: str) -> None:
         try:
             auth = fut.result()
