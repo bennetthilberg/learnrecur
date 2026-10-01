@@ -10,7 +10,7 @@ from pathlib import Path
 
 from anki.collection import Collection
 from anki.import_export_pb2 import ExportAnkiPackageOptions
-from anki.learnrecur_skills import BANK_FIELD
+from anki.learnrecur_skills import BANK_FIELD, MODEL_KIND, MODEL_MARKER
 
 BANK = (
     Path(__file__).resolve().parents[2] / "learnrecur/fixtures/spanish-preterite.json"
@@ -22,6 +22,7 @@ STORAGE = Path(__file__).resolve().parents[2] / "out/learnrecur"
 def seed(col: Collection) -> None:
     bank = json.loads(BANK.read_text())
     model = col.models.new("LearnRecur Skill")
+    model[MODEL_MARKER] = MODEL_KIND
     for name in ("Title", "Description", "Prompt", "Answer", "Explanation", BANK_FIELD):
         col.models.add_field(model, col.models.new_field(name))
     template = col.models.new_template("Skill")

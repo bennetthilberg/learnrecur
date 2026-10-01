@@ -141,3 +141,16 @@ def test_ordinary_review_keeps_native_typed_answer(reviewer):
     assert reviewer._skill_review is None
     assert reviewer._skill_error is None
     assert "[[type:Back]]" in reviewer.card.question()
+
+
+def test_skill_error_stops_auto_advance_timer(reviewer):
+    reviewer._skill_error = "This skill has no available exercises."
+    reviewer.auto_advance_enabled = True
+    timer = MagicMock()
+    reviewer._show_answer_timer = timer
+    reviewer._show_question_timer = None
+    reviewer.mw.progress = MagicMock()
+    Reviewer._auto_advance_to_answer_if_enabled(reviewer)
+    timer.deleteLater.assert_called_once()
+    assert reviewer._show_answer_timer is None
+    reviewer.mw.progress.timer.assert_not_called()

@@ -8,6 +8,7 @@ from anki.collection import Collection
 from anki.errors import InvalidInput
 from anki.learnrecur_skills import (
     BANK_FIELD,
+    MODEL_MARKER,
     SkillReviewError,
     prepare_skill_answer,
     render_skill_review,
@@ -222,3 +223,62 @@ def test_fixture_rejects_existing_and_external_storage(tmp_path, monkeypatch):
         fixture.fresh_fixture_paths(
             link / "new/collection.anki2", link / "new/test.apkg"
         )
+
+
+@pytest.mark.parametrize("value", ["", "ordinary text", fixture.BANK.read_text()])
+def test_field_name_alone_does_not_intercept_ordinary_notes(col, value):
+    model = col.models.by_name("Basic")
+    col.models.add_field(model, col.models.new_field(BANK_FIELD))
+    col.models.update_dict(model)
+    note = col.new_note(col.models.by_name("Basic"))
+    note["Front"] = "Ordinary question"
+    note["Back"] = "Ordinary answer"
+    note[BANK_FIELD] = value
+    col.add_note(note, col.decks.id("Ordinary sample"))
+    card = note.cards()[0]
+    before = card.render_output()
+    assert select_skill_review(card) is None
+    assert card.render_output() == before
+    assert "Ordinary answer" in card.answer()
+
+
+def test_model_marker_survives_native_package_import(col, tmp_path):
+    from anki.import_export_pb2 import (
+        ExportAnkiPackageOptions,
+        ImportAnkiPackageOptions,
+        ImportAnkiPackageRequest,
+    )
+
+    package = tmp_path / "skill.apkg"
+    col.export_anki_package(
+        out_path=str(package), options=ExportAnkiPackageOptions(), limit=None
+    )
+    target = Collection(str(tmp_path / "target.anki2"))
+    try:
+        target.import_anki_package(
+            ImportAnkiPackageRequest(
+                package_path=str(package), options=ImportAnkiPackageOptions()
+            )
+        )
+        card = target.get_card(target.find_cards('deck:"Spanish skill"')[0])
+        assert card.note_type()[MODEL_MARKER] == "skill-v1"
+        assert select_skill_review(card).exercise.id == "hablar"
+    finally:
+        target.close()
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        fixture.BANK.read_text().replace('"version": 1', '"version": true'),
+        "[" * 1100 + "0" + "]" * 1100,
+    ],
+)
+def test_malformed_bank_stops_review(col, raw):
+    card, _ = next_answer(col, CardAnswer.GOOD)
+    note = card.note()
+    note[BANK_FIELD] = raw
+    col.update_note(note)
+    card.load()
+    with pytest.raises(SkillReviewError, match="invalid exercise bank"):
+        select_skill_review(card)

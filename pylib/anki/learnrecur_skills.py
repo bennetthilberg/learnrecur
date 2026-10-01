@@ -16,6 +16,8 @@ from anki.scheduler.v3 import CardAnswer
 from anki.template import TemplateRenderOutput
 
 BANK_FIELD = "LearnRecurSkill"
+MODEL_MARKER = "learnrecur"
+MODEL_KIND = "skill-v1"
 CURSOR_KEY = "lr"
 
 
@@ -47,14 +49,20 @@ def _text(value: object) -> str:
 
 def _bank(card: Card) -> tuple[str, list[Exercise]] | None:
     note = card.note()
-    if BANK_FIELD not in note:
+    model = card.note_type()
+    if model.get(MODEL_MARKER) != MODEL_KIND:
         return None
-    model = note.note_type()
+    if BANK_FIELD not in note:
+        raise SkillReviewError("This skill is missing its exercise bank.")
     if model["type"] != 0 or len(model["tmpls"]) != 1:
         raise SkillReviewError("A skill needs one card template.")
     try:
         raw = json.loads(note[BANK_FIELD])
-        if not isinstance(raw, dict) or raw.get("version") != 1:
+        if (
+            not isinstance(raw, dict)
+            or type(raw.get("version")) is not int
+            or raw["version"] != 1
+        ):
             raise ValueError()
         _text(raw["skill_id"])
         if type(raw["revision"]) is not int or raw["revision"] < 1:
@@ -79,7 +87,7 @@ def _bank(card: Card) -> tuple[str, list[Exercise]] | None:
             :16
         ]
         return digest, exercises
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, TypeError, ValueError, RecursionError) as error:
         raise SkillReviewError("This skill has an invalid exercise bank.") from error
 
 

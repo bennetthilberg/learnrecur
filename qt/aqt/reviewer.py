@@ -434,6 +434,8 @@ class Reviewer:
 
     def _auto_advance_to_answer_if_enabled(self) -> None:
         self._clear_auto_advance_timers()
+        if self._skill_error:
+            return
         if self.auto_advance_enabled:
             conf = self.mw.col.decks.config_dict_for_deck_id(
                 self.card.current_deck_id()

@@ -2,11 +2,11 @@
 
 The first skill practices **yo in the preterite of regular Spanish -ar verbs**. Three manually written exercises use *hablar*, *trabajar*, and *comprar*. Each asks for the same conjugation in a simple sentence. The skill excludes spelling changes, irregular verbs, other persons, and other tenses.
 
-The skill has one native note, one card, and one schedule. Its `LearnRecurSkill` field holds a versioned JSON exercise bank with a stable skill ID, revision, and exercise IDs. Exercises are plain text. The reviewer escapes HTML and native typed-answer markers, then pins both sides of the selected exercise. Reveal, redraw, or leaving review does not consume it.
+The skill has one native note, one card, and one schedule. Its note type has an explicit `learnrecur: "skill-v1"` metadata marker; the field name alone does not change ordinary review. Its `LearnRecurSkill` field holds a versioned JSON exercise bank with a stable skill ID, revision, and exercise IDs. Exercises are plain text. The reviewer escapes HTML and native typed-answer markers, then pins both sides of the selected exercise. Reveal, redraw, or leaving review does not consume it.
 
 Rating saves a small `lr` cursor in native card custom data. The answer operation checks the current bank and cursor before calling Anki's scheduler. The cursor, schedule, and review record commit together. Native undo and redo restore them together. This uses the existing Python and Rust answer path; no scheduler or protocol changes are needed.
 
-The bank cycles through eligible exercises. Reported and retired items are excluded. An empty or malformed bank, or one that changes during a review, leaves the card unrated and shows **Back to deck**. A changed bank starts a new cursor while retaining the card's review history. Native custom data has a 100-byte limit; a rating that cannot fit the cursor is rejected without consuming the exercise.
+The bank cycles through eligible exercises. Reported and retired items are excluded. An empty or malformed bank, or one that changes during a review, leaves the card unrated and shows **Back to deck**. Auto-advance stops scheduling timers while this error is shown. A changed bank starts a new cursor while retaining the card's review history. Native custom data has a 100-byte limit; a rating that cannot fit the cursor is rejected without consuming the exercise.
 
 This is a local review proof. Generation, companion storage, sync reconciliation, skill editing, and report-and-skip controls remain later work. Previews and ordinary exports show the template's fixed example, not the current variation. The bank and cursor travel with the native collection, but this does not establish the complete backup or two-service sync design.
 
