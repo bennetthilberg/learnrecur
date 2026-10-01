@@ -66,6 +66,7 @@ impl super::SqliteStorage {
             note.checksum.unwrap(),
             note.id
         ])?;
+        self.refresh_skill_link(note)?;
         Ok(())
     }
 
@@ -84,11 +85,13 @@ impl super::SqliteStorage {
             note.checksum.unwrap(),
         ])?;
         note.id.0 = self.db.last_insert_rowid();
+        self.refresh_skill_link(note)?;
         Ok(())
     }
 
     pub(crate) fn add_note_if_unique(&self, note: &Note) -> Result<bool> {
-        self.db
+        let added = self
+            .db
             .prepare_cached(include_str!("add_if_unique.sql"))?
             .execute(params![
                 note.id,
@@ -100,9 +103,12 @@ impl super::SqliteStorage {
                 join_fields(note.fields()),
                 note.sort_field.as_ref().unwrap(),
                 note.checksum.unwrap(),
-            ])
-            .map(|added| added == 1)
-            .map_err(Into::into)
+            ])?
+            == 1;
+        if added {
+            self.refresh_skill_link(note)?;
+        }
+        Ok(added)
     }
 
     /// Add or update the provided note, preserving ID. Used by the syncing
@@ -120,10 +126,12 @@ impl super::SqliteStorage {
             note.sort_field.as_ref().unwrap(),
             note.checksum.unwrap(),
         ])?;
+        self.refresh_skill_link(note)?;
         Ok(())
     }
 
     pub(crate) fn remove_note(&self, nid: NoteId) -> Result<()> {
+        self.remove_skill_link(nid)?;
         self.db
             .prepare_cached("delete from notes where id = ?")?
             .execute([nid])?;

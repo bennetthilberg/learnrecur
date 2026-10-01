@@ -363,7 +363,9 @@ def test_duplicate_links_block_rating_without_removing_either_copy(col, snapshot
     assert state(col) == before
 
 
-@pytest.mark.parametrize("bad_link", ["not json", '{"source_id":null}', "[]"])
+@pytest.mark.parametrize(
+    "bad_link", ["not json", '{"source_id":null}', "[]", " " * 1025]
+)
 def test_unrelated_bad_link_does_not_block_valid_skill(col, snapshot, bad_link):
     from anki.learnrecur_skill_links import SkillLinkError, validate_skill_links
 
@@ -397,6 +399,98 @@ def test_bad_digest_does_not_hide_duplicate_of_current_skill(col, snapshot):
     with pytest.raises(SkillLinkError, match="duplicate"):
         select_skill_review(valid)
     assert state(col) == before
+
+
+def test_duplicate_index_tracks_edit_delete_undo_and_field_rename(col, snapshot):
+    from anki.learnrecur_skill_links import SkillLinkError
+
+    import_snapshot(col, snapshot)
+    valid = col.get_card(col.find_cards("")[0])
+    copy_note = col.new_note(valid.note_type())
+    copy_note.fields = valid.note().fields.copy()
+    copy_note[LINK_FIELD] = ""
+    col.add_note(copy_note, valid.did)
+    assert select_skill_review(valid)
+    copy_note[LINK_FIELD] = valid.note()[LINK_FIELD]
+    col.update_note(copy_note)
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(valid)
+    col.undo()
+    assert select_skill_review(valid)
+    col.redo()
+    col.remove_notes([copy_note.id])
+    assert select_skill_review(valid)
+    col.undo()
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(valid)
+    model = valid.note_type()
+    model["flds"] = [model["flds"][-1], *model["flds"][:-1]]
+    col.models.update_dict(model)
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(valid)
+    # Renaming the link field removes both notes from the lookup; undo restores it.
+    model = valid.note_type()
+    next(field for field in model["flds"] if field["name"] == LINK_FIELD)["name"] = (
+        "Former link"
+    )
+    col.models.update_dict(model)
+    assert col.db.scalar("select count(*) from learnrecur_skill_links") == 0
+    col.undo()
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(valid)
+
+
+def test_large_unrelated_link_deck_uses_indexed_bounded_lookup(col, snapshot, mocker):
+    from anki.collection import AddNoteRequest
+
+    import_snapshot(col, snapshot)
+    valid = col.get_card(col.find_cards("")[0])
+    model = col.models.new("Shared ordinary links")
+    for name in ("Front", "Back", LINK_FIELD):
+        col.models.add_field(model, col.models.new_field(name))
+    template = col.models.new_template("Card")
+    template["qfmt"], template["afmt"] = "{{Front}}", "{{Back}}"
+    col.models.add_template(model, template)
+    model = col.models.get(col.models.add_dict(model).id)
+    requests = []
+    for index in range(2000):
+        note = col.new_note(model)
+        note.fields = [
+            "Synthetic",
+            "Ordinary",
+            json.dumps(
+                {
+                    "source_id": SOURCE,
+                    "skill_id": f"unrelated-{index}",
+                    "digest": "0" * 64,
+                }
+            ),
+        ]
+        requests.append(AddNoteRequest(note, col.decks.id("Ordinary")))
+    col.add_notes(requests)
+    mocker.patch.object(
+        col.models, "nids", side_effect=AssertionError("unbounded scan")
+    )
+    reads = mocker.spy(col, "get_note")
+    assert select_skill_review(valid)
+    assert reads.call_count <= 3
+    plan = col.db.all(
+        "explain query plan select nid from learnrecur_skill_links "
+        "where source_id=? and skill_id=? limit 2",
+        SOURCE,
+        snapshot["skills"][0]["id"],
+    )
+    assert any("learnrecur_skill_links_key" in row[-1] for row in plan)
+
+
+def test_existing_collection_builds_link_index_on_reopen(col, snapshot):
+    import_snapshot(col, snapshot)
+    cid = col.find_cards("")[0]
+    col.db.execute("drop table learnrecur_skill_links")
+    col.close()
+    col.reopen()
+    assert col.db.scalar("select count(*) from learnrecur_skill_links") == 1
+    assert select_skill_review(col.get_card(cid))
 
 
 @pytest.mark.parametrize("bad", ["missing", "bool", "negative", "oversize", "guid"])

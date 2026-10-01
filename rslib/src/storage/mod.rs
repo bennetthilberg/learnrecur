@@ -8,6 +8,7 @@ mod dbcheck;
 mod deck;
 mod deckconfig;
 mod graves;
+mod learnrecur_links;
 mod note;
 mod notetype;
 mod revlog;

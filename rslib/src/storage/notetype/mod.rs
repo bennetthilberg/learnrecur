@@ -168,6 +168,7 @@ impl SqliteStorage {
             field.config.encode(&mut config_bytes)?;
             stmt.execute(params![ntid, ord as u32, field.name, config_bytes,])?;
         }
+        self.refresh_skill_links_for_notetype(ntid)?;
 
         Ok(())
     }
