@@ -17,6 +17,7 @@ from anki.collection import (
     OpChangesWithId,
 )
 from anki.decks import DeckId
+from anki.learnrecur_skills import SkillReview, prepare_skill_answer
 from anki.notes import NoteId
 from anki.scheduler import CustomStudyRequest, FilteredDeckForUpdate, UnburyDeck
 from anki.scheduler.base import ScheduleCardsAsNew
@@ -285,9 +286,12 @@ def answer_card(
     *,
     parent: QWidget,
     answer: CardAnswer,
+    skill_review: SkillReview | None = None,
 ) -> CollectionOp[OpChanges]:
     def answer_v3(col: Collection) -> OpChanges:
         assert isinstance(col.sched, V3Scheduler)
+        if skill_review is not None:
+            prepare_skill_answer(col, answer, skill_review)
         return col.sched.answer_card(answer)
 
     return CollectionOp(parent, answer_v3)

@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import random
 import re
@@ -18,6 +19,12 @@ import aqt.operations
 from anki.cards import Card, CardId
 from anki.collection import Config, OpChanges, OpChangesWithCount
 from anki.lang import with_collapsed_whitespace
+from anki.learnrecur_skills import (
+    SkillReview,
+    SkillReviewError,
+    render_skill_review,
+    select_skill_review,
+)
 from anki.scheduler.base import ScheduleCardsAsNew
 from anki.scheduler.v3 import (
     CardAnswer,
@@ -28,6 +35,7 @@ from anki.scheduler.v3 import (
 )
 from anki.scheduler.v3 import Scheduler as V3Scheduler
 from anki.tags import MARKED_TAG
+from anki.template import TemplateRenderOutput
 from anki.types import assert_exhaustive
 from anki.utils import is_mac
 from aqt import AnkiQt, gui_hooks
@@ -152,6 +160,8 @@ class Reviewer:
         self.web = mw.web
         self.card: Card | None = None
         self.previous_card: Card | None = None
+        self._skill_review: SkillReview | None = None
+        self._skill_error: str | None = None
         self._answeredIds: list[CardId] = []
         self._recordedAudio: str | None = None
         self._combining: bool = True
@@ -198,6 +208,8 @@ class Reviewer:
     def cleanup(self) -> None:
         gui_hooks.reviewer_will_end()
         self.card = None
+        self._skill_review = None
+        self._skill_error = None
         self.auto_advance_enabled = False
 
     def refresh_if_needed(self) -> None:
@@ -248,6 +260,8 @@ class Reviewer:
         self.previous_card = self.card
         self.card = None
         self._v3 = None
+        self._skill_review = None
+        self._skill_error = None
         self._get_next_v3_card()
 
         self._previous_card_info.set_card(self.previous_card)
@@ -367,7 +381,21 @@ class Reviewer:
     def _mungeQA(self, buf: str) -> str:
         return self.typeAnsFilter(self.mw.prepare_card_text_for_display(buf))
 
+    def _prepare_skill_review(self) -> None:
+        self._skill_error = None
+        try:
+            if self._skill_review is None:
+                self._skill_review = select_skill_review(self.card)
+            if self._skill_review is not None:
+                render_skill_review(self.card, self._skill_review)
+        except SkillReviewError as error:
+            self._skill_error = str(error)
+            self.card.set_render_output(
+                TemplateRenderOutput(html.escape(str(error)), "", [], [])
+            )
+
     def _showQuestion(self) -> None:
+        self._prepare_skill_review()
         self._reps += 1
         self.state = "question"
         self.typedAnswer: str | None = None
@@ -461,6 +489,10 @@ class Reviewer:
         if self.mw.state != "review":
             # showing resetRequired screen; ignore space
             return
+        self._prepare_skill_review()
+        if self._skill_error:
+            self._showQuestion()
+            return
         self.state = "answer"
         c = self.card
         a = c.answer()
@@ -533,7 +565,7 @@ class Reviewer:
         if self.mw.state != "review":
             # showing resetRequired screen; ignore key
             return
-        if self.state != "answer":
+        if self.state != "answer" or self._skill_error:
             return
         proceed, ease = gui_hooks.reviewer_will_answer_card(
             (True, ease), self, self.card
@@ -558,9 +590,17 @@ class Reviewer:
                 self.onLeech(suspended)
 
         self.state = "transition"
-        answer_card(parent=self.mw, answer=answer).success(
-            after_answer
-        ).run_in_background(initiator=self)
+        operation = answer_card(
+            parent=self.mw, answer=answer, skill_review=self._skill_review
+        ).success(after_answer)
+        if self._skill_review is not None:
+
+            def failed_answer(error: Exception) -> None:
+                show_warning(str(error), parent=self.mw)
+                self.nextCard()
+
+            operation.failure(failed_answer)
+        operation.run_in_background(initiator=self)
 
     def _after_answering(self, ease: Literal[1, 2, 3, 4]) -> None:
         gui_hooks.reviewer_did_answer_card(self, self.card, ease)
@@ -671,7 +711,9 @@ class Reviewer:
             self._answerCard(self._defaultEase())
 
     def _linkHandler(self, url: str) -> None:
-        if url == "ans":
+        if url == "skillExit":
+            self.mw.moveToState("overview")
+        elif url == "ans":
             self._getTypedAnswer()
         elif url.startswith("ease"):
             val: Literal[1, 2, 3, 4] = int(url[4:])  # type: ignore
@@ -845,6 +887,8 @@ timerStopped = false;
             tr.studying_show_answer(),
             self._remaining(),
         )
+        if self._skill_error:
+            middle = '<button id="ansbut" onclick=\'pycmd("skillExit");\'>Back to deck</button>'
         # wrap it in a table so it has the same top margin as the ease buttons
         middle = (
             "<table cellpadding=0><tr><td class=stat2 align=center>%s</td></tr></table>"
