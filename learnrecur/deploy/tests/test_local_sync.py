@@ -387,3 +387,78 @@ def test_incoming_identity_collision_preserves_both_profiles(
         ) == before_b
         assert a.card_count() == b.card_count() == 1
         assert records(a) == records(b) == []
+
+
+@pytest.mark.parametrize("collision", ["note", "card"])
+@pytest.mark.parametrize("remove_marker", [False, True])
+def test_remote_deletion_collision_preserves_unsynced_skill(
+    server, snapshot, tmp_path, collision, remove_marker
+):
+    from anki.collection import AddNoteRequest
+
+    with collections(tmp_path) as (a, b):
+        auth = bootstrap(a, b, server)
+        import_snapshot(b, snapshot)
+        native_id = b.find_cards("")[0]
+        model = copy.deepcopy(b.get_card(native_id).note_type())
+        model.pop("learnrecur")
+        model["id"] = 0
+        mid = a.models.add_dict(model).id
+        ordinary = a.new_note(a.models.get(mid))
+        ordinary.fields = b.get_card(native_id).note().fields.copy()
+        ordinary["LearnRecurLink"] = ordinary["LearnRecurSkill"] = ""
+        ordinary.id = native_id if collision == "note" else native_id + 100
+        ordinary.guid = "00000000000000000000000000000001"
+        a.add_skill_notes(
+            [AddNoteRequest(ordinary, a.decks.id("Ordinary"))], [native_id]
+        )
+        a.remove_notes([ordinary.id])
+        sync(a, auth)
+        rate(b)
+        if remove_marker:
+            model = b.get_card(native_id).note_type()
+            model.pop("learnrecur")
+            b.models.update_dict(model)
+        before = (b.get_card(native_id).note().fields, records(b))
+        with pytest.raises(Exception, match="remote skill deletion"):
+            b.sync_collection(auth, False)
+        assert b.card_count() == 1
+        assert (b.get_card(native_id).note().fields, records(b)) == before
+
+
+@pytest.mark.parametrize("delete", ["note", "deck"])
+def test_remote_skill_deletion_stops_without_deleting_server_copy(
+    server, snapshot, tmp_path, delete
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        if delete == "note":
+            a.remove_notes([nid])
+        else:
+            a.decks.remove([a.decks.id(DECK_NAME)])
+        with pytest.raises(Exception):
+            a.sync_collection(auth, False)
+        # Download into this disposable profile to inspect the committed server state.
+        full_sync(a, auth, False)
+        assert a.card_count() == b.card_count() == 1
+        assert a.get_note(nid).fields == b.get_note(nid).fields
+
+
+@pytest.mark.parametrize("delete", ["note", "deck"])
+def test_ordinary_deletion_still_syncs(server, snapshot, tmp_path, delete):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        ordinary = a.new_note(a.models.by_name("Basic"))
+        ordinary["Front"], ordinary["Back"] = "Synthetic", "Ordinary"
+        a.add_note(ordinary, a.decks.id("Ordinary"))
+        auth = bootstrap(a, b, server)
+        if delete == "note":
+            a.remove_notes([ordinary.id])
+        else:
+            a.decks.remove([ordinary.cards()[0].did])
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 1
+        assert b.find_notes(f"nid:{ordinary.id}") == []

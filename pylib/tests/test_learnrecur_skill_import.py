@@ -349,6 +349,42 @@ def test_duplicate_links_block_rating_without_removing_either_copy(col, snapshot
     assert state(col) == before
 
 
+@pytest.mark.parametrize("bad_link", ["not json", '{"source_id":null}', "[]"])
+def test_unrelated_bad_link_does_not_block_valid_skill(col, snapshot, bad_link):
+    from anki.learnrecur_skill_links import SkillLinkError, validate_skill_links
+
+    import_snapshot(col, snapshot)
+    valid = col.get_card(col.find_cards("")[0])
+    broken = col.new_note(valid.note_type())
+    broken.fields = valid.note().fields.copy()
+    broken[LINK_FIELD] = bad_link
+    col.add_note(broken, valid.did)
+    assert select_skill_review(valid).exercise.id == "hablar"
+    with pytest.raises(SkillLinkError, match="invalid link"):
+        select_skill_review(broken.cards()[0])
+    with pytest.raises(SkillLinkError, match="invalid link"):
+        validate_skill_links(col)
+    assert rate(col) == valid.id
+    assert col.get_card(valid.id).reps == 1
+
+
+def test_bad_digest_does_not_hide_duplicate_of_current_skill(col, snapshot):
+    from anki.learnrecur_skill_links import SkillLinkError
+
+    import_snapshot(col, snapshot)
+    valid = col.get_card(col.find_cards("")[0])
+    duplicate = col.new_note(valid.note_type())
+    duplicate.fields = valid.note().fields.copy()
+    link = json.loads(duplicate[LINK_FIELD])
+    link["digest"] = "damaged"
+    duplicate[LINK_FIELD] = json.dumps(link)
+    col.add_note(duplicate, valid.did)
+    before = state(col)
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(valid)
+    assert state(col) == before
+
+
 @pytest.mark.parametrize("bad", ["missing", "bool", "negative", "oversize", "guid"])
 def test_invalid_identities_fail_before_collection_changes(col, canonical, bad):
     identity = next(iter(canonical["identities"].values()))

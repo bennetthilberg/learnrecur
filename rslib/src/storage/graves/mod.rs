@@ -19,6 +19,13 @@ enum GraveKind {
 }
 
 impl SqliteStorage {
+    pub(crate) fn note_ids_for_remote_deck_deletion(&self, did: DeckId) -> Result<Vec<NoteId>> {
+        self.db
+            .prepare_cached("select distinct nid from cards where did=? or odid=?")?
+            .query_and_then([did, did], |row| Ok(row.get(0)?))?
+            .collect()
+    }
+
     pub(crate) fn skill_identity_was_deleted(&self, nid: NoteId, cid: CardId) -> Result<bool> {
         Ok(self.db.query_row(
             "select exists(select 1 from graves where (type=1 and oid=?) or (type=0 and oid=?))",

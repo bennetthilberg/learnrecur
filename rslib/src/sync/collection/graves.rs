@@ -46,6 +46,21 @@ impl Graves {
 
 impl Collection {
     pub fn apply_graves(&self, graves: Graves, latest_usn: Usn) -> Result<()> {
+        // Native graves carry only IDs, so they cannot prove skill ownership.
+        // Refuse skill deletions until reconciliation supports that proof.
+        for nid in &graves.notes {
+            self.require_safe_remote_deletion(*nid)?;
+        }
+        for cid in &graves.cards {
+            if let Some(card) = self.storage.get_card(*cid)? {
+                self.require_safe_remote_deletion(card.note_id)?;
+            }
+        }
+        for did in &graves.decks {
+            for nid in self.storage.note_ids_for_remote_deck_deletion(*did)? {
+                self.require_safe_remote_deletion(nid)?;
+            }
+        }
         for nid in graves.notes {
             self.storage.remove_note(nid)?;
             self.storage.add_note_grave(nid, latest_usn)?;
@@ -58,6 +73,30 @@ impl Collection {
             self.storage.remove_deck(did)?;
             self.storage.add_deck_grave(did, latest_usn)?;
         }
+        Ok(())
+    }
+
+    fn require_safe_remote_deletion(&self, nid: NoteId) -> Result<()> {
+        let Some(note) = self.storage.get_note(nid)? else {
+            return Ok(());
+        };
+        let notetype = self
+            .storage
+            .get_notetype(note.notetype_id)?
+            .or_not_found(nid)?;
+        let marked = serde_json::from_slice::<serde_json::Value>(&notetype.config.other)
+            .ok()
+            .and_then(|other| other.get("learnrecur").cloned())
+            .is_some_and(|kind| kind == "skill-v1");
+        let has_skill_field = |name| {
+            notetype.fields.iter().enumerate().any(|(index, field)| {
+                field.name == name && note.fields().get(index).is_some_and(|v| !v.is_empty())
+            })
+        };
+        require!(
+            !(marked || (has_skill_field("LearnRecurLink") && has_skill_field("LearnRecurSkill"))),
+            "remote skill deletion is not supported; sync stopped without applying changes"
+        );
         Ok(())
     }
 }
