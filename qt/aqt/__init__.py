@@ -12,6 +12,11 @@ from collections.abc import Callable
 from inspect import isclass
 from typing import TYPE_CHECKING, Any, Union, cast
 
+from aqt.learnrecur import APP_ID, APP_NAME, configure_webengine
+
+# Qt reads its Chromium flags during import, before QApplication exists.
+configure_webengine()
+
 try:
     import truststore
 
@@ -52,7 +57,6 @@ from anki.collection import Collection
 from anki.consts import HELP_SITE
 from anki.utils import checksum, is_gnome, is_lin, is_mac
 from aqt import gui_hooks
-from aqt.learnrecur import APP_ID, APP_NAME
 from aqt.log import setup_logging
 from aqt.qt import *
 from aqt.qt import sip

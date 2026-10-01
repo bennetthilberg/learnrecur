@@ -1,6 +1,9 @@
 # Copyright: LearnRecur contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -12,7 +15,12 @@ import anki.lang
 import aqt
 from anki.collection import Collection, GithubRelease
 from anki.db import DB
-from aqt.learnrecur import DATA_MARKER, DATA_VERSION, ensure_data_folder
+from aqt.learnrecur import (
+    DATA_MARKER,
+    DATA_VERSION,
+    configure_webengine,
+    ensure_data_folder,
+)
 from aqt.main import AnkiQt
 from aqt.package import download_github_update_and_install
 from aqt.profiles import ProfileManager
@@ -26,6 +34,80 @@ from aqt.update import (
     prompt_and_install_github_update,
     prompt_to_update,
 )
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        None,
+        "--disable-gpu",
+        '--custom-value="two words" --cdm-widevine-path=/other',
+        "--custom-value=--cdm-widevine-path=/dev/null/learnrecur-no-widevine",
+    ],
+)
+def test_mac_webengine_skips_browser_plugin_discovery(flags, monkeypatch):
+    monkeypatch.setattr("aqt.learnrecur.sys", SimpleNamespace(platform="darwin"))
+    if flags is None:
+        monkeypatch.delenv("QTWEBENGINE_CHROMIUM_FLAGS", raising=False)
+    else:
+        monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", flags)
+
+    configure_webengine()
+    configured = os.environ["QTWEBENGINE_CHROMIUM_FLAGS"]
+    assert configured == (
+        f"{flags or ''} --cdm-widevine-path=/dev/null/learnrecur-no-widevine".strip()
+    )
+    configure_webengine()
+    assert os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] == configured
+
+
+@pytest.mark.parametrize("platform", ["linux", "win32"])
+def test_other_platform_webengine_flags_are_unchanged(platform, monkeypatch):
+    monkeypatch.setattr("aqt.learnrecur.sys", SimpleNamespace(platform=platform))
+    monkeypatch.setenv("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu")
+    configure_webengine()
+    assert os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] == "--disable-gpu"
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="Mac startup policy")
+def test_webengine_policy_runs_before_first_qt_import():
+    env = dict(os.environ)
+    env.pop("QTWEBENGINE_CHROMIUM_FLAGS", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import importlib.abc
+import os
+import sys
+
+class ReachedQt(BaseException):
+    pass
+
+class StopBeforeQt(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path, target=None):
+        if fullname == "PyQt6":
+            print(os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", ""))
+            raise ReachedQt
+
+sys.meta_path.insert(0, StopBeforeQt())
+try:
+    import aqt
+except ReachedQt:
+    pass
+else:
+    raise AssertionError("Qt import was not reached")
+""",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.strip() == (
+        "--cdm-widevine-path=/dev/null/learnrecur-no-widevine"
+    )
 
 
 def test_default_storage_ignores_anki_settings(tmp_path, monkeypatch):
