@@ -61,6 +61,18 @@ pub fn import_colpkg(
 }
 
 fn check_collection_and_mod_schema(col_path: &Path) -> Result<()> {
+    // File packages cannot establish companion ownership. Rebuild the link index
+    // from restored notes, but leave ownership empty until it can be verified.
+    rusqlite::Connection::open(col_path)
+        .and_then(|db| {
+            db.execute_batch(
+                "drop table if exists learnrecur_skill_identities;
+                 drop table if exists learnrecur_skill_links;",
+            )
+        })
+        .map_err(|_| AnkiError::ImportError {
+            source: ImportError::Corrupt,
+        })?;
     CollectionBuilder::new(col_path)
         .build()
         .ok()

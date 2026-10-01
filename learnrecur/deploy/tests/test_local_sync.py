@@ -18,7 +18,8 @@ from urllib.request import Request, urlopen
 
 import pytest
 
-from anki.collection import Collection
+from anki.collection import Collection, media_paths_from_col_path
+from anki.errors import BackendError
 from anki.learnrecur_skill_import import DECK_NAME, import_snapshot
 from anki.learnrecur_skills import prepare_skill_answer, select_skill_review
 from anki.scheduler.v3 import CardAnswer
@@ -539,3 +540,118 @@ def test_package_metadata_cannot_block_deletion_sync(
         sync(a, auth)
         sync(b, auth)
         assert a.card_count() == b.card_count() == 0
+
+
+@pytest.mark.parametrize("delete", ["note", "deck"])
+@pytest.mark.parametrize("legacy", [False, True])
+def test_collection_restore_discards_claimed_ownership_and_rebuilds_links(
+    server, snapshot, tmp_path, delete, legacy
+):
+    source = Collection(str(tmp_path / "restore-source.anki2"))
+    package = tmp_path / "untrusted.colpkg"
+    try:
+        import_snapshot(source, snapshot)
+        cid = rate(source)
+        card_before = source.get_card(cid)
+        fields_before = card_before.note().fields
+        history_before = records(source)
+        ordinary = source.new_note(source.models.by_name("Basic"))
+        ordinary["Front"] = 'Synthetic <b>ordinary</b> card <img src="restore.svg">'
+        ordinary["Back"] = "An ordinary answer"
+        source.add_note(ordinary, source.decks.id("Ordinary"))
+        svg = b'<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>'
+        source.media.write_data("restore.svg", svg)
+        # A package author can claim ownership of any note and forge the index.
+        source.db.execute(
+            "insert into learnrecur_skill_identities(nid,cid,guid) values(?,?,?)",
+            ordinary.id,
+            ordinary.cards()[0].id,
+            ordinary.guid,
+        )
+        source.db.execute(
+            "update learnrecur_skill_links set source_id='forged',skill_id='forged'"
+        )
+        source.export_collection_package(str(package), include_media=True, legacy=legacy)
+    finally:
+        source.close()
+    with collections(tmp_path) as (a, b):
+        media_folder, media_db = media_paths_from_col_path(a.path)
+        a.close()
+        a._backend.import_collection_package(
+            col_path=a.path,
+            backup_path=str(package),
+            media_folder=media_folder,
+            media_db=media_db,
+        )
+        a.reopen()
+        restored = a.get_card(cid)
+        assert restored.note().fields == fields_before
+        assert restored.custom_data == card_before.custom_data
+        assert (restored.queue, restored.type, restored.due, restored.ivl) == (
+            card_before.queue,
+            card_before.type,
+            card_before.due,
+            card_before.ivl,
+        )
+        assert records(a) == history_before
+        assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 0
+        assert a.db.all("select nid,source_id,skill_id from learnrecur_skill_links") == [
+            [cid, snapshot["source_id"], snapshot["skills"][0]["id"]]
+        ]
+        assert select_skill_review(restored).exercise.id == "trabajar"
+        with pytest.raises(ValueError, match="trusted"):
+            import_snapshot(a, snapshot)
+        assert a.card_count() == 2 and records(a) == history_before
+        assert a.get_note(ordinary.id).fields == ordinary.fields
+        assert (Path(media_folder) / "restore.svg").read_bytes() == svg
+        auth = bootstrap(a, b, server)
+        time.sleep(0.01)  # Native change detection uses millisecond timestamps.
+        if delete == "note":
+            a.remove_notes([restored.nid])
+        else:
+            a.decks.remove([restored.did])
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 1
+        # Forged ownership of the ordinary note must not prevent its deletion.
+        time.sleep(0.01)
+        a.remove_notes([ordinary.id])
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 0
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_invalid_collection_ownership_keeps_target_collection_and_media(tmp_path, legacy):
+    source = Collection(str(tmp_path / "invalid-source.anki2"))
+    package = tmp_path / "invalid.colpkg"
+    try:
+        note = source.new_note(source.models.by_name("Basic"))
+        note["Front"], note["Back"] = "Package", "Invalid ownership schema"
+        source.add_note(note, 1)
+        source.media.write_data("sentinel.txt", b"package media")
+        source.db.execute("drop table learnrecur_skill_identities")
+        source.db.execute(
+            "create view learnrecur_skill_identities as select id as nid from notes"
+        )
+        source.export_collection_package(str(package), include_media=True, legacy=legacy)
+    finally:
+        source.close()
+    with collections(tmp_path) as (a, _b):
+        sentinel = a.new_note(a.models.by_name("Basic"))
+        sentinel["Front"], sentinel["Back"] = "Keep", "Destination"
+        a.add_note(sentinel, 1)
+        a.media.write_data("sentinel.txt", b"destination media")
+        media_folder, media_db = media_paths_from_col_path(a.path)
+        a.close()
+        with pytest.raises(BackendError, match="not a valid"):
+            a._backend.import_collection_package(
+                col_path=a.path,
+                backup_path=str(package),
+                media_folder=media_folder,
+                media_db=media_db,
+            )
+        a.reopen()
+        assert a.card_count() == 1
+        assert a.get_note(sentinel.id).fields == sentinel.fields
+        assert (Path(media_folder) / "sentinel.txt").read_bytes() == b"destination media"
