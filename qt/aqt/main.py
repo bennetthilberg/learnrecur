@@ -1107,10 +1107,14 @@ title="{}" {}>{}</button>""".format(
 
         def on_collection_sync_finished() -> None:
             self.col.models._clear_cache()
-            gui_hooks.sync_did_finish()
-            self.reset()
+            from aqt.learnrecur_sync import finish_skill_sync
 
-            after_sync()
+            def finish() -> None:
+                gui_hooks.sync_did_finish()
+                self.reset()
+                after_sync()
+
+            finish_skill_sync(self, finish)
 
         gui_hooks.sync_will_start()
         sync_collection(self, on_done=on_collection_sync_finished)

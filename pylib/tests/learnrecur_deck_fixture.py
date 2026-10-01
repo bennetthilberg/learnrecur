@@ -175,6 +175,11 @@ def main() -> None:
             json.dumps(
                 {
                     "library": str(Path(inspect.getfile(Collection)).resolve()),
+                    "backend": str(
+                        Path(
+                            __import__("anki._rsbridge", fromlist=["__file__"]).__file__
+                        ).resolve()
+                    ),
                     "content": content(col),
                     "scheduling": scheduling(col),
                 }

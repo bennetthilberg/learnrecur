@@ -64,6 +64,7 @@ Read [ROADMAP.md](ROADMAP.md) before starting work. It records the product decis
 ## Engineering and verification
 
 - Use pull requests for changes after this initial repository setup, unless the user explicitly asks for a direct push.
+- Run automatic code and security reviews when a PR is opened. If an initial review doesn't start, request it once. Address feedback in one batch, or at most two passes per PR, and run the relevant checks. Do not request repeat reviews after fixing the initial feedback or configure reviews on every push. Hand the PR back to the user instead of repeating the fix-and-review cycle.
 - Preserve Anki's upstream Git ancestry, directory layout, license, and notices. Pin a release and exact commit; keep fork changes small and easy to carry forward. Inspect inherited automation before enabling it.
 - Start with Anki's matching standalone sync server and a separate companion service for skills, exercises, reports, and generation jobs. Test whether the client can keep their data consistent after a crash or disconnect before expanding this design.
 - Use normal collection APIs to create or change native notes/cards. A worker must not write directly into a collection file managed by a client or sync server.

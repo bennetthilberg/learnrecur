@@ -14,11 +14,9 @@ ANKI_TEST_MODE=1 PYTHONPATH=pylib:out/pylib \
   out/pyenv/bin/python -m pytest pylib/tests/test_learnrecur_packages.py -q
 ```
 
-The tests extract the pinned upstream Python library from Git commit `29bb700b951e3f0c0cb69b77c0180fc1fe33e6ba`. Separate processes create the source package and import LearnRecur's exports using that library. All collections live in temporary directories. No installed Anki app or local Anki data is opened.
+The tests use Anki 26.9.3's released Python wheel from [PyPI](https://pypi.org/project/anki/26.9.3/). Its archive hash is pinned for each supported architecture. The first run downloads it into this checkout's ignored `out/learnrecur/upstream-wheels/` directory; later runs verify and reuse that archive. Each test run extracts the library, generated bindings, and its own Rust bridge into temporary storage. Separate processes create the source package and import LearnRecur's exports with that library. The checks assert that both the Python library and native bridge came from the extracted wheel.
 
-The two libraries share the generated bindings and built Rust bridge. The tests first check that the bridge, Rust library, protocol, binding generators, and dependency lockfile still match upstream. They stop if those sources change. At that point, build an independent upstream bridge before using these checks to claim compatibility. The fork's build configuration disables binary stripping, as described in [MAC-DEVELOPMENT.md](MAC-DEVELOPMENT.md).
-
-CI fetches that exact commit before running the library suite. The tests do not call an AI service.
+This lets the compatibility check keep running as LearnRecur's backend changes. No installed Anki app or local Anki data is opened. The tests do not call an AI service.
 
 ## Make a package for a Mac check
 

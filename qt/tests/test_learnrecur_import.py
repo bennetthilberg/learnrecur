@@ -130,3 +130,11 @@ def test_only_confirmed_import_queues_collection_operation(monkeypatch, action):
         mw.col = object()
         with pytest.raises(SkillImportError, match="profile changed"):
             operations[0]["op"](mw.col)
+
+
+def test_old_companion_cannot_create_unsynchronized_identities(server, monkeypatch):
+    snapshot = server.store.snapshot()
+    del snapshot["identities"]
+    monkeypatch.setattr(server.store, "snapshot", lambda: snapshot)
+    with pytest.raises(SkillImportError, match="Update the local companion"):
+        ui.fetch_snapshot()

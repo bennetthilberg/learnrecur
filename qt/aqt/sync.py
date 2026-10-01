@@ -144,8 +144,8 @@ def full_sync(
         confirm_full_upload(mw, server_usn, on_done)
     else:
         button_labels: list[str] = [
-            tr.sync_upload_to_ankiweb(),
-            tr.sync_download_from_ankiweb(),
+            "Upload to server",
+            "Download from server",
             tr.sync_cancel_button(),
         ]
 
@@ -158,7 +158,8 @@ def full_sync(
                 on_done()
 
         ask_user_dialog(
-            tr.sync_conflict_explanation2(),
+            "Choose which collection to keep. Upload replaces the server's collection; "
+            "download replaces this profile's collection. Media syncs separately.",
             callback=callback,
             buttons=button_labels,
             default_button=2,
@@ -180,7 +181,10 @@ def confirm_full_download(
             mw.closeAllWindows(lambda: full_download(mw, server_usn, on_done))
 
     ask_user_dialog(
-        tr.sync_confirm_empty_download(), callback=callback, default_button=0, parent=mw
+        "This profile has no cards. Replace its collection with the sync server's?",
+        callback=callback,
+        default_button=0,
+        parent=mw,
     )
 
 
@@ -197,7 +201,10 @@ def confirm_full_upload(
             mw.closeAllWindows(lambda: full_upload(mw, server_usn, on_done))
 
     ask_user_dialog(
-        tr.sync_confirm_empty_upload(), callback=callback, default_button=0, parent=mw
+        "The sync server has no cards. Replace it with this profile's collection?",
+        callback=callback,
+        default_button=0,
+        parent=mw,
     )
 
 

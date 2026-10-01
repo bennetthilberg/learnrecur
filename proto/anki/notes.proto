@@ -29,6 +29,7 @@ service NotesService {
   rpc NoteFieldsCheck(Note) returns (NoteFieldsCheckResponse);
   rpc CardsOfNote(NoteId) returns (cards.CardIds);
   rpc GetSingleNotetypeOfNotes(notes.NoteIds) returns (notetypes.NotetypeId);
+  rpc AddSkillNotes(AddSkillNotesRequest) returns (AddNotesResponse);
 }
 
 // Implicitly includes any of the above methods that are not listed in the
@@ -119,4 +120,15 @@ message NoteFieldsCheckResponse {
     FIELD_NOT_CLOZE = 5;
   }
   State state = 1;
+}
+
+// Companion identities let independent clients import the same scheduled card.
+message AddSkillNoteRequest {
+  Note note = 1;
+  int64 deck_id = 2;
+  int64 card_id = 3;
+}
+
+message AddSkillNotesRequest {
+  repeated AddSkillNoteRequest requests = 1;
 }

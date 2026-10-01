@@ -8,6 +8,7 @@ mod dbcheck;
 mod deck;
 mod deckconfig;
 mod graves;
+mod learnrecur_links;
 mod note;
 mod notetype;
 mod revlog;
@@ -19,6 +20,7 @@ mod upgrades;
 
 use std::fmt::Write;
 
+pub(crate) use graves::SkillIdentity;
 pub(crate) use sqlite::ProcessTextFlags;
 pub(crate) use sqlite::SqliteStorage;
 

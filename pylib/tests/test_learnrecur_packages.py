@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import json
 import os
 import subprocess
 import sys
-import tarfile
 from pathlib import Path
 
 import pytest
@@ -20,36 +18,16 @@ from tests.learnrecur_deck_fixture import (
     import_package,
     scheduling,
 )
+from tests.learnrecur_upstream import extract_upstream
 
 ROOT = Path(__file__).resolve().parents[2]
-UPSTREAM = "29bb700b951e3f0c0cb69b77c0180fc1fe33e6ba"
 HELPER = Path(__file__).with_name("learnrecur_deck_fixture.py")
 
 
 @pytest.fixture(scope="module")
 def upstream(tmp_path_factory) -> Path:
-    # We can share the built bridge only while its source matches upstream.
-    changes = subprocess.check_output(
-        [
-            "git",
-            "diff",
-            UPSTREAM,
-            "--",
-            "proto",
-            "rslib",
-            "pylib/rsbridge",
-            "pylib/tools",
-            "Cargo.lock",
-        ],
-        cwd=ROOT,
-    )
-    assert not changes, "Build a separate upstream bridge before changing the backend"
     source = tmp_path_factory.mktemp("learnrecur-upstream")
-    archive = subprocess.check_output(
-        ["git", "archive", UPSTREAM, "pylib/anki"], cwd=ROOT
-    )
-    with tarfile.open(fileobj=io.BytesIO(archive)) as files:
-        files.extractall(source, filter="data")
+    extract_upstream(source)
     return source
 
 
@@ -59,9 +37,7 @@ def run_upstream(source: Path, action: str, collection: Path, package: Path) -> 
         cwd=source,
         env={
             **os.environ,
-            "PYTHONPATH": os.pathsep.join(
-                (str(source / "pylib"), str(ROOT / "out/pylib"))
-            ),
+            "PYTHONPATH": str(source),
             "ANKI_TEST_MODE": "1",
         },
         capture_output=True,
@@ -70,6 +46,7 @@ def run_upstream(source: Path, action: str, collection: Path, package: Path) -> 
     )
     snapshot = json.loads(result.stdout)
     assert Path(snapshot["library"]).is_relative_to(source)
+    assert Path(snapshot["backend"]).is_relative_to(source)
     return snapshot
 
 

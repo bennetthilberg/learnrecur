@@ -46,6 +46,21 @@ impl Graves {
 
 impl Collection {
     pub fn apply_graves(&self, graves: Graves, latest_usn: Usn) -> Result<()> {
+        // Native graves carry only IDs, so they cannot prove skill ownership.
+        // Refuse skill deletions until reconciliation supports that proof.
+        for nid in &graves.notes {
+            self.require_safe_remote_deletion(*nid)?;
+        }
+        for cid in &graves.cards {
+            if let Some(card) = self.storage.get_card(*cid)? {
+                self.require_safe_remote_deletion(card.note_id)?;
+            }
+        }
+        for did in &graves.decks {
+            for nid in self.storage.note_ids_for_remote_deck_deletion(*did)? {
+                self.require_safe_remote_deletion(nid)?;
+            }
+        }
         for nid in graves.notes {
             self.storage.remove_note(nid)?;
             self.storage.add_note_grave(nid, latest_usn)?;
@@ -58,6 +73,21 @@ impl Collection {
             self.storage.remove_deck(did)?;
             self.storage.add_deck_grave(did, latest_usn)?;
         }
+        Ok(())
+    }
+
+    fn require_safe_remote_deletion(&self, nid: NoteId) -> Result<()> {
+        let Some(note) = self.storage.get_note(nid)? else {
+            return Ok(());
+        };
+        let protected = self
+            .storage
+            .skill_identity_for_note(nid)?
+            .is_some_and(|identity| identity.guid == note.guid);
+        require!(
+            !protected,
+            "remote skill deletion is not supported; sync stopped without applying changes"
+        );
         Ok(())
     }
 }

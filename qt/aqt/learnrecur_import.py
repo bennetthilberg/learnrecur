@@ -63,6 +63,10 @@ def fetch_snapshot() -> object:
                         raise SkillImportError("The skill batch is too large.")
         snapshot = decode(bytes(data))
         validate_snapshot(snapshot)
+        if "identities" not in snapshot:
+            raise SkillImportError(
+                "Update the local companion before importing skills."
+            )
         return snapshot
     except requests.RequestException:
         # requests errors can include URLs or headers; keep credentials out of UI/logs.

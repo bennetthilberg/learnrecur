@@ -146,7 +146,10 @@ def validate_skills(value: object) -> list[dict]:
 
 
 def validate_snapshot(value: object) -> tuple[str, list[dict]]:
-    if not isinstance(value, dict) or set(value) != {"source_id", "skills"}:
+    if not isinstance(value, dict) or set(value) not in (
+        {"source_id", "skills"},
+        {"source_id", "skills", "identities"},
+    ):
         raise SkillImportError("Invalid companion response.")
     try:
         source = value["source_id"]
@@ -156,7 +159,36 @@ def validate_snapshot(value: object) -> tuple[str, list[dict]]:
         raise SkillImportError("Invalid companion identity.") from error
     # An empty server is valid, unlike an empty import request.
     skills = validate_skills(value["skills"]) if value["skills"] != [] else []
+    snapshot_identities(value, skills)
     return source, skills
+
+
+def snapshot_identities(value: dict, skills: list[dict]) -> dict:
+    # Older snapshots remain readable for local fixtures. The companion always
+    # supplies identities; legacy linked cards are never silently replaced.
+    if "identities" not in value:
+        return {}
+    identities = value["identities"]
+    if not isinstance(identities, dict) or set(identities) != {
+        skill["id"] for skill in skills
+    }:
+        raise SkillImportError("Missing companion card identities.")
+    ids, guids = set(), set()
+    for identity in identities.values():
+        if (
+            not isinstance(identity, dict)
+            or set(identity) != {"native_id", "guid"}
+            or type(identity["native_id"]) is not int
+            or not 1 <= identity["native_id"] <= 2**53 - 1
+            or not isinstance(identity["guid"], str)
+            or not re.fullmatch(r"[0-9a-f]{32}", identity["guid"])
+            or identity["native_id"] in ids
+            or identity["guid"] in guids
+        ):
+            raise SkillImportError("Invalid companion card identity.")
+        ids.add(identity["native_id"])
+        guids.add(identity["guid"])
+    return identities
 
 
 def _link(source: str, skill: dict) -> str:
@@ -198,6 +230,7 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     from anki.learnrecur_skills import MODEL_KIND, MODEL_MARKER
 
     source, skills = validate_snapshot(snapshot)
+    identities = snapshot_identities(snapshot, skills)
     pending = {skill["id"]: skill for skill in skills}
     seen = set()
     # Links survive note-type renames and copies. A removed marker is a conflict,
@@ -237,9 +270,43 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                 raise SkillImportError(
                     "A linked skill changed. Importing revisions is not supported yet."
                 )
+            if identities:
+                identity = identities[key]
+                if (
+                    note.id != identity["native_id"]
+                    or note.guid != identity["guid"]
+                    or note.cards()[0].id != identity["native_id"]
+                ):
+                    raise SkillImportError(
+                        "This skill has an older or conflicting card identity. Use a fresh test profile; the existing card was kept."
+                    )
+                if not col.db.scalar(
+                    "select exists(select 1 from learnrecur_skill_identities "
+                    "where nid=? and cid=? and guid=?)",
+                    note.id,
+                    identity["native_id"],
+                    identity["guid"],
+                ):
+                    raise SkillImportError(
+                        "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
+                    )
     missing = [skill for skill in skills if skill["id"] not in seen]
     if not missing:
         return SkillImportResult(OpChanges(), 0, len(seen))
+    if identities:
+        for skill in missing:
+            native_id = identities[skill["id"]]["native_id"]
+            if col.db.scalar(
+                "select exists(select 1 from notes where id=?) or "
+                "exists(select 1 from cards where id=?) or "
+                "exists(select 1 from graves where oid=? and type in (0,1))",
+                native_id,
+                native_id,
+                native_id,
+            ):
+                raise SkillImportError(
+                    "A companion card ID is already used or deleted. No cards were replaced."
+                )
     model = col.models.by_name(MODEL_NAME)
     if model and (
         model.get(MODEL_MARKER) != MODEL_KIND
@@ -281,7 +348,16 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     for skill in missing:
         note = col.new_note(model)
         note.fields = _fields(source, skill)
+        if identities:
+            identity = identities[skill["id"]]
+            note.id = identity["native_id"]
+            note.guid = identity["guid"]
         requests.append(AddNoteRequest(note=note, deck_id=did))
-    col.add_notes(requests)
+    if identities:
+        col.add_skill_notes(
+            requests, [identities[skill["id"]]["native_id"] for skill in missing]
+        )
+    else:
+        col.add_notes(requests)
     changes = col.merge_undo_entries(undo)
     return SkillImportResult(changes, len(missing), len(seen))

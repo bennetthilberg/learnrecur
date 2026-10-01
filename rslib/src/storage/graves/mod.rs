@@ -5,6 +5,9 @@ use std::convert::TryFrom;
 
 use num_enum::TryFromPrimitive;
 use rusqlite::params;
+use rusqlite::OptionalExtension;
+use serde::Deserialize;
+use serde::Serialize;
 
 use super::SqliteStorage;
 use crate::prelude::*;
@@ -18,7 +21,74 @@ enum GraveKind {
     Deck,
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize)]
+pub(crate) struct SkillIdentity {
+    pub nid: NoteId,
+    pub cid: CardId,
+    pub guid: String,
+}
+
 impl SqliteStorage {
+    pub(crate) fn ensure_skill_identity_table(&self) -> Result<()> {
+        self.db.execute_batch(
+            "create table if not exists learnrecur_skill_identities (
+                nid integer primary key, cid integer not null unique, guid text not null unique
+            )",
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn skill_identity_for_note(&self, nid: NoteId) -> Result<Option<SkillIdentity>> {
+        Ok(self
+            .db
+            .query_row(
+                "select nid,cid,guid from learnrecur_skill_identities where nid=?",
+                [nid],
+                |row| {
+                    Ok(SkillIdentity {
+                        nid: row.get(0)?,
+                        cid: row.get(1)?,
+                        guid: row.get(2)?,
+                    })
+                },
+            )
+            .optional()?)
+    }
+
+    pub(crate) fn record_skill_identity(&self, identity: &SkillIdentity) -> Result<()> {
+        require!(
+            (1..=9_007_199_254_740_991).contains(&identity.nid.0)
+                && (1..=9_007_199_254_740_991).contains(&identity.cid.0)
+                && identity.guid.len() == 32
+                && identity.guid.bytes().all(|byte| byte.is_ascii_hexdigit()),
+            "invalid trusted skill identity"
+        );
+        if let Some(existing) = self.skill_identity_for_note(identity.nid)? {
+            require!(existing == *identity, "sync skill identity collision");
+        } else {
+            self.db.execute(
+                "insert into learnrecur_skill_identities(nid,cid,guid) values(?,?,?)",
+                params![identity.nid, identity.cid, identity.guid],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn note_ids_for_remote_deck_deletion(&self, did: DeckId) -> Result<Vec<NoteId>> {
+        self.db
+            .prepare_cached("select distinct nid from cards where did=? or odid=?")?
+            .query_and_then([did, did], |row| Ok(row.get(0)?))?
+            .collect()
+    }
+
+    pub(crate) fn skill_identity_was_deleted(&self, nid: NoteId, cid: CardId) -> Result<bool> {
+        Ok(self.db.query_row(
+            "select exists(select 1 from graves where (type=1 and oid=?) or (type=0 and oid=?))",
+            [nid.0, cid.0],
+            |row| row.get(0),
+        )?)
+    }
+
     pub(crate) fn clear_all_graves(&self) -> Result<()> {
         self.db.execute("delete from graves", [])?;
         Ok(())
