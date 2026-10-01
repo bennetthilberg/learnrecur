@@ -47,11 +47,11 @@ Duplicate checks during review use a native index of source/skill links and read
 
 Publish the next complete revision to the companion, then accept it through **Tools > Import skills…** in either profile. Sync both profiles. The same native card should now have the revised description and bank, with its existing schedule and reviews. Older banks remain cached for history but are excluded from review.
 
-For trusted skill notes, a higher revision takes precedence over an older offline revision, even if the older note has a later modification timestamp. An older bank therefore cannot roll back the revised cache. Offline ratings still keep both review records, while the card schedule and cursor follow native conflict rules.
+For trusted skill notes, a higher revision takes precedence over an older offline revision, even if the older note has a later modification timestamp. An older bank therefore cannot roll back the revised cache. Revision order applies to the seven skill-content fields; tags and other note metadata keep native conflict handling, including pending offline edits. Offline ratings still keep both review records, while the card schedule and cursor follow native conflict rules.
 
 Different skill content at the same revision stops incremental sync and keeps both collections. The current client displays Anki's generic sync/database error. Keep both copies and recover the published definition from the companion; don't force-upload an edited collection over the server. A Skill editor and a guided recovery flow remain ahead. Ordinary notes retain Anki's normal timestamp rules. Explicit full sync still replaces a collection.
 
-Tests cover two offline ratings followed by revision sync, an offline revision 2 arriving after revision 3, and conflicting same-revision content. The conflict check confirms that the server keeps its definition and receives no partial review upload. The dropped-finish recovery test also passes when a revision is pending.
+Tests cover two offline ratings followed by revision sync, an offline revision 2 arriving after revision 3, conflicting same-revision content, and offline tag additions/removals during a revision update. The conflict check confirms that the server keeps its definition and receives no partial review upload. The dropped-finish recovery test also passes when a revision is pending.
 
 ## Evidence and remaining work
 
@@ -63,7 +63,7 @@ The final ownership check also passed a fresh packaged Mac import, native upload
 
 The final indexed-review build reopened that synthetic profile, revealed `trabajé`, advanced to `comprar` on Again, and restored `trabajar` on undo with both services stopped. After quitting, it retained one card, one review, one trusted identity, and one indexed link. The ignored record is `out/learnrecur/trusted-sync-mac-20261001/indexed-review.json`.
 
-The revision slice passes 273 library tests, 206 Qt tests, 13 companion tests, and 39 sync/launcher tests. Its Mac package and ad hoc signature pass. Native revision import, undo/redo, restart, and cached review with the companion stopped also passed; [the companion notes](../companion/README.md) record those checks.
+The revision slice passes 273 library tests, 206 Qt tests, 13 companion tests, and 41 sync/launcher tests. Its Mac package and ad hoc signature pass. Native revision import, undo/redo, restart, and cached review with the companion stopped also passed; [the companion notes](../companion/README.md) record those checks.
 
 Milestone 4 remains open. Description revisions now update the same native card without changing its history. Generation/refill jobs, reports, complete backups, restoration on another host, and deployment need later slices. Keep the current native concurrent-review behavior explicit until the exercise-use policy is decided.
 

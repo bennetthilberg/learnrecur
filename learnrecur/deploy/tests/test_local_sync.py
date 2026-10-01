@@ -345,7 +345,11 @@ def test_disconnect_after_sync_commit_recovers_without_duplicate_reviews(
         sync(b, auth)
         sync(a, auth)
         assert records(a) == records(b) == expected
-        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields == expected_fields
+        assert (
+            a.get_card(cid).note().fields
+            == b.get_card(cid).note().fields
+            == expected_fields
+        )
         assert a.card_count() == b.card_count() == 1
         assert a.get_card(cid).reps == b.get_card(cid).reps == 1
         assert import_snapshot(b, snapshot).existing == 1
@@ -737,6 +741,37 @@ def test_newer_offline_timestamp_cannot_replace_latest_revision(
         assert b.get_card(cid).note().fields == expected
 
 
+@pytest.mark.parametrize("tags", [["offline-tag"], []])
+def test_revision_sync_preserves_newer_offline_tag_edits(
+    server, snapshot, tmp_path, tags
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        cid = a.find_cards("")[0]
+        note = a.get_card(cid).note()
+        note.tags = ["original-tag"]
+        a.update_note(note)
+        auth = bootstrap(a, b, server)
+        latest = revised_snapshot(tmp_path)
+        import_snapshot(a, latest)
+        sync(a, auth)
+        note = b.get_card(cid).note()
+        note.tags = tags
+        b.update_note(note)
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            note = col.get_card(cid).note()
+            assert note.tags == tags
+            assert json.loads(note["LearnRecurSkill"])["revision"] == 2
+            assert select_skill_review(col.get_card(cid)).exercise.id == "cantar"
+            assert import_snapshot(col, latest).existing == 1
+        # The merged tag edit was uploaded, rather than merely kept locally.
+        full_sync(a, auth, False)
+        assert a.get_card(cid).note().tags == tags
+
+
 def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_path):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)
@@ -756,5 +791,7 @@ def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_p
         assert a.get_card(cid).note()["Description"] != note["Description"]
         # Inspect the server copy without accepting a replacement in the edited profile.
         full_sync(a, auth, False)
-        assert a.get_card(cid).note()["Description"] == latest["skills"][0]["description"]
+        assert (
+            a.get_card(cid).note()["Description"] == latest["skills"][0]["description"]
+        )
         assert records(a) == []  # The failed transaction did not copy B's rating.

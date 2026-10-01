@@ -9,6 +9,16 @@ use crate::notetype::NotetypeKind;
 use crate::prelude::*;
 use crate::storage::SkillIdentity;
 
+const SKILL_FIELDS: [&str; 7] = [
+    "Title",
+    "Description",
+    "Prompt",
+    "Answer",
+    "Explanation",
+    "LearnRecurSkill",
+    "LearnRecurLink",
+];
+
 impl Collection {
     pub(crate) fn add_skill_notes(
         &mut self,
@@ -133,20 +143,31 @@ impl Collection {
         })
     }
 
+    pub(crate) fn set_skill_revision_fields(
+        &mut self,
+        note: &mut Note,
+        fields: Vec<String>,
+    ) -> Result<()> {
+        let nt = self
+            .get_notetype(note.notetype_id)?
+            .or_invalid("missing skill note type")?;
+        for (name, content) in SKILL_FIELDS.into_iter().zip(fields) {
+            let ord = nt
+                .fields
+                .iter()
+                .position(|field| field.name == name)
+                .or_invalid("skill revision fields changed")?;
+            note.set_field(ord, content)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn skill_revision_state(&mut self, note: &Note) -> Result<(u64, Vec<String>)> {
         let nt = self
             .get_notetype(note.notetype_id)?
             .or_invalid("missing skill note type")?;
         let mut fields = vec![];
-        for name in [
-            "Title",
-            "Description",
-            "Prompt",
-            "Answer",
-            "Explanation",
-            "LearnRecurSkill",
-            "LearnRecurLink",
-        ] {
+        for name in SKILL_FIELDS {
             let ord = nt
                 .fields
                 .iter()
