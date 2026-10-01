@@ -1433,6 +1433,11 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.actionRedo.triggered, self.redo)
 
         # Tools
+        from aqt.learnrecur_import import import_skills
+
+        self.import_skills_action = QAction("Import skills…", self)
+        qconnect(self.import_skills_action.triggered, lambda: import_skills(self))
+        m.menuTools.addAction(self.import_skills_action)
         qconnect(m.actionFullDatabaseCheck.triggered, self.onCheckDB)
         qconnect(m.actionCheckMediaDatabase.triggered, self.on_check_media_db)
         qconnect(m.actionStudyDeck.triggered, self.onStudyDeck)
