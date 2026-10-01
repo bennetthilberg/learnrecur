@@ -1,6 +1,6 @@
 # Local skill import
 
-The companion accepts supplied exercise banks over an authenticated local API. **Tools > Import skills…** in LearnRecur fetches them, shows their titles and descriptions, and asks for confirmation before creating native cards. This is the first part of milestone 4. A local collection sync proof is now available. Revision updates use the same preview and keep the existing card. Generation and hosting are still ahead.
+The companion accepts supplied exercise banks over an authenticated local API. **Tools > Import skills…** in LearnRecur fetches them, shows their titles and descriptions, and asks for confirmation before creating native cards. This is the first part of milestone 4. A local collection sync proof is now available. Revision updates use the same preview and keep the existing card. [Local generation jobs](GENERATION.md) now publish fixture batches; real model calls and hosting are still ahead.
 
 The service uses Python's standard library and SQLite. It binds only to `127.0.0.1`. The app accepts only a literal loopback HTTP URL, ignores environment proxies, and refuses redirects. This server is for local development; don't expose it to a network.
 
@@ -48,7 +48,7 @@ Choose **Tools > Import skills…**. Confirm the preview, then study the **Learn
 Both endpoints require `Authorization: Bearer <token>`:
 
 - `POST /v1/skills` takes `{"skills": [...]}`. Each skill has `id`, `title`, `description`, and `bank`. [The synthetic batch](../fixtures/spanish-import.json) shows the complete format. IDs must be unique within the batch. A bank's `skill_id` must match its enclosing ID.
-- `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. When revisions exist, `previous_revisions` maps each revised skill ID to its earlier payloads, in order. POST returns the latest snapshot after committing.
+- `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. When revisions exist, `previous_revisions` maps each revised skill ID to its earlier payloads, in order. POST returns the latest snapshot after committing. Published jobs also add a `bank_updates` map; [the generation notes](GENERATION.md) describe its append-only batches.
 
 The local store holds at most 100 skills and 1 MiB of snapshot data, including retained revisions. Each bank needs 1–100 exercises with distinct IDs, prompts, answers, and explanations. Invalid batches return 400; missing or incorrect authentication returns 401; changing content within an existing revision returns 409. A conflicting batch rolls back completely. Identical retries succeed, including concurrent requests.
 
@@ -90,4 +90,4 @@ The revision checks also kill the client before and after the native update comm
 
 The desktop requires identities from the companion. Older supplied snapshots remain readable by the local library helper, but the app refuses an older companion response. Existing test cards with locally assigned IDs are kept; importing their new companion snapshot stops with an identity conflict. Use fresh synthetic profiles for the sync proof. Duplicate links block skill review and are never automatically deleted, because another disconnected profile might still have reviews for either copy.
 
-This slice does not run generation jobs or provide a Skill editor. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.
+A separate [local worker](GENERATION.md) now processes durable jobs with optional example exercises and a deterministic test provider. A real provider and Skill editor remain ahead. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.

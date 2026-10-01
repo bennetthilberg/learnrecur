@@ -149,7 +149,8 @@ def validate_snapshot(value: object) -> tuple[str, list[dict]]:
     if (
         not isinstance(value, dict)
         or not {"source_id", "skills"} <= set(value)
-        or set(value) - {"source_id", "skills", "identities", "previous_revisions"}
+        or set(value)
+        - {"source_id", "skills", "identities", "previous_revisions", "bank_updates"}
     ):
         raise SkillImportError("Invalid companion response.")
     try:
@@ -161,7 +162,12 @@ def validate_snapshot(value: object) -> tuple[str, list[dict]]:
     # An empty server is valid, unlike an empty import request.
     skills = validate_skills(value["skills"]) if value["skills"] != [] else []
     snapshot_identities(value, skills)
-    snapshot_history(value, skills)
+    history = snapshot_history(value, skills)
+    from anki.learnrecur_batches import validate_batches
+
+    if value.get("bank_updates") and "identities" not in value:
+        raise SkillImportError("Exercise batches need companion identities.")
+    validate_batches(value.get("bank_updates", {}), skills, history)
     if len(encode(value).encode()) > MAX_BYTES:
         raise SkillImportError("The skill batch is too large.")
     return source, skills
@@ -223,17 +229,26 @@ def snapshot_identities(value: dict, skills: list[dict]) -> dict:
     return identities
 
 
-def _link(source: str, skill: dict) -> str:
+def _link(source: str, skill: dict, batches: list | None = None) -> str:
     return encode(
         {
             "source_id": source,
             "skill_id": skill["id"],
-            "digest": hashlib.sha256(encode(skill).encode()).hexdigest(),
+            "digest": hashlib.sha256(
+                encode(
+                    {"skill": skill, "batches": batches} if batches else skill
+                ).encode()
+            ).hexdigest(),
         }
     )
 
 
-def _fields(source: str, skill: dict, previous: list[dict] | None = None) -> list[str]:
+def _fields(
+    source: str,
+    skill: dict,
+    previous: list[dict] | None = None,
+    batches: list | None = None,
+) -> list[str]:
     first = skill["bank"]["exercises"][0]
     bank = skill["bank"]
     if previous:
@@ -241,6 +256,22 @@ def _fields(source: str, skill: dict, previous: list[dict] | None = None) -> lis
             **bank,
             "definition": {key: skill[key] for key in ("title", "description")},
             "retired_revisions": previous,
+        }
+    if batches:
+        bank = {
+            **bank,
+            "base_skill": skill,
+            "bank_updates": batches,
+            "bank_sequence": len(batches),
+            "exercises": [
+                *bank["exercises"],
+                *(
+                    e
+                    for batch in batches
+                    if batch["revision"] == bank["revision"]
+                    for e in batch["exercises"]
+                ),
+            ],
         }
     return [
         html.escape(normalize("NFC", skill["title"])),
@@ -251,7 +282,7 @@ def _fields(source: str, skill: dict, previous: list[dict] | None = None) -> lis
         ),
         # Escapes protect bank text from native field normalization.
         json.dumps(bank, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
-        _link(source, skill),
+        _link(source, skill, batches),
     ]
 
 
@@ -284,6 +315,79 @@ def _matches_newer_cache(note, source: str, incoming: dict) -> bool:
         return False
 
 
+def _cache_update_fields(
+    source, key, note, skill, previous, incoming_batches, identities
+):
+    versions = [*previous, skill]
+    actual = [note[field] for field in FIELDS]
+    cached_batches = []
+    cached_revision = None
+    try:
+        raw = json.loads(note["LearnRecurSkill"])
+    except (ValueError, TypeError, RecursionError) as error:
+        raise SkillImportError("Invalid cached exercise bank.") from error
+    if not isinstance(raw, dict):
+        raise SkillImportError("Invalid cached exercise bank.")
+    if "bank_updates" in raw:
+        from anki.learnrecur_batches import validate_batches
+
+        base = raw.get("base_skill")
+        validate_skills([base])
+        cached_previous = raw.get("retired_revisions", [])
+        snapshot_history(
+            {
+                "identities": {},
+                "previous_revisions": {key: cached_previous} if cached_previous else {},
+            },
+            [base],
+        )
+        cached_batches = raw["bank_updates"]
+        validate_batches({key: cached_batches}, [base], {key: cached_previous})
+        if actual != _fields(source, base, cached_previous, cached_batches):
+            raise SkillImportError(
+                "A cached exercise batch changed. Restore it before importing."
+            )
+        if base in versions and cached_previous == versions[: versions.index(base)]:
+            cached_revision = base["bank"]["revision"]
+        elif (
+            base["bank"]["revision"] > skill["bank"]["revision"]
+            and skill in cached_previous
+        ):
+            if incoming_batches != cached_batches[: len(incoming_batches)]:
+                raise SkillImportError("Conflicting exercise batch history.")
+            return None
+    else:
+        matched = next(
+            (
+                index
+                for index, version in enumerate(versions)
+                if actual == _fields(source, version, versions[:index])
+            ),
+            None,
+        )
+        if matched is not None:
+            cached_revision = versions[matched]["bank"]["revision"]
+        elif identities and _matches_newer_cache(note, source, skill):
+            return None
+    if cached_revision is None:
+        raise SkillImportError(
+            "A linked skill changed. Restore its imported content before updating."
+        )
+    shared = min(len(cached_batches), len(incoming_batches))
+    if cached_batches[:shared] != incoming_batches[:shared]:
+        raise SkillImportError("Conflicting exercise batch history.")
+    incoming_revision = skill["bank"]["revision"]
+    if cached_revision == incoming_revision and len(cached_batches) >= len(
+        incoming_batches
+    ):
+        return None
+    if len(cached_batches) > len(incoming_batches):
+        raise SkillImportError("Missing exercise batch history.")
+    if not identities:
+        raise SkillImportError("Update the companion before revising skills.")
+    return _fields(source, skill, previous, incoming_batches)
+
+
 def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     from anki.collection import AddNoteRequest, OpChanges
     from anki.learnrecur_skills import MODEL_KIND, MODEL_MARKER
@@ -291,6 +395,7 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     source, skills = validate_snapshot(snapshot)
     identities = snapshot_identities(snapshot, skills)
     history = snapshot_history(snapshot, skills)
+    bank_updates = snapshot.get("bank_updates", {})
     pending = {skill["id"]: skill for skill in skills}
     seen = set()
     updates = []
@@ -349,42 +454,29 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     raise SkillImportError(
                         "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
                     )
-            previous = history.get(key, [])
-            versions = [*previous, pending[key]]
-            actual = [note[field] for field in FIELDS]
-            matched = next(
-                (
-                    index
-                    for index, version in enumerate(versions)
-                    if actual == _fields(source, version, versions[:index])
-                ),
-                None,
+            target_fields = _cache_update_fields(
+                source,
+                key,
+                note,
+                pending[key],
+                history.get(key, []),
+                bank_updates.get(key, []),
+                identities,
             )
-            if matched is None:
-                if identities and _matches_newer_cache(note, source, pending[key]):
-                    continue
-                raise SkillImportError(
-                    "A linked skill changed. Restore its imported content before updating."
-                )
-            if matched < len(versions) - 1:
-                if not identities:
-                    raise SkillImportError(
-                        "Update the companion before revising skills."
-                    )
-                from anki.notes_pb2 import UpdateSkillNoteRequest
+            if target_fields is None:
+                continue
+            from anki.notes_pb2 import UpdateSkillNoteRequest
 
-                expected = note._to_backend_note()
-                for field, content in zip(
-                    FIELDS, _fields(source, pending[key], previous)
-                ):
-                    note[field] = content
-                updates.append(
-                    UpdateSkillNoteRequest(
-                        note=note._to_backend_note(),
-                        expected=expected,
-                        card_id=note.cards()[0].id,
-                    )
+            expected = note._to_backend_note()
+            for field, content in zip(FIELDS, target_fields):
+                note[field] = content
+            updates.append(
+                UpdateSkillNoteRequest(
+                    note=note._to_backend_note(),
+                    expected=expected,
+                    card_id=note.cards()[0].id,
                 )
+            )
     missing = [skill for skill in skills if skill["id"] not in seen]
     if not missing and not updates:
         return SkillImportResult(OpChanges(), 0, len(seen))
@@ -446,7 +538,9 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     requests = []
     for skill in missing:
         note = col.new_note(model)
-        note.fields = _fields(source, skill, history.get(skill["id"]))
+        note.fields = _fields(
+            source, skill, history.get(skill["id"]), bank_updates.get(skill["id"])
+        )
         if identities:
             identity = identities[skill["id"]]
             note.id = identity["native_id"]

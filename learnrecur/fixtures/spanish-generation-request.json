@@ -1,0 +1,13 @@
+{
+  "request_id": "spanish-first-batch",
+  "skill_id": "spanish-ar-preterite-yo",
+  "revision": 1,
+  "count": 3,
+  "examples": [
+    {
+      "prompt": "Ayer yo ___ español. (estudiar)",
+      "answer": "estudié",
+      "explanation": "For yo in the preterite, replace -ar with -é: estudiar → estudié."
+    }
+  ]
+}
