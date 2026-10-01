@@ -33,6 +33,6 @@ Setting this flag just before creating `QApplication` was too late: the native c
 
 ## Verification and next action
 
-All 222 library tests and 191 Qt tests passed, along with the Mac package and signature check. The final build used normal launch settings and a disposable synthetic profile. Reveal, Again, and variation passed, and no Chrome app-data request appeared in the startup logs. Its manual undo check paused when the Mac locked; undo passed in the earlier rebuild and automated tests. The earlier rebuild also reproduced the crash on opening Browse, so this change must not be described as a crash fix.
+All 222 library tests and 192 Qt tests passed, along with the Mac package and signature check. The final build used normal launch settings and a disposable synthetic profile. Reveal, Again, and variation passed, and no Chrome app-data request appeared in the startup logs. Its manual undo check paused when the Mac locked; undo passed in the earlier rebuild and automated tests. The earlier rebuild also reproduced the crash on opening Browse, so this change must not be described as a crash fix.
 
 Continue with local skill import while keeping this issue open. Before daily use or distribution, test a Qt ownership fix against Browse searches, selection changes, model resets, deck selection, and accessibility observation. VoiceOver behavior and a patched Qt build have not been checked. No personal Anki data or official installation was used, and no macOS access permission was granted by this investigation.

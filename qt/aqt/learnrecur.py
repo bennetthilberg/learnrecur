@@ -23,7 +23,7 @@ def configure_webengine() -> None:
     # /dev/null is a file, so this child path can never contain a plugin.
     flag = "--cdm-widevine-path=/dev/null/learnrecur-no-widevine"
     flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
-    if not flags.endswith(flag):
+    if flags.split()[-1:] != [flag]:
         os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = f"{flags} {flag}".strip()
 
 

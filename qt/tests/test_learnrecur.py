@@ -38,7 +38,12 @@ from aqt.update import (
 
 @pytest.mark.parametrize(
     "flags",
-    [None, "--disable-gpu", '--custom-value="two words" --cdm-widevine-path=/other'],
+    [
+        None,
+        "--disable-gpu",
+        '--custom-value="two words" --cdm-widevine-path=/other',
+        "--custom-value=--cdm-widevine-path=/dev/null/learnrecur-no-widevine",
+    ],
 )
 def test_mac_webengine_skips_browser_plugin_discovery(flags, monkeypatch):
     monkeypatch.setattr("aqt.learnrecur.sys", SimpleNamespace(platform="darwin"))
