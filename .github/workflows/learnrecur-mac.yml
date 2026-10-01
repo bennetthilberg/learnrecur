@@ -33,3 +33,4 @@ jobs:
           ./ninja check:pytest:pylib check:pytest:aqt
           out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/aqt/main.py qt/aqt/profiles.py qt/aqt/sync.py qt/aqt/update.py qt/tools/build_installer.py qt/tests/test_learnrecur.py qt/tests/test_installer.py
           out/pyenv/bin/ruff check pylib/tests/learnrecur_deck_fixture.py pylib/tests/test_learnrecur_packages.py qt/tools/build_learnrecur_icon.py
+          out/pyenv/bin/ruff check qt/tools/prepare_anki_compatibility_app.py qt/tests/test_anki_compatibility_app.py
