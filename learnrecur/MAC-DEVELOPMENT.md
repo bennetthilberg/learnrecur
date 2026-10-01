@@ -34,6 +34,8 @@ The app accepts `LEARNRECUR_BASE` or `-b` for a separate folder. The folder must
 
 Launching `./run` or the packaged app without an override uses `~/Library/Application Support/LearnRecur`. This is the production default. `ANKI_BASE` and `ANKI_SINGLE_INSTANCE_KEY` have no effect. The local web server uses a free loopback port; development overrides use `LEARNRECUR_API_PORT` and `LEARNRECUR_API_HOST`.
 
+On Mac, startup disables Qt WebEngine's search through Chrome folders for its Widevine DRM plugin. Protected streaming media is not supported. [MAC-ACCESSIBILITY.md](MAC-ACCESSIBILITY.md) records the separate accessibility crash and the blocked-data-access notification.
+
 Anki's desktop updater is disabled. Sync requires a separate server URL in Preferences. The desktop's old `--syncserver` shortcut is disabled; server setup belongs to a later milestone.
 
 On startup, a separate background check compares the system clock with Cloudflare's HTTPS `Date` header. It sends no profile or collection data and warns before closing the app if the clock differs by more than five minutes, allowing for response time. This check still runs with updates disabled. If the network, certificate verification, or response is unavailable, offline review remains available and the clock isn't verified.

@@ -15,6 +15,18 @@ DATA_MARKER = ".learnrecur-data"
 DATA_VERSION = "learnrecur-data-v1\n"
 
 
+def configure_webengine() -> None:
+    """Keep Qt's DRM-plugin discovery out of other apps' Mac storage."""
+    if sys.platform != "darwin":
+        return
+    # An explicit path skips Qt's fallback search through Chrome's folders.
+    # /dev/null is a file, so this child path can never contain a plugin.
+    flag = "--cdm-widevine-path=/dev/null/learnrecur-no-widevine"
+    flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+    if not flags.endswith(flag):
+        os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = f"{flags} {flag}".strip()
+
+
 def default_base() -> Path:
     if sys.platform == "darwin":
         return Path.home() / "Library/Application Support/LearnRecur"
