@@ -56,6 +56,17 @@ impl crate::services::NotesService for Collection {
         })
     }
 
+    fn add_skill_notes(
+        &mut self,
+        input: anki_proto::notes::AddSkillNotesRequest,
+    ) -> error::Result<anki_proto::notes::AddNotesResponse> {
+        let result = self.add_skill_notes(input)?;
+        Ok(anki_proto::notes::AddNotesResponse {
+            nids: to_i64s(result.output),
+            changes: Some(result.changes.into()),
+        })
+    }
+
     fn defaults_for_adding(
         &mut self,
         input: anki_proto::notes::DefaultsForAddingRequest,

@@ -56,6 +56,9 @@ def _bank(card: Card) -> tuple[str, list[Exercise]] | None:
         raise SkillReviewError("This skill is missing its exercise bank.")
     if model["type"] != 0 or len(model["tmpls"]) != 1:
         raise SkillReviewError("A skill needs one card template.")
+    from anki.learnrecur_skill_links import assert_unique_link
+
+    assert_unique_link(card)
     try:
         raw = json.loads(note[BANK_FIELD])
         if (

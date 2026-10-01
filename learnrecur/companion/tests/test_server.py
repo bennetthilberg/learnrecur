@@ -136,3 +136,34 @@ def test_folder_and_database_links_are_rejected(tmp_path):
     with pytest.raises(ValueError):
         Store(store.path.parent)
     assert not (outside / "data.sqlite3").exists()
+
+
+def test_native_identities_are_durable_and_unique_even_in_same_millisecond(
+    tmp_path, batch, monkeypatch
+):
+    import learnrecur.companion.server as module
+
+    monkeypatch.setattr(module.time, "time_ns", lambda: 1_790_000_000_000_000_000)
+    store = Store(tmp_path / "companion")
+    first = store.import_batch(batch)
+    other = copy.deepcopy(batch["skills"][0])
+    other["id"] = other["bank"]["skill_id"] = "another-skill"
+    both = store.import_batch({"skills": [other]})
+    assert all(
+        both["identities"][key] == value for key, value in first["identities"].items()
+    )
+    ids = [identity["native_id"] for identity in both["identities"].values()]
+    assert len(set(ids)) == len(ids) == 2
+    assert max(ids) == min(ids) + 1
+    assert Store(store.path.parent).snapshot() == both
+
+
+def test_existing_store_backfills_identity_once(tmp_path, batch):
+    store = Store(tmp_path / "companion")
+    store.import_batch(batch)
+    with store.connect() as db:
+        db.execute("drop table identities")  # Simulate the previous store schema.
+    upgraded = Store(store.path.parent)
+    first = upgraded.snapshot()
+    assert upgraded.import_batch(batch) == first
+    assert Store(store.path.parent).snapshot() == first

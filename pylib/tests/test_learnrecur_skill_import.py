@@ -151,7 +151,15 @@ def test_invalid_batch_does_not_create_any_notes(col, snapshot, change):
 
 
 @pytest.mark.parametrize("after_commit", [False, True])
-def test_process_dies_around_native_batch_commit(tmp_path, snapshot, after_commit):
+@pytest.mark.parametrize("stable", [False, True])
+def test_process_dies_around_native_batch_commit(
+    tmp_path, canonical, after_commit, stable
+):
+    snapshot = (
+        canonical
+        if stable
+        else {key: value for key, value in canonical.items() if key != "identities"}
+    )
     path = tmp_path / "collection.anki2"
     data = tmp_path / "snapshot.json"
     data.write_text(json.dumps(snapshot))
@@ -160,12 +168,13 @@ import json, os, sys
 from anki.collection import Collection
 from anki.learnrecur_skill_import import import_snapshot
 col = Collection(sys.argv[1])
-original = col.add_notes
-def interrupted(requests):
+method = "add_skill_notes" if "identities" in json.load(open(sys.argv[2])) else "add_notes"
+original = getattr(col, method)
+def interrupted(*args):
     if sys.argv[3] == "True":
-        original(requests)
+        original(*args)
     os._exit(71)
-col.add_notes = interrupted
+setattr(col, method, interrupted)
 import_snapshot(col, json.load(open(sys.argv[2])))
 """
     result = subprocess.run(
@@ -247,4 +256,109 @@ def test_removed_marker_does_not_create_duplicate(col, snapshot):
     before = state(col)
     with pytest.raises(SkillImportError, match="changed"):
         import_snapshot(col, snapshot)
+    assert state(col) == before
+
+
+@pytest.fixture
+def canonical(snapshot):
+    snapshot["identities"] = {
+        snapshot["skills"][0]["id"]: {
+            "native_id": 1_790_000_000_000,
+            "guid": "5528c1f827924e708a4775d48c397e02",
+        }
+    }
+    return snapshot
+
+
+def test_companion_identity_is_native_and_survives_review_undo(col, canonical):
+    import_snapshot(col, canonical)
+    identity = next(iter(canonical["identities"].values()))
+    card = col.get_card(identity["native_id"])
+    assert card.note().id == card.id
+    assert card.note().guid == identity["guid"]
+    rate(col)
+    before = state(col)
+    assert import_snapshot(col, canonical).existing == 1
+    assert state(col) == before
+    col.undo()
+    assert col.get_card(card.id).reps == 0
+    col.redo()
+    assert state(col) == before
+
+
+def test_legacy_identity_conflict_preserves_reviews(col, canonical):
+    legacy = {key: value for key, value in canonical.items() if key != "identities"}
+    import_snapshot(col, legacy)
+    rate(col)
+    before = state(col)
+    with pytest.raises(SkillImportError, match="identity"):
+        import_snapshot(col, canonical)
+    assert state(col) == before
+
+
+@pytest.mark.parametrize("occupied", ["note", "card", "deleted"])
+def test_companion_identity_collision_does_not_replace_data(col, canonical, occupied):
+    note = col.new_note(col.models.by_name("Basic"))
+    note["Front"], note["Back"] = "Synthetic", "Ordinary"
+    col.add_note(note, col.decks.id("Ordinary"))
+    cid = note.cards()[0].id
+    identity = next(iter(canonical["identities"].values()))
+    identity["native_id"] = note.id if occupied == "note" else cid
+    if occupied == "deleted":
+        col.remove_notes([note.id])
+    before = state(col)
+    with pytest.raises(SkillImportError, match="used or deleted"):
+        import_snapshot(col, canonical)
+    assert state(col) == before
+
+
+def test_native_skill_batch_rolls_back_on_later_card_collision(col, canonical):
+    from anki.collection import AddNoteRequest
+
+    import_snapshot(col, canonical)
+    card = col.get_card(col.find_cards("")[0])
+    note = card.note()
+    first, second = [col.new_note(note.note_type()) for _ in range(2)]
+    for index, candidate in enumerate((first, second)):
+        candidate.fields = note.fields.copy()
+        candidate.id = card.id + index + 10
+        candidate.guid = f"{index + 1:032x}"
+    before = state(col)
+    with pytest.raises(Exception, match="identity"):
+        col.add_skill_notes(
+            [AddNoteRequest(first, card.did), AddNoteRequest(second, card.did)],
+            [card.id + 10, card.id],
+        )
+    assert state(col) == before
+
+
+def test_duplicate_links_block_rating_without_removing_either_copy(col, snapshot):
+    from anki.learnrecur_skill_links import SkillLinkError, validate_skill_links
+
+    import_snapshot(col, snapshot)
+    rate(col)
+    card = col.get_card(col.find_cards("")[0])
+    duplicate = col.new_note(card.note_type())
+    duplicate.fields = card.note().fields.copy()
+    col.add_note(duplicate, card.did)
+    before = state(col)
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        validate_skill_links(col)
+    with pytest.raises(SkillLinkError, match="duplicate"):
+        select_skill_review(card)
+    assert state(col) == before
+
+
+@pytest.mark.parametrize("bad", ["missing", "bool", "negative", "oversize", "guid"])
+def test_invalid_identities_fail_before_collection_changes(col, canonical, bad):
+    identity = next(iter(canonical["identities"].values()))
+    if bad == "missing":
+        canonical["identities"] = {}
+    elif bad == "guid":
+        identity["guid"] = "bad"
+    else:
+        identity["native_id"] = {"bool": True, "negative": -1, "oversize": 2**53}[bad]
+    before = state(col)
+    with pytest.raises(SkillImportError, match="identit"):
+        import_snapshot(col, canonical)
     assert state(col) == before

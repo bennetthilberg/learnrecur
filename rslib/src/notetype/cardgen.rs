@@ -240,6 +240,30 @@ impl Collection {
         )
     }
 
+    pub(crate) fn generate_skill_card(
+        &mut self,
+        ctx: &CardGenContext<impl Deref<Target = Notetype>>,
+        note: &Note,
+        target_deck_id: DeckId,
+        card_id: CardId,
+    ) -> Result<()> {
+        let required = ctx.new_cards_required(note, &[], true);
+        require!(
+            required.len() == 1 && required[0].ord == 0,
+            "skill must generate one card"
+        );
+        let (did, dcid) = self.deck_for_adding(required[0].did.or(Some(target_deck_id)))?;
+        let due = self.due_for_deck(did, dcid, &mut Default::default())?;
+        let mut card = Card::new(note.id, 0, did, due as i32);
+        card.id = card_id;
+        card.set_modified(ctx.usn);
+        require!(
+            self.add_card_if_unique_undoable(&card)?,
+            "companion card id existed"
+        );
+        Ok(())
+    }
+
     pub(crate) fn generate_cards_for_existing_note(
         &mut self,
         ctx: &CardGenContext<impl Deref<Target = Notetype>>,

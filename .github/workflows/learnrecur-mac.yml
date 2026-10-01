@@ -26,7 +26,9 @@ jobs:
       - name: Get the Mac installer template
         run: git submodule update --init qt/installer/mac-template
       - name: Build
-        run: ./ninja pylib qt
+        run: |
+          ./ninja pylib qt
+          cargo build --locked -p anki-sync-server
       - name: Check isolation and Python behavior
         run: |
           PYTHONPATH=pylib:qt:out/pylib:out/qt:qt/tools out/pyenv/bin/python -m pytest qt/tests/test_learnrecur.py -q
@@ -37,3 +39,5 @@ jobs:
           out/pyenv/bin/ruff check pylib/anki/learnrecur_skills.py pylib/tests/learnrecur_skill_fixture.py pylib/tests/test_learnrecur_skills.py qt/aqt/reviewer.py qt/aqt/operations/scheduling.py qt/tests/test_learnrecur_skills.py
           ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/companion/tests -q
           out/pyenv/bin/ruff check pylib/anki/learnrecur_skill_import.py pylib/tests/test_learnrecur_skill_import.py qt/aqt/learnrecur_import.py qt/tests/test_learnrecur_import.py learnrecur/companion/server.py learnrecur/companion/tests/test_server.py
+          ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/deploy/tests -q
+          out/pyenv/bin/ruff check pylib/anki/learnrecur_skill_links.py qt/aqt/learnrecur_sync.py qt/tests/test_learnrecur_sync.py learnrecur/deploy pylib/tests/learnrecur_upstream.py pylib/anki/collection.py

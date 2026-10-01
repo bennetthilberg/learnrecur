@@ -19,6 +19,14 @@ enum GraveKind {
 }
 
 impl SqliteStorage {
+    pub(crate) fn skill_identity_was_deleted(&self, nid: NoteId, cid: CardId) -> Result<bool> {
+        Ok(self.db.query_row(
+            "select exists(select 1 from graves where (type=1 and oid=?) or (type=0 and oid=?))",
+            [nid.0, cid.0],
+            |row| row.get(0),
+        )?)
+    }
+
     pub(crate) fn clear_all_graves(&self) -> Result<()> {
         self.db.execute("delete from graves", [])?;
         Ok(())

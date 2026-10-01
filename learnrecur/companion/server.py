@@ -9,6 +9,7 @@ import argparse
 import hmac
 import os
 import sqlite3
+import time
 from contextlib import closing, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,6 +50,7 @@ class Store:
             if Path(str(self.path) + suffix).is_symlink():
                 raise ValueError("Companion database files must not be symbolic links.")
         with self.connect() as db:
+            db.execute("begin immediate")
             db.execute(
                 "create table if not exists metadata (key text primary key, value text not null)"
             )
@@ -59,6 +61,14 @@ class Store:
                 "insert or ignore into metadata values ('source_id', ?)",
                 (str(uuid4()),),
             )
+            db.execute(
+                "create table if not exists identities (skill_id text primary key, "
+                "native_id integer not null unique, guid text not null unique)"
+            )
+            for (skill_id,) in db.execute(
+                "select id from skills order by id"
+            ).fetchall():
+                self._assign_identity(db, skill_id)
         self.path.chmod(0o600)
 
     @contextmanager
@@ -68,11 +78,31 @@ class Store:
                 yield db
 
     @staticmethod
+    def _assign_identity(db, skill_id):
+        if db.execute(
+            "select 1 from identities where skill_id=?", (skill_id,)
+        ).fetchone():
+            return
+        highest = db.execute(
+            "select coalesce(max(native_id),0) from identities"
+        ).fetchone()[0]
+        native_id = max(time.time_ns() // 1_000_000, highest + 1)
+        db.execute(
+            "insert into identities values (?,?,?)", (skill_id, native_id, uuid4().hex)
+        )
+
+    @staticmethod
     def _snapshot(db):
         return {
             "source_id": db.execute(
                 "select value from metadata where key = 'source_id'"
             ).fetchone()[0],
+            "identities": {
+                skill_id: {"native_id": native_id, "guid": guid}
+                for skill_id, native_id, guid in db.execute(
+                    "select skill_id, native_id, guid from identities order by skill_id"
+                )
+            },
             "skills": [
                 decode(row[0].encode())
                 for row in db.execute("select payload from skills order by id")
@@ -81,6 +111,7 @@ class Store:
 
     def snapshot(self):
         with self.connect() as db:
+            db.execute("begin")
             return self._snapshot(db)
 
     def import_batch(self, payload):
@@ -101,6 +132,7 @@ class Store:
                 db.execute(
                     "insert or ignore into skills values (?, ?)", (skill["id"], encoded)
                 )
+                self._assign_identity(db, skill["id"])
             result = self._snapshot(db)
             if (
                 len(result["skills"]) > MAX_SKILLS
