@@ -4,10 +4,12 @@ import copy
 import json
 import os
 import socket
+import sqlite3
 import subprocess
 import sys
 import threading
 import time
+import zipfile
 from contextlib import contextmanager
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -350,8 +352,6 @@ def test_incoming_identity_collision_preserves_both_profiles(
     from anki.collection import AddNoteRequest
 
     with collections(tmp_path) as (a, b):
-        import_snapshot(a, snapshot)
-        a.undo()
         auth = bootstrap(a, b, server)
         import_snapshot(a, snapshot)
         native_id = a.find_cards("")[0]
@@ -427,13 +427,25 @@ def test_remote_deletion_collision_preserves_unsynced_skill(
 
 
 @pytest.mark.parametrize("delete", ["note", "deck"])
+@pytest.mark.parametrize("import_after_bootstrap", [False, True])
 def test_remote_skill_deletion_stops_without_deleting_server_copy(
-    server, snapshot, tmp_path, delete
+    server, snapshot, tmp_path, delete, import_after_bootstrap
 ):
     with collections(tmp_path) as (a, b):
-        import_snapshot(a, snapshot)
-        auth = bootstrap(a, b, server)
+        if import_after_bootstrap:
+            auth = bootstrap(a, b, server)
+            import_snapshot(a, snapshot)
+            sync(a, auth)
+            sync(b, auth)
+        else:
+            import_snapshot(a, snapshot)
+            auth = bootstrap(a, b, server)
         nid = a.find_notes("")[0]
+        assert a.db.all("select * from learnrecur_skill_identities") == b.db.all(
+            "select * from learnrecur_skill_identities"
+        )
+        assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 1
+        time.sleep(0.01)  # Native change detection uses millisecond timestamps.
         if delete == "note":
             a.remove_notes([nid])
         else:
@@ -462,3 +474,68 @@ def test_ordinary_deletion_still_syncs(server, snapshot, tmp_path, delete):
         sync(b, auth)
         assert a.card_count() == b.card_count() == 1
         assert b.find_notes(f"nid:{ordinary.id}") == []
+
+
+@pytest.mark.parametrize("delete", ["note", "deck"])
+@pytest.mark.parametrize("forge_table", [False, True])
+def test_package_metadata_cannot_block_deletion_sync(
+    server, snapshot, tmp_path, delete, forge_table
+):
+    from anki.import_export_pb2 import (
+        ExportAnkiPackageOptions,
+        ImportAnkiPackageOptions,
+        ImportAnkiPackageRequest,
+    )
+
+    source = Collection(str(tmp_path / "package-source.anki2"))
+    package = tmp_path / "untrusted.apkg"
+    try:
+        import_snapshot(source, snapshot)
+        assert source.db.scalar("select count(*) from learnrecur_skill_identities") == 1
+        source.export_anki_package(
+            out_path=str(package),
+            options=ExportAnkiPackageOptions(
+                with_scheduling=True, with_media=True, legacy=forge_table
+            ),
+            limit=None,
+        )
+    finally:
+        source.close()
+    if forge_table:
+        with zipfile.ZipFile(package) as archive:
+            members = {name: archive.read(name) for name in archive.namelist()}
+        member = "collection.anki21"
+        forged = tmp_path / "forged-package.anki2"
+        forged.write_bytes(members[member])
+        with sqlite3.connect(forged) as db:
+            db.execute(
+                "create table if not exists learnrecur_skill_identities "
+                "(nid integer primary key, cid integer not null unique, guid text not null unique)"
+            )
+            db.execute(
+                "insert or replace into learnrecur_skill_identities "
+                "select n.id,c.id,n.guid from notes n join cards c on c.nid=n.id"
+            )
+        members[member] = forged.read_bytes()
+        with zipfile.ZipFile(package, "w", zipfile.ZIP_DEFLATED) as archive:
+            for name, data in members.items():
+                archive.writestr(name, data)
+    with collections(tmp_path) as (a, b):
+        a.import_anki_package(
+            ImportAnkiPackageRequest(
+                package_path=str(package),
+                options=ImportAnkiPackageOptions(with_scheduling=True),
+            )
+        )
+        card = a.get_card(a.find_cards("")[0])
+        assert card.note_type()["learnrecur"] == "skill-v1"
+        assert card.note()["LearnRecurLink"]
+        assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 0
+        auth = bootstrap(a, b, server)
+        if delete == "note":
+            a.remove_notes([card.nid])
+        else:
+            a.decks.remove([card.did])
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 0

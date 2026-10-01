@@ -539,6 +539,8 @@ impl SqliteStorage {
             storage.add_stock_notetypes(tr)?;
         }
 
+        storage.ensure_skill_identity_table()?;
+
         if create || upgrade {
             storage.commit_trx()?;
         }

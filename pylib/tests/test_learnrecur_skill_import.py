@@ -296,6 +296,18 @@ def test_legacy_identity_conflict_preserves_reviews(col, canonical):
     assert state(col) == before
 
 
+def test_missing_import_provenance_keeps_reviewed_card(col, canonical):
+    import_snapshot(col, canonical)
+    col.db.execute("delete from learnrecur_skill_identities")
+    cid = rate(col)
+    before = state(col)
+    with pytest.raises(SkillImportError, match="no trusted import identity"):
+        import_snapshot(col, canonical)
+    assert state(col) == before
+    col.undo()
+    assert col.get_card(cid).reps == 0
+
+
 @pytest.mark.parametrize("occupied", ["note", "card", "deleted"])
 def test_companion_identity_collision_does_not_replace_data(col, canonical, occupied):
     note = col.new_note(col.models.by_name("Basic"))
@@ -324,12 +336,14 @@ def test_native_skill_batch_rolls_back_on_later_card_collision(col, canonical):
         candidate.id = card.id + index + 10
         candidate.guid = f"{index + 1:032x}"
     before = state(col)
+    owners_before = col.db.all("select * from learnrecur_skill_identities")
     with pytest.raises(Exception, match="identity"):
         col.add_skill_notes(
             [AddNoteRequest(first, card.did), AddNoteRequest(second, card.did)],
             [card.id + 10, card.id],
         )
     assert state(col) == before
+    assert col.db.all("select * from learnrecur_skill_identities") == owners_before
 
 
 def test_duplicate_links_block_rating_without_removing_either_copy(col, snapshot):

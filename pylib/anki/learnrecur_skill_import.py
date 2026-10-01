@@ -280,6 +280,16 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     raise SkillImportError(
                         "This skill has an older or conflicting card identity. Use a fresh test profile; the existing card was kept."
                     )
+                if not col.db.scalar(
+                    "select exists(select 1 from learnrecur_skill_identities "
+                    "where nid=? and cid=? and guid=?)",
+                    note.id,
+                    identity["native_id"],
+                    identity["guid"],
+                ):
+                    raise SkillImportError(
+                        "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
+                    )
     missing = [skill for skill in skills if skill["id"] not in seen]
     if not missing:
         return SkillImportResult(OpChanges(), 0, len(seen))

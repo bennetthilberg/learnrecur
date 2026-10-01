@@ -1,6 +1,6 @@
 # Local sync proof
 
-The matching standalone Anki server syncs LearnRecur's collection and media. The companion runs beside it and supplies immutable skills with stable native card identities. Both use separate, marked LearnRecur folders. This is a loopback development setup with synthetic accounts; hosting, paid generation, and production backups remain ahead.
+The matching standalone LearnRecur server uses Anki's collection and media sync. The companion runs beside it and supplies immutable skills with stable native card identities. Both use separate, marked LearnRecur folders. This is a loopback development setup with synthetic accounts; hosting, paid generation, and production backups remain ahead.
 
 ## Run the server
 
@@ -39,13 +39,17 @@ The companion assigns note and card IDs before import. Native sync matches those
 
 Native deletion records contain only numeric IDs, so they can't distinguish a deleted skill from an unrelated card with a colliding ID. This slice refuses remote deletions of existing skill notes, cards, and decks before applying any deletion changes. This also blocks intentional skill deletions from syncing. Ordinary deletions still sync. If a profile deletes a skill locally, stop and restore that disposable profile from the unchanged server copy; don't upload it as a full replacement. Full sync retains Anki's explicit replacement behavior. Ownership-aware skill deletion and recovery need a later slice.
 
+Deletion protection uses a separate identity table populated by the native companion-import API and authenticated sync. It never trusts note fields or model markers. The matching server carries these records alongside notes in incremental sync; full sync includes them in the collection. Ordinary `.apkg` imports don't copy this table, even if a package author forges one. An unmodified upstream server cannot carry this sync extension. Use fresh profiles for this proof: older development cards without trusted identities are kept, but companion import refuses to silently adopt them.
+
 Duplicate checks during review examine the current skill's identity. Malformed unrelated links don't prevent valid skills from being reviewed; the collection check after sync still reports them. A damaged copy of the same skill blocks review, including when its digest is invalid.
 
 ## Evidence and remaining work
 
 On October 1, 2026, the local tests passed the recovery cases above. The packaged Mac app uploaded a synthetic ordinary card, its SVG image, and an imported skill from profile A. Profile B downloaded both decks, rendered the image, and retried the skill import. With both services stopped, it revealed `hablé`, rated Again, showed the next `trabajar` exercise, and passed native undo and redo. Its reopened collection had two cards and one skill review record. After restarting the sync server and both app sessions, native Sync brought that rating into profile A. Reopened collections matched in fields, templates, media, scheduling, review history, and exercise cursor; import retries changed neither. The ignored evidence is in `out/learnrecur/local-sync-mac-20261001/reconnected-comparison.json`.
 
-The local suites pass 256 library tests, including eight round trips through Anki's independently released backend, 206 Qt tests, 9 companion tests, and 23 sync/launcher tests. Deletion tests preserve an unsynced, reviewed skill when another profile sends a colliding note or card deletion, including after the skill's model marker is removed. Refused intentional deletions leave the server copy intact, and ordinary deletions still sync. The package and ad hoc signature pass. The known Qt accessibility warnings still appear; the [accessibility crash](../MAC-ACCESSIBILITY.md) remains open.
+The local suites pass 257 library tests, including eight round trips through Anki's independently released backend, 206 Qt tests, 9 companion tests, and 29 sync/launcher tests. Deletion tests preserve an unsynced, reviewed skill when another profile sends a colliding note or card deletion, including after the skill's model marker is removed. Refused intentional deletions leave the server copy intact after full and incremental sync. Ordinary deletions still sync, including imported packages with forged markers or identity tables. The package and ad hoc signature pass. The known Qt accessibility warnings still appear; the [accessibility crash](../MAC-ACCESSIBILITY.md) remains open.
+
+The final ownership check also passed a fresh packaged Mac import, native upload, import retry, offline reveal, Again, undo, redo, server restart, and native reconnect. A second synthetic profile downloaded the server copy through the native backend. Both reopened profiles had matching card state, one review record, and one trusted identity; the second profile's import retry changed nothing. The ignored comparison is in `out/learnrecur/trusted-sync-mac-20261001/comparison.json`.
 
 Milestone 4 remains open. Next, add description revisions and reconcile a revised bank onto the same native card without changing its history. Generation/refill jobs, reports, complete backups, restoration on another host, and deployment need later slices. Keep the current native concurrent-review behavior explicit until the exercise-use policy is decided.
 

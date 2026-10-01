@@ -16,6 +16,7 @@ use crate::revlog::RevlogEntry;
 use crate::serde::deserialize_int_from_number;
 use crate::storage::card::data::card_data_string;
 use crate::storage::card::data::CardData;
+use crate::storage::SkillIdentity;
 use crate::sync::collection::normal::ClientSyncState;
 use crate::sync::collection::normal::NormalSyncer;
 use crate::sync::collection::protocol::EmptyInput;
@@ -41,6 +42,8 @@ pub struct Chunk {
     pub cards: Vec<CardEntry>,
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub notes: Vec<NoteEntry>,
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub(crate) skill_identities: Vec<SkillIdentity>,
 }
 
 #[derive(Serialize_tuple, Deserialize, Debug)]
@@ -177,6 +180,16 @@ impl Collection {
                     "sync card identity collision; both collections were kept"
                 );
             }
+        }
+        for identity in &chunk.skill_identities {
+            require!(
+                chunk
+                    .notes
+                    .iter()
+                    .any(|note| note.id == identity.nid && note.guid == identity.guid),
+                "sync skill identity has no matching note"
+            );
+            self.storage.record_skill_identity(identity)?;
         }
         self.merge_revlog(chunk.revlog)?;
         self.merge_cards(chunk.cards, pending_usn)?;
@@ -321,6 +334,15 @@ impl Collection {
                 })
             })
             .collect::<Result<_>>()?;
+
+        // Only the companion import API or authenticated sync creates these
+        // records. Normal deck import does not copy package-controlled tables.
+        for note in &chunk.notes {
+            if let Some(identity) = self.storage.skill_identity_for_note(note.id)? {
+                require!(identity.guid == note.guid, "sync skill identity collision");
+                chunk.skill_identities.push(identity);
+            }
+        }
 
         Ok(chunk)
     }

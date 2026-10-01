@@ -6,6 +6,7 @@ use anki_proto::notes::AddSkillNotesRequest;
 use crate::notetype::CardGenContext;
 use crate::notetype::NotetypeKind;
 use crate::prelude::*;
+use crate::storage::SkillIdentity;
 
 impl Collection {
     pub(crate) fn add_skill_notes(
@@ -62,6 +63,11 @@ impl Collection {
                     note.set_modified(ctx.usn);
                     col.add_note_only_with_id_undoable(&mut note)?;
                     col.generate_skill_card(&ctx, &note, did, cid)?;
+                    col.storage.record_skill_identity(&SkillIdentity {
+                        nid: note.id,
+                        cid,
+                        guid: note.guid.clone(),
+                    })?;
                     col.set_last_deck_for_notetype(note.notetype_id, did)?;
                     col.set_last_notetype_for_deck(did, note.notetype_id)?;
                     col.set_current_notetype_id(note.notetype_id)?;

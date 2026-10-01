@@ -80,21 +80,12 @@ impl Collection {
         let Some(note) = self.storage.get_note(nid)? else {
             return Ok(());
         };
-        let notetype = self
+        let protected = self
             .storage
-            .get_notetype(note.notetype_id)?
-            .or_not_found(nid)?;
-        let marked = serde_json::from_slice::<serde_json::Value>(&notetype.config.other)
-            .ok()
-            .and_then(|other| other.get("learnrecur").cloned())
-            .is_some_and(|kind| kind == "skill-v1");
-        let has_skill_field = |name| {
-            notetype.fields.iter().enumerate().any(|(index, field)| {
-                field.name == name && note.fields().get(index).is_some_and(|v| !v.is_empty())
-            })
-        };
+            .skill_identity_for_note(nid)?
+            .is_some_and(|identity| identity.guid == note.guid);
         require!(
-            !(marked || (has_skill_field("LearnRecurLink") && has_skill_field("LearnRecurSkill"))),
+            !protected,
             "remote skill deletion is not supported; sync stopped without applying changes"
         );
         Ok(())
