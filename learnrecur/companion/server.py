@@ -69,6 +69,11 @@ class Store:
                 "select id from skills order by id"
             ).fetchall():
                 self._assign_identity(db, skill_id)
+            if self._too_large(self._snapshot(db)):
+                raise SkillImportError(
+                    "The stored skills are too large to add card identities. "
+                    "Back up this folder and import a smaller batch into a new companion folder."
+                )
         self.path.chmod(0o600)
 
     @contextmanager
@@ -109,6 +114,13 @@ class Store:
             ],
         }
 
+    @staticmethod
+    def _too_large(snapshot):
+        return (
+            len(snapshot["skills"]) > MAX_SKILLS
+            or len(encode(snapshot).encode()) > MAX_BYTES
+        )
+
     def snapshot(self):
         with self.connect() as db:
             db.execute("begin")
@@ -134,10 +146,7 @@ class Store:
                 )
                 self._assign_identity(db, skill["id"])
             result = self._snapshot(db)
-            if (
-                len(result["skills"]) > MAX_SKILLS
-                or len(encode(result).encode()) > MAX_BYTES
-            ):
+            if self._too_large(result):
                 raise SkillImportError(
                     "The local companion can hold at most 100 skills and 1 MiB of skill data."
                 )

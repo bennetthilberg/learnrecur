@@ -1,5 +1,6 @@
 """Exercise the matching standalone server with disposable native collections."""
 
+import copy
 import json
 import os
 import socket
@@ -340,3 +341,49 @@ def test_disconnect_after_sync_commit_recovers_without_duplicate_reviews(
         assert a.card_count() == b.card_count() == 1
         assert a.get_card(cid).reps == b.get_card(cid).reps == 1
         assert import_snapshot(b, snapshot).existing == 1
+
+
+@pytest.mark.parametrize("collision", ["note", "card"])
+def test_incoming_identity_collision_preserves_both_profiles(
+    server, snapshot, tmp_path, collision
+):
+    from anki.collection import AddNoteRequest
+
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        a.undo()
+        auth = bootstrap(a, b, server)
+        import_snapshot(a, snapshot)
+        native_id = a.find_cards("")[0]
+        model = copy.deepcopy(a.get_card(native_id).note_type())
+        model["id"] = 0
+        mid = b.models.add_dict(model).id
+        different = b.new_note(b.models.get(mid))
+        different.fields = a.get_card(native_id).note().fields.copy()
+        different["Title"] = "A distinct synthetic note"
+        different.id = native_id if collision == "note" else native_id + 100
+        different.guid = "00000000000000000000000000000001"
+        b.add_skill_notes(
+            [AddNoteRequest(different, b.decks.id(DECK_NAME))], [native_id]
+        )
+        before_a = (
+            a.get_card(native_id).note().guid,
+            a.get_card(native_id).note().fields,
+        )
+        before_b = (
+            b.get_card(native_id).note().guid,
+            b.get_card(native_id).note().fields,
+        )
+        sync(a, auth)
+        with pytest.raises(Exception, match="identity collision"):
+            b.sync_collection(auth, False)
+        assert (
+            a.get_card(native_id).note().guid,
+            a.get_card(native_id).note().fields,
+        ) == before_a
+        assert (
+            b.get_card(native_id).note().guid,
+            b.get_card(native_id).note().fields,
+        ) == before_b
+        assert a.card_count() == b.card_count() == 1
+        assert records(a) == records(b) == []

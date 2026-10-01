@@ -160,6 +160,24 @@ impl Collection {
     /// If the provided objects are not modified locally, the USN inside
     /// the individual objects is used.
     pub(in crate::sync) fn apply_chunk(&mut self, chunk: Chunk, pending_usn: Usn) -> Result<()> {
+        // IDs from the companion must not overwrite another client's objects.
+        // Check ownership even when the incoming modification would be ignored.
+        for entry in &chunk.notes {
+            if let Some(existing) = self.storage.get_note(entry.id)? {
+                require!(
+                    existing.guid == entry.guid,
+                    "sync note identity collision; both collections were kept"
+                );
+            }
+        }
+        for entry in &chunk.cards {
+            if let Some(existing) = self.storage.get_card(entry.id)? {
+                require!(
+                    existing.note_id == entry.nid,
+                    "sync card identity collision; both collections were kept"
+                );
+            }
+        }
         self.merge_revlog(chunk.revlog)?;
         self.merge_cards(chunk.cards, pending_usn)?;
         self.merge_notes(chunk.notes, pending_usn)

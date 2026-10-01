@@ -167,3 +167,49 @@ def test_existing_store_backfills_identity_once(tmp_path, batch):
     first = upgraded.snapshot()
     assert upgraded.import_batch(batch) == first
     assert Store(store.path.parent).snapshot() == first
+
+
+def test_identity_migration_over_limit_rolls_back_and_explains_recovery(
+    tmp_path, batch
+):
+    from anki.learnrecur_skill_import import (
+        MAX_BYTES,
+        SkillImportError,
+        encode,
+        validate_skills,
+    )
+
+    store = Store(tmp_path / "companion")
+    source = store.snapshot()["source_id"]
+    skill = batch["skills"][0]
+    skill["bank"]["exercises"] = [
+        {"id": f"fixture-{index}", "prompt": "x", "answer": "x", "explanation": "x"}
+        for index in range(100)
+    ]
+    legacy = {"source_id": source, "skills": [skill]}
+    remaining = MAX_BYTES - 16 - len(encode(legacy).encode())
+    for exercise in skill["bank"]["exercises"]:
+        for field in ("prompt", "answer", "explanation"):
+            amount = min(8191, remaining)
+            exercise[field] += "x" * amount
+            remaining -= amount
+    assert remaining == 0
+    validate_skills(legacy["skills"])
+    assert len(encode(legacy).encode()) == MAX_BYTES - 16
+    original = encode(skill)
+    with store.connect() as db:
+        db.execute("insert into skills values (?,?)", (skill["id"], original))
+        db.execute("drop table identities")
+    with pytest.raises(
+        SkillImportError, match="Back up this folder.*new companion folder"
+    ):
+        Store(store.path.parent)
+    with store.connect() as db:
+        assert (
+            db.execute("select value from metadata where key='source_id'").fetchone()[0]
+            == source
+        )
+        assert db.execute("select payload from skills").fetchone()[0] == original
+        assert not db.execute(
+            "select 1 from sqlite_master where name='identities'"
+        ).fetchone()
