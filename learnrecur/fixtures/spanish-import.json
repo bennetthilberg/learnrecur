@@ -1,0 +1,34 @@
+{
+  "skills": [
+    {
+      "id": "spanish-ar-preterite-yo",
+      "title": "Regular -ar verbs: yo in the preterite",
+      "description": "Form the first-person singular preterite of regular Spanish -ar verbs. Exclude spelling changes, irregular verbs, other persons, and other tenses.",
+      "bank": {
+        "version": 1,
+        "skill_id": "spanish-ar-preterite-yo",
+        "revision": 1,
+        "exercises": [
+          {
+            "id": "hablar",
+            "prompt": "Ayer yo ___ con Ana. (hablar)",
+            "answer": "hablé",
+            "explanation": "For yo in the preterite, replace -ar with -é: hablar → hablé."
+          },
+          {
+            "id": "trabajar",
+            "prompt": "Ayer yo ___ en la oficina. (trabajar)",
+            "answer": "trabajé",
+            "explanation": "For yo in the preterite, replace -ar with -é: trabajar → trabajé."
+          },
+          {
+            "id": "comprar",
+            "prompt": "Ayer yo ___ una manzana. (comprar)",
+            "answer": "compré",
+            "explanation": "For yo in the preterite, replace -ar with -é: comprar → compré."
+          }
+        ]
+      }
+    }
+  ]
+}
