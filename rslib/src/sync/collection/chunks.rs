@@ -231,19 +231,43 @@ impl Collection {
     }
 
     fn add_or_update_note_if_newer(&mut self, entry: NoteEntry, pending_usn: Usn) -> Result<()> {
-        let proceed = if let Some(existing_note) = self.storage.get_note(entry.id)? {
-            !existing_note.usn.is_pending_sync(pending_usn) || existing_note.mtime < entry.mtime
-        } else {
-            true
-        };
-        if proceed {
-            let mut note: Note = entry.into();
-            let nt = self
-                .get_notetype(note.notetype_id)?
-                .or_invalid("note missing notetype")?;
-            note.prepare_for_update(&nt, false)?;
-            self.storage.add_or_update_note(&note)?;
+        let mut note: Note = entry.into();
+        if let Some(existing) = self.storage.get_note(note.id)? {
+            let incoming_metadata_wins =
+                !existing.usn.is_pending_sync(pending_usn) || existing.mtime < note.mtime;
+            if self.storage.skill_identity_for_note(note.id)?.is_some() {
+                let (old_revision, old_fields) = self.skill_revision_state(&existing)?;
+                let (new_revision, new_fields) = self.skill_revision_state(&note)?;
+                if new_revision == old_revision {
+                    require!(
+                        old_fields == new_fields,
+                        "conflicting skill revision; both collections were kept"
+                    );
+                    if !incoming_metadata_wins {
+                        return Ok(());
+                    }
+                } else {
+                    let fields = if new_revision > old_revision {
+                        new_fields
+                    } else {
+                        old_fields
+                    };
+                    if !incoming_metadata_wins {
+                        note = existing;
+                    }
+                    // Revision order selects skill content. Native conflict rules select tags,
+                    // other fields, and metadata; pending local edits must still upload.
+                    self.set_skill_revision_fields(&mut note, fields)?;
+                }
+            } else if !incoming_metadata_wins {
+                return Ok(());
+            }
         }
+        let nt = self
+            .get_notetype(note.notetype_id)?
+            .or_invalid("note missing notetype")?;
+        note.prepare_for_update(&nt, false)?;
+        self.storage.add_or_update_note(&note)?;
         Ok(())
     }
 

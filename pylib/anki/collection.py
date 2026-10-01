@@ -558,9 +558,13 @@ class Collection(DeprecatedNamesMixin):
         return out.changes
 
     def add_skill_notes(
-        self, requests: Sequence[AddNoteRequest], card_ids: Sequence[CardId]
+        self,
+        requests: Sequence[AddNoteRequest],
+        card_ids: Sequence[CardId],
+        *,
+        updates: Sequence[notes_pb2.UpdateSkillNoteRequest] = (),
     ) -> OpChanges:
-        """Add skill cards with companion identities in one native transaction."""
+        """Create cards and revise existing skill notes in one native transaction."""
         if len(requests) != len(card_ids):
             raise ValueError("Each skill note needs one card ID.")
         for request in requests:
@@ -573,7 +577,8 @@ class Collection(DeprecatedNamesMixin):
                     card_id=cid,
                 )
                 for request, cid in zip(requests, card_ids)
-            ]
+            ],
+            updates=updates,
         ).changes
 
     def remove_notes(self, note_ids: Sequence[NoteId]) -> OpChangesWithCount:

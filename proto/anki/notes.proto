@@ -131,4 +131,11 @@ message AddSkillNoteRequest {
 
 message AddSkillNotesRequest {
   repeated AddSkillNoteRequest requests = 1;
+  repeated UpdateSkillNoteRequest updates = 2;
+}
+
+message UpdateSkillNoteRequest {
+  Note note = 1;
+  Note expected = 2;
+  int64 card_id = 3;
 }

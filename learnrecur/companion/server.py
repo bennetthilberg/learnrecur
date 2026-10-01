@@ -22,6 +22,7 @@ from anki.learnrecur_skill_import import (
     decode,
     encode,
     validate_skills,
+    validate_snapshot,
 )
 
 
@@ -65,6 +66,19 @@ class Store:
                 "create table if not exists identities (skill_id text primary key, "
                 "native_id integer not null unique, guid text not null unique)"
             )
+            db.execute(
+                "create table if not exists skill_revisions (skill_id text not null, "
+                "revision integer not null, payload text not null, "
+                "primary key (skill_id,revision))"
+            )
+            for skill_id, payload in db.execute(
+                "select id,payload from skills"
+            ).fetchall():
+                revision = decode(payload.encode())["bank"]["revision"]
+                db.execute(
+                    "insert or ignore into skill_revisions values (?,?,?)",
+                    (skill_id, revision, payload),
+                )
             for (skill_id,) in db.execute(
                 "select id from skills order by id"
             ).fetchall():
@@ -74,6 +88,13 @@ class Store:
                     "The stored skills are too large to add card identities. "
                     "Back up this folder and import a smaller batch into a new companion folder."
                 )
+            try:
+                validate_snapshot(self._snapshot(db))
+            except SkillImportError as error:
+                raise SkillImportError(
+                    "The stored skills lack valid revision history. Back up this folder "
+                    "and use revision 1 in a fresh companion folder."
+                ) from error
         self.path.chmod(0o600)
 
     @contextmanager
@@ -98,7 +119,7 @@ class Store:
 
     @staticmethod
     def _snapshot(db):
-        return {
+        result = {
             "source_id": db.execute(
                 "select value from metadata where key = 'source_id'"
             ).fetchone()[0],
@@ -113,6 +134,21 @@ class Store:
                 for row in db.execute("select payload from skills order by id")
             ],
         }
+        previous = {}
+        for skill in result["skills"]:
+            versions = [
+                decode(row[0].encode())
+                for row in db.execute(
+                    "select payload from skill_revisions where skill_id=? and revision<? "
+                    "order by revision",
+                    (skill["id"], skill["bank"]["revision"]),
+                )
+            ]
+            if versions:
+                previous[skill["id"]] = versions
+        if previous:
+            result["previous_revisions"] = previous
+        return result
 
     @staticmethod
     def _too_large(snapshot):
@@ -137,12 +173,29 @@ class Store:
                 existing = db.execute(
                     "select payload from skills where id = ?", (skill["id"],)
                 ).fetchone()
-                if existing and existing[0] != encoded:
-                    raise Conflict(
-                        "This skill ID already has different content. Revisions are not supported yet."
-                    )
+                revision = skill["bank"]["revision"]
+                stored = db.execute(
+                    "select payload from skill_revisions where skill_id=? and revision=?",
+                    (skill["id"], revision),
+                ).fetchone()
+                if stored:
+                    if stored[0] != encoded:
+                        raise Conflict(
+                            "This skill revision already has different content."
+                        )
+                    continue  # A stale retry returns the latest snapshot without rollback.
+                current_revision = (
+                    decode(existing[0].encode())["bank"]["revision"] if existing else 0
+                )
+                if revision != current_revision + 1 or revision > 100:
+                    raise Conflict("Use the next skill revision, from 1 to 100.")
                 db.execute(
-                    "insert or ignore into skills values (?, ?)", (skill["id"], encoded)
+                    "insert into skills values (?, ?) on conflict(id) do update set payload=excluded.payload",
+                    (skill["id"], encoded),
+                )
+                db.execute(
+                    "insert into skill_revisions values (?,?,?)",
+                    (skill["id"], revision, encoded),
                 )
                 self._assign_identity(db, skill["id"])
             result = self._snapshot(db)

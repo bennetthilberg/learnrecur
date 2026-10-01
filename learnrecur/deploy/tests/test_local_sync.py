@@ -309,14 +309,18 @@ class ProxyHandler(BaseHTTPRequestHandler):
             upstream.close()
 
 
+@pytest.mark.parametrize("revision", [False, True])
 def test_disconnect_after_sync_commit_recovers_without_duplicate_reviews(
-    server, snapshot, tmp_path
+    server, snapshot, tmp_path, revision
 ):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)
         auth = bootstrap(a, b, server)
         cid = rate(b)
         expected = records(b)
+        if revision:
+            import_snapshot(b, revised_snapshot(tmp_path))
+        expected_fields = b.get_card(cid).note().fields
         proxy = DisconnectProxy(server.port)
         thread = threading.Thread(target=proxy.serve_forever)
         thread.start()
@@ -341,6 +345,11 @@ def test_disconnect_after_sync_commit_recovers_without_duplicate_reviews(
         sync(b, auth)
         sync(a, auth)
         assert records(a) == records(b) == expected
+        assert (
+            a.get_card(cid).note().fields
+            == b.get_card(cid).note().fields
+            == expected_fields
+        )
         assert a.card_count() == b.card_count() == 1
         assert a.get_card(cid).reps == b.get_card(cid).reps == 1
         assert import_snapshot(b, snapshot).existing == 1
@@ -571,7 +580,9 @@ def test_collection_restore_discards_claimed_ownership_and_rebuilds_links(
         source.db.execute(
             "update learnrecur_skill_links set source_id='forged',skill_id='forged'"
         )
-        source.export_collection_package(str(package), include_media=True, legacy=legacy)
+        source.export_collection_package(
+            str(package), include_media=True, legacy=legacy
+        )
     finally:
         source.close()
     with collections(tmp_path) as (a, b):
@@ -595,9 +606,9 @@ def test_collection_restore_discards_claimed_ownership_and_rebuilds_links(
         )
         assert records(a) == history_before
         assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 0
-        assert a.db.all("select nid,source_id,skill_id from learnrecur_skill_links") == [
-            [cid, snapshot["source_id"], snapshot["skills"][0]["id"]]
-        ]
+        assert a.db.all(
+            "select nid,source_id,skill_id from learnrecur_skill_links"
+        ) == [[cid, snapshot["source_id"], snapshot["skills"][0]["id"]]]
         assert select_skill_review(restored).exercise.id == "trabajar"
         with pytest.raises(ValueError, match="trusted"):
             import_snapshot(a, snapshot)
@@ -622,7 +633,9 @@ def test_collection_restore_discards_claimed_ownership_and_rebuilds_links(
 
 
 @pytest.mark.parametrize("legacy", [False, True])
-def test_invalid_collection_ownership_keeps_target_collection_and_media(tmp_path, legacy):
+def test_invalid_collection_ownership_keeps_target_collection_and_media(
+    tmp_path, legacy
+):
     source = Collection(str(tmp_path / "invalid-source.anki2"))
     package = tmp_path / "invalid.colpkg"
     try:
@@ -634,7 +647,9 @@ def test_invalid_collection_ownership_keeps_target_collection_and_media(tmp_path
         source.db.execute(
             "create view learnrecur_skill_identities as select id as nid from notes"
         )
-        source.export_collection_package(str(package), include_media=True, legacy=legacy)
+        source.export_collection_package(
+            str(package), include_media=True, legacy=legacy
+        )
     finally:
         source.close()
     with collections(tmp_path) as (a, _b):
@@ -654,4 +669,129 @@ def test_invalid_collection_ownership_keeps_target_collection_and_media(tmp_path
         a.reopen()
         assert a.card_count() == 1
         assert a.get_note(sentinel.id).fields == sentinel.fields
-        assert (Path(media_folder) / "sentinel.txt").read_bytes() == b"destination media"
+        assert (
+            Path(media_folder) / "sentinel.txt"
+        ).read_bytes() == b"destination media"
+
+
+def revised_snapshot(tmp_path):
+    batch = json.loads((ROOT / "learnrecur/fixtures/spanish-revision.json").read_text())
+    return Store(tmp_path / "companion").import_batch(batch)
+
+
+def test_revision_sync_preserves_both_offline_ratings_and_retries(
+    server, snapshot, tmp_path
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        server.stop(crash=True)
+        cid = rate(a)
+        time.sleep(0.01)
+        rate(b)
+        expected_history = sorted(records(a) + records(b))
+        latest = revised_snapshot(tmp_path)
+        cards_before = a.db.all("select * from cards")
+        assert import_snapshot(a, latest).updated == 1
+        assert a.db.all("select * from cards") == cards_before
+        assert select_skill_review(a.get_card(cid)).exercise.id == "cantar"
+        assert select_skill_review(b.get_card(cid)).exercise.id == "trabajar"
+        server.start()
+        sync(a, auth)
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            assert col.card_count() == 1
+            assert records(col) == expected_history
+            assert (
+                json.loads(col.get_card(cid).note()["LearnRecurSkill"])["revision"] == 2
+            )
+            before = (col.get_card(cid).note().fields, records(col))
+            assert import_snapshot(col, latest).existing == 1
+            assert import_snapshot(col, snapshot).existing == 1
+            assert (col.get_card(cid).note().fields, records(col)) == before
+            col.close()
+            col.reopen()
+            assert records(col) == expected_history
+            assert select_skill_review(col.get_card(cid)).exercise.id == "cantar"
+
+
+def test_newer_offline_timestamp_cannot_replace_latest_revision(
+    server, snapshot, tmp_path
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        second = revised_snapshot(tmp_path)
+        third = copy.deepcopy(second["skills"][0])
+        third["bank"]["revision"] = 3
+        third["description"] += " Write only the verb."
+        latest = Store(tmp_path / "companion").import_batch({"skills": [third]})
+        assert import_snapshot(a, latest).updated == 1  # Catch up across two revisions.
+        sync(a, auth)
+        assert import_snapshot(b, second).updated == 1
+        cid = a.find_cards("")[0]
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(b, auth)
+        sync(a, auth)
+        expected = a.get_card(cid).note().fields
+        assert b.get_card(cid).note().fields == expected
+        assert json.loads(a.get_card(cid).note()["LearnRecurSkill"])["revision"] == 3
+        assert import_snapshot(b, second).existing == 1
+        assert b.get_card(cid).note().fields == expected
+
+
+@pytest.mark.parametrize("tags", [["offline-tag"], []])
+def test_revision_sync_preserves_newer_offline_tag_edits(
+    server, snapshot, tmp_path, tags
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        cid = a.find_cards("")[0]
+        note = a.get_card(cid).note()
+        note.tags = ["original-tag"]
+        a.update_note(note)
+        auth = bootstrap(a, b, server)
+        latest = revised_snapshot(tmp_path)
+        import_snapshot(a, latest)
+        sync(a, auth)
+        note = b.get_card(cid).note()
+        note.tags = tags
+        b.update_note(note)
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            note = col.get_card(cid).note()
+            assert note.tags == tags
+            assert json.loads(note["LearnRecurSkill"])["revision"] == 2
+            assert select_skill_review(col.get_card(cid)).exercise.id == "cantar"
+            assert import_snapshot(col, latest).existing == 1
+        # The merged tag edit was uploaded, rather than merely kept locally.
+        full_sync(a, auth, False)
+        assert a.get_card(cid).note().tags == tags
+
+
+def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        latest = revised_snapshot(tmp_path)
+        import_snapshot(a, latest)
+        sync(a, auth)
+        sync(b, auth)
+        cid = rate(b)
+        note = b.get_card(cid).note()
+        note["Description"] = "Conflicting local wording"
+        b.update_note(note)
+        before = (b.get_card(cid).note().fields, records(b))
+        with pytest.raises(Exception):
+            b.sync_collection(auth, False)
+        assert (b.get_card(cid).note().fields, records(b)) == before
+        assert a.get_card(cid).note()["Description"] != note["Description"]
+        # Inspect the server copy without accepting a replacement in the edited profile.
+        full_sync(a, auth, False)
+        assert (
+            a.get_card(cid).note()["Description"] == latest["skills"][0]["description"]
+        )
+        assert records(a) == []  # The failed transaction did not copy B's rating.

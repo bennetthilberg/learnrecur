@@ -3,10 +3,21 @@
 
 use anki_proto::notes::AddSkillNotesRequest;
 
+use crate::notes::UpdateNoteInnerWithoutCardsArgs;
 use crate::notetype::CardGenContext;
 use crate::notetype::NotetypeKind;
 use crate::prelude::*;
 use crate::storage::SkillIdentity;
+
+const SKILL_FIELDS: [&str; 7] = [
+    "Title",
+    "Description",
+    "Prompt",
+    "Answer",
+    "Explanation",
+    "LearnRecurSkill",
+    "LearnRecurLink",
+];
 
 impl Collection {
     pub(crate) fn add_skill_notes(
@@ -14,11 +25,11 @@ impl Collection {
         input: AddSkillNotesRequest,
     ) -> Result<OpOutput<Vec<NoteId>>> {
         require!(
-            !input.requests.is_empty() && input.requests.len() <= 100,
+            (1..=100).contains(&(input.requests.len() + input.updates.len())),
             "invalid skill batch size"
         );
         self.transact(Op::AddNote, |col| {
-            input
+            let mut ids = input
                 .requests
                 .into_iter()
                 .map(|request| {
@@ -73,7 +84,110 @@ impl Collection {
                     col.set_current_notetype_id(note.notetype_id)?;
                     Ok(note.id)
                 })
-                .collect()
+                .collect::<Result<Vec<_>>>()?;
+            for request in input.updates {
+                let expected: Note = request
+                    .expected
+                    .or_invalid("missing expected skill")?
+                    .into();
+                let mut note: Note = request.note.or_invalid("missing revised skill")?.into();
+                let cid = CardId(request.card_id);
+                let original = col.storage.get_note(note.id)?.or_not_found(note.id)?;
+                require!(
+                    original.id == expected.id
+                        && original.guid == expected.guid
+                        && original.notetype_id == expected.notetype_id
+                        && original.fields() == expected.fields()
+                        && original.tags == expected.tags
+                        && note.id == original.id
+                        && note.guid == original.guid
+                        && note.notetype_id == original.notetype_id
+                        && note.tags == original.tags
+                        && !ids.contains(&note.id),
+                    "skill changed before revision; import again"
+                );
+                let identity = col
+                    .storage
+                    .skill_identity_for_note(note.id)?
+                    .or_invalid("missing trusted skill identity")?;
+                let cards = col.storage.all_cards_of_note(note.id)?;
+                require!(
+                    identity.cid == cid
+                        && identity.guid == note.guid
+                        && cards.len() == 1
+                        && cards[0].id == cid,
+                    "skill card identity changed"
+                );
+                require!(
+                    col.skill_revision_state(&note)?.0 > col.skill_revision_state(&original)?.0,
+                    "skill revision must advance"
+                );
+                let nt = col
+                    .get_notetype(note.notetype_id)?
+                    .or_invalid("missing note type")?;
+                let usn = col.usn()?;
+                let normalize_text = col.get_config_bool(BoolKey::NormalizeNoteText);
+                col.update_note_inner_without_cards(UpdateNoteInnerWithoutCardsArgs {
+                    note: &mut note,
+                    original: &original,
+                    notetype: &nt,
+                    usn,
+                    mark_note_modified: true,
+                    normalize_text,
+                    update_tags: false,
+                    mtime: None,
+                })?;
+                ids.push(note.id);
+            }
+            Ok(ids)
         })
+    }
+
+    pub(crate) fn set_skill_revision_fields(
+        &mut self,
+        note: &mut Note,
+        fields: Vec<String>,
+    ) -> Result<()> {
+        let nt = self
+            .get_notetype(note.notetype_id)?
+            .or_invalid("missing skill note type")?;
+        for (name, content) in SKILL_FIELDS.into_iter().zip(fields) {
+            let ord = nt
+                .fields
+                .iter()
+                .position(|field| field.name == name)
+                .or_invalid("skill revision fields changed")?;
+            note.set_field(ord, content)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn skill_revision_state(&mut self, note: &Note) -> Result<(u64, Vec<String>)> {
+        let nt = self
+            .get_notetype(note.notetype_id)?
+            .or_invalid("missing skill note type")?;
+        let mut fields = vec![];
+        for name in SKILL_FIELDS {
+            let ord = nt
+                .fields
+                .iter()
+                .position(|field| field.name == name)
+                .or_invalid("skill revision fields changed")?;
+            fields.push(
+                note.fields()
+                    .get(ord)
+                    .or_invalid("missing skill field")?
+                    .clone(),
+            );
+        }
+        let bank: serde_json::Value = serde_json::from_str(&fields[5])
+            .ok()
+            .or_invalid("invalid skill revision")?;
+        let revision = bank
+            .get("revision")
+            .and_then(|value| value.as_u64())
+            .filter(|revision| (1..=100).contains(revision))
+            .or_invalid("invalid skill revision")?;
+        Ok((revision, fields))
     }
 }

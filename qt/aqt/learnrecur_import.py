@@ -82,7 +82,10 @@ def confirm_import(parent: AnkiQt, skills: list[dict]) -> bool:
     preview = QTextEdit(dialog)
     preview.setReadOnly(True)
     preview.setPlainText(
-        "\n\n".join(f"{skill['title']}\n{skill['description']}" for skill in skills)
+        "\n\n".join(
+            f"{skill['title']} (revision {skill['bank']['revision']})\n{skill['description']}"
+            for skill in skills
+        )
     )
     layout.addWidget(preview)
     buttons = QDialogButtonBox(
@@ -120,7 +123,7 @@ def import_skills(mw: AnkiQt) -> None:
 
         CollectionOp(parent=mw, op=apply).success(
             lambda result: tooltip(
-                f"Added {result.added} skills; {result.existing} already imported.",
+                f"Added {result.added}; updated {result.updated}; unchanged {result.existing}.",
                 parent=mw,
             )
         ).failure(lambda error: showWarning(str(error), parent=mw)).run_in_background()

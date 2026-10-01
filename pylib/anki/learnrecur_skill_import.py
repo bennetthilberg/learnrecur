@@ -146,9 +146,10 @@ def validate_skills(value: object) -> list[dict]:
 
 
 def validate_snapshot(value: object) -> tuple[str, list[dict]]:
-    if not isinstance(value, dict) or set(value) not in (
-        {"source_id", "skills"},
-        {"source_id", "skills", "identities"},
+    if (
+        not isinstance(value, dict)
+        or not {"source_id", "skills"} <= set(value)
+        or set(value) - {"source_id", "skills", "identities", "previous_revisions"}
     ):
         raise SkillImportError("Invalid companion response.")
     try:
@@ -160,7 +161,38 @@ def validate_snapshot(value: object) -> tuple[str, list[dict]]:
     # An empty server is valid, unlike an empty import request.
     skills = validate_skills(value["skills"]) if value["skills"] != [] else []
     snapshot_identities(value, skills)
+    snapshot_history(value, skills)
+    if len(encode(value).encode()) > MAX_BYTES:
+        raise SkillImportError("The skill batch is too large.")
     return source, skills
+
+
+def snapshot_history(value: dict, skills: list[dict]) -> dict[str, list[dict]]:
+    history = value.get("previous_revisions", {})
+    current = {skill["id"]: skill for skill in skills}
+    if (
+        not isinstance(history, dict)
+        or set(history) - set(current)
+        or history
+        and "identities" not in value
+    ):
+        raise SkillImportError("Invalid skill revision history.")
+    for key, versions in history.items():
+        if not isinstance(versions, list) or not 1 <= len(versions) < 100:
+            raise SkillImportError("Invalid skill revision history.")
+        for revision, skill in enumerate(versions, 1):
+            validate_skills([skill])
+            if skill["id"] != key or skill["bank"]["revision"] != revision:
+                raise SkillImportError("Invalid skill revision history.")
+        if current[key]["bank"]["revision"] != len(versions) + 1:
+            raise SkillImportError("Invalid skill revision history.")
+    if "identities" in value and any(
+        skill["bank"]["revision"] > 100
+        or len(history.get(skill["id"], [])) != skill["bank"]["revision"] - 1
+        for skill in skills
+    ):
+        raise SkillImportError("Missing skill revision history.")
+    return history
 
 
 def snapshot_identities(value: dict, skills: list[dict]) -> dict:
@@ -201,8 +233,15 @@ def _link(source: str, skill: dict) -> str:
     )
 
 
-def _fields(source: str, skill: dict) -> list[str]:
+def _fields(source: str, skill: dict, previous: list[dict] | None = None) -> list[str]:
     first = skill["bank"]["exercises"][0]
+    bank = skill["bank"]
+    if previous:
+        bank = {
+            **bank,
+            "definition": {key: skill[key] for key in ("title", "description")},
+            "retired_revisions": previous,
+        }
     return [
         html.escape(normalize("NFC", skill["title"])),
         html.escape(normalize("NFC", skill["description"])),
@@ -211,9 +250,7 @@ def _fields(source: str, skill: dict) -> list[str]:
             for key in ("prompt", "answer", "explanation")
         ),
         # Escapes protect bank text from native field normalization.
-        json.dumps(
-            skill["bank"], sort_keys=True, separators=(",", ":"), ensure_ascii=True
-        ),
+        json.dumps(bank, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
         _link(source, skill),
     ]
 
@@ -223,6 +260,28 @@ class SkillImportResult:
     changes: OpChanges
     added: int
     existing: int
+    updated: int = 0
+
+
+def _matches_newer_cache(note, source: str, incoming: dict) -> bool:
+    """An old snapshot can confirm an ancestor, but cannot roll a card back."""
+    try:
+        bank = json.loads(note["LearnRecurSkill"])
+        previous = bank.pop("retired_revisions")
+        definition = bank.pop("definition")
+        current = {"id": bank["skill_id"], **definition, "bank": bank}
+        validate_skills([current])
+        snapshot_history(
+            {"previous_revisions": {current["id"]: previous}, "identities": {}},
+            [current],
+        )
+        return (
+            bank["revision"] > incoming["bank"]["revision"]
+            and incoming in previous
+            and [note[field] for field in FIELDS] == _fields(source, current, previous)
+        )
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return False
 
 
 def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
@@ -231,8 +290,10 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
 
     source, skills = validate_snapshot(snapshot)
     identities = snapshot_identities(snapshot, skills)
+    history = snapshot_history(snapshot, skills)
     pending = {skill["id"]: skill for skill in skills}
     seen = set()
+    updates = []
     # Links survive note-type renames and copies. A removed marker is a conflict,
     # not permission to silently create another card.
     for model in col.models.all():
@@ -258,17 +319,15 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     "Duplicate linked skill cards. Resolve them before importing."
                 )
             seen.add(key)
-            expected = _fields(source, pending[key])
             if (
                 model.get(MODEL_MARKER) != MODEL_KIND
                 or model["type"] != 0
                 or len(model["tmpls"]) != 1
                 or len(note.cards()) != 1
                 or any(field not in note for field in FIELDS)
-                or [note[field] for field in FIELDS] != expected
             ):
                 raise SkillImportError(
-                    "A linked skill changed. Importing revisions is not supported yet."
+                    "A linked skill changed. Restore its imported content before updating."
                 )
             if identities:
                 identity = identities[key]
@@ -290,8 +349,44 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     raise SkillImportError(
                         "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
                     )
+            previous = history.get(key, [])
+            versions = [*previous, pending[key]]
+            actual = [note[field] for field in FIELDS]
+            matched = next(
+                (
+                    index
+                    for index, version in enumerate(versions)
+                    if actual == _fields(source, version, versions[:index])
+                ),
+                None,
+            )
+            if matched is None:
+                if identities and _matches_newer_cache(note, source, pending[key]):
+                    continue
+                raise SkillImportError(
+                    "A linked skill changed. Restore its imported content before updating."
+                )
+            if matched < len(versions) - 1:
+                if not identities:
+                    raise SkillImportError(
+                        "Update the companion before revising skills."
+                    )
+                from anki.notes_pb2 import UpdateSkillNoteRequest
+
+                expected = note._to_backend_note()
+                for field, content in zip(
+                    FIELDS, _fields(source, pending[key], previous)
+                ):
+                    note[field] = content
+                updates.append(
+                    UpdateSkillNoteRequest(
+                        note=note._to_backend_note(),
+                        expected=expected,
+                        card_id=note.cards()[0].id,
+                    )
+                )
     missing = [skill for skill in skills if skill["id"] not in seen]
-    if not missing:
+    if not missing and not updates:
         return SkillImportResult(OpChanges(), 0, len(seen))
     if identities:
         for skill in missing:
@@ -308,17 +403,21 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     "A companion card ID is already used or deleted. No cards were replaced."
                 )
     model = col.models.by_name(MODEL_NAME)
-    if model and (
-        model.get(MODEL_MARKER) != MODEL_KIND
-        or model["type"] != 0
-        or len(model["tmpls"]) != 1
-        or [field["name"] for field in model["flds"]] != list(FIELDS)
+    if (
+        missing
+        and model
+        and (
+            model.get(MODEL_MARKER) != MODEL_KIND
+            or model["type"] != 0
+            or len(model["tmpls"]) != 1
+            or [field["name"] for field in model["flds"]] != list(FIELDS)
+        )
     ):
         raise SkillImportError(
             "The imported skill note type has changed. Restore it before importing."
         )
     did = col.decks.id_for_name(DECK_NAME)
-    if did:
+    if missing and did:
         deck = col.decks.get(did)
         if deck["dyn"] or any(
             col.get_card(cid).note_type().get(MODEL_MARKER) != MODEL_KIND
@@ -330,7 +429,7 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
     # Setup can survive an interruption separately. The bulk native add is one
     # transaction; links and cards commit together, with no separate receipt.
     undo = col.add_custom_undo_entry("Import skills")
-    if model is None:
+    if missing and model is None:
         model = col.models.new(MODEL_NAME)
         model[MODEL_MARKER] = MODEL_KIND
         for field in FIELDS:
@@ -343,21 +442,30 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
         col.models.add_template(model, template)
         model["css"] = ".card { font: 24px Arial; text-align: center; }"
         model = col.models.get(col.models.add_dict(model).id)
-    did = col.decks.id(DECK_NAME)
+    did = col.decks.id(DECK_NAME) if missing else None
     requests = []
     for skill in missing:
         note = col.new_note(model)
-        note.fields = _fields(source, skill)
+        note.fields = _fields(source, skill, history.get(skill["id"]))
         if identities:
             identity = identities[skill["id"]]
             note.id = identity["native_id"]
             note.guid = identity["guid"]
         requests.append(AddNoteRequest(note=note, deck_id=did))
     if identities:
-        col.add_skill_notes(
-            requests, [identities[skill["id"]]["native_id"] for skill in missing]
-        )
+        if updates:
+            col.add_skill_notes(
+                requests,
+                [identities[skill["id"]]["native_id"] for skill in missing],
+                updates=updates,
+            )
+        else:
+            col.add_skill_notes(
+                requests, [identities[skill["id"]]["native_id"] for skill in missing]
+            )
     else:
         col.add_notes(requests)
     changes = col.merge_undo_entries(undo)
-    return SkillImportResult(changes, len(missing), len(seen))
+    return SkillImportResult(
+        changes, len(missing), len(seen) - len(updates), len(updates)
+    )
