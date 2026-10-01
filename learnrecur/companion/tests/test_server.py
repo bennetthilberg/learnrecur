@@ -169,6 +169,29 @@ def test_existing_store_backfills_identity_once(tmp_path, batch):
     assert Store(store.path.parent).snapshot() == first
 
 
+def test_missing_legacy_revision_history_stops_upgrade_without_changes(tmp_path, batch):
+    from anki.learnrecur_skill_import import SkillImportError, encode
+
+    store = Store(tmp_path / "companion")
+    first = store.import_batch(batch)
+    legacy = copy.deepcopy(batch["skills"][0])
+    legacy["bank"]["revision"] = 2
+    with store.connect() as db:
+        db.execute("drop table skill_revisions")
+        db.execute("update skills set payload=?", (encode(legacy),))
+    with pytest.raises(SkillImportError, match="lack valid revision history"):
+        Store(store.path.parent)
+    with store.connect() as db:
+        assert db.execute("select payload from skills").fetchone()[0] == encode(legacy)
+        assert not db.execute(
+            "select 1 from sqlite_master where name='skill_revisions'"
+        ).fetchone()
+        assert (
+            db.execute("select native_id from identities").fetchone()[0]
+            == next(iter(first["identities"].values()))["native_id"]
+        )
+
+
 def test_identity_migration_over_limit_rolls_back_and_explains_recovery(
     tmp_path, batch
 ):
@@ -213,3 +236,71 @@ def test_identity_migration_over_limit_rolls_back_and_explains_recovery(
         assert not db.execute(
             "select 1 from sqlite_master where name='identities'"
         ).fetchone()
+
+
+def test_revision_retry_restart_stale_request_and_atomic_conflict(server, batch):
+    first = request(server, batch)[1]
+    revised = json.loads(
+        (ROOT / "learnrecur/fixtures/spanish-revision.json").read_text()
+    )
+    status, latest = request(server, revised)
+    assert status == 200
+    assert latest["identities"] == first["identities"]
+    assert latest["previous_revisions"] == {batch["skills"][0]["id"]: batch["skills"]}
+    assert request(server, revised) == request(server, batch) == (200, latest)
+    assert Store(server.store.path.parent).snapshot() == latest
+    third = copy.deepcopy(revised["skills"][0])
+    third["bank"]["revision"] = 3
+    third["description"] += " Use a written answer."
+    conflict = copy.deepcopy(batch["skills"][0])
+    conflict["description"] = "Changed historical revision"
+    assert request(server, {"skills": [third, conflict]})[0] == 400  # Same skill twice.
+    other = copy.deepcopy(batch["skills"][0])
+    other["id"] = other["bank"]["skill_id"] = "new-skill"
+    assert request(server, {"skills": [other, conflict]})[0] == 409
+    assert server.store.snapshot() == latest
+    third["bank"]["revision"] = 4
+    assert request(server, {"skills": [third]})[0] == 409
+    assert server.store.snapshot() == latest
+
+
+def test_concurrent_revision_writers_keep_one_immutable_definition(server, batch):
+    request(server, batch)
+    revised = json.loads(
+        (ROOT / "learnrecur/fixtures/spanish-revision.json").read_text()
+    )
+    different = copy.deepcopy(revised)
+    different["skills"][0]["description"] += " Different wording."
+    results = []
+    threads = [
+        threading.Thread(target=lambda body=body: results.append(request(server, body)))
+        for body in (revised, different)
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert sorted(status for status, _ in results) == [200, 409]
+    latest = server.store.snapshot()
+    assert latest["skills"] in (revised["skills"], different["skills"])
+    assert Store(server.store.path.parent).snapshot() == latest
+
+
+def test_retained_revision_size_limit_rolls_back(server, batch):
+    batch["skills"][0]["bank"]["exercises"] = [
+        {
+            "id": str(index),
+            "prompt": "x" * 2000,
+            "answer": "x" * 2000,
+            "explanation": "x" * 2000,
+        }
+        for index in range(100)
+    ]
+    status, first = request(server, batch)
+    assert status == 200
+    revised = copy.deepcopy(batch)
+    revised["skills"][0]["bank"]["revision"] = 2
+    assert request(server, revised)[0] == 400
+    assert server.store.snapshot() == first
+    with server.store.connect() as db:
+        assert db.execute("select count(*) from skill_revisions").fetchone()[0] == 1

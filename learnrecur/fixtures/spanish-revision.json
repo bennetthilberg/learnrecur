@@ -1,0 +1,34 @@
+{
+  "skills": [
+    {
+      "id": "spanish-ar-preterite-yo",
+      "title": "Regular -ar verbs: yo in the preterite",
+      "description": "Write the first-person singular preterite of a regular Spanish -ar verb for a completed past action. Exclude spelling changes, irregular verbs, other persons, and other tenses.",
+      "bank": {
+        "version": 1,
+        "skill_id": "spanish-ar-preterite-yo",
+        "revision": 2,
+        "exercises": [
+          {
+            "id": "cantar",
+            "prompt": "Anoche yo ___ una canción. (cantar)",
+            "answer": "canté",
+            "explanation": "For yo in the preterite, replace -ar with -é: cantar → canté."
+          },
+          {
+            "id": "bailar",
+            "prompt": "Ayer yo ___ con Luis. (bailar)",
+            "answer": "bailé",
+            "explanation": "For yo in the preterite, replace -ar with -é: bailar → bailé."
+          },
+          {
+            "id": "tomar",
+            "prompt": "Esta mañana yo ___ un café. (tomar)",
+            "answer": "tomé",
+            "explanation": "For yo in the preterite, replace -ar with -é: tomar → tomé."
+          }
+        ]
+      }
+    }
+  ]
+}

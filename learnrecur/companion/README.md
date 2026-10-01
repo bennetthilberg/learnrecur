@@ -1,6 +1,6 @@
 # Local skill import
 
-The companion accepts supplied exercise banks over an authenticated local API. **Tools > Import skills…** in LearnRecur fetches them, shows their titles and descriptions, and asks for confirmation before creating native cards. This is the first part of milestone 4. A local collection sync proof is now available. Generation, hosting, and revision updates are still ahead.
+The companion accepts supplied exercise banks over an authenticated local API. **Tools > Import skills…** in LearnRecur fetches them, shows their titles and descriptions, and asks for confirmation before creating native cards. This is the first part of milestone 4. A local collection sync proof is now available. Revision updates use the same preview and keep the existing card. Generation and hosting are still ahead.
 
 The service uses Python's standard library and SQLite. It binds only to `127.0.0.1`. The app accepts only a literal loopback HTTP URL, ignores environment proxies, and refuses redirects. This server is for local development; don't expose it to a network.
 
@@ -48,17 +48,29 @@ Choose **Tools > Import skills…**. Confirm the preview, then study the **Learn
 Both endpoints require `Authorization: Bearer <token>`:
 
 - `POST /v1/skills` takes `{"skills": [...]}`. Each skill has `id`, `title`, `description`, and `bank`. [The synthetic batch](../fixtures/spanish-import.json) shows the complete format. IDs must be unique within the batch. A bank's `skill_id` must match its enclosing ID.
-- `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. POST returns the same snapshot after committing.
+- `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. When revisions exist, `previous_revisions` maps each revised skill ID to its earlier payloads, in order. POST returns the latest snapshot after committing.
 
-The local store holds at most 100 skills and 1 MiB of snapshot data. Each bank needs 1–100 exercises with distinct IDs, prompts, answers, and explanations. Invalid batches return 400; missing or incorrect authentication returns 401; reusing an ID with different content returns 409. A conflicting batch rolls back completely. Identical retries succeed, including concurrent requests.
+The local store holds at most 100 skills and 1 MiB of snapshot data, including retained revisions. Each bank needs 1–100 exercises with distinct IDs, prompts, answers, and explanations. Invalid batches return 400; missing or incorrect authentication returns 401; changing content within an existing revision returns 409. A conflicting batch rolls back completely. Identical retries succeed, including concurrent requests.
 
 `skills.sqlite3` stores the database identity, immutable skill payloads, and a stable native identity for each skill. The `identities` map uses skill IDs as keys, with `native_id` and a note `guid` as values. The note and card use the same numeric ID in their separate native tables. IDs follow Anki's millisecond timestamp convention and survive retries and restarts. The service opens only its separate marked directory and never writes a client or sync-server collection. Back up all these identities with the skills. Creating another database creates another source identity; the client treats its skills as separate, even when their IDs match.
 
 When upgrading a store from the earlier format, the service assigns identities in one transaction and checks the resulting response size before committing. If the metadata would push it over 1 MiB, startup stops and the old database remains unchanged. Back up that companion folder. For this synthetic proof, trim unused exercise variations from a copy of the original supplied batch, import it into a new empty companion folder, and use fresh test profiles. Keep the old folder and cached cards intact; changing reviewed identities is not supported yet.
 
-The desktop puts a source ID, skill ID, and payload digest in a `LearnRecurLink` note field. It searches those links before adding notes. Renaming a note type preserves the link. A scheduled package preserves the link too, but a package import that remaps native IDs cannot join the same synced skill yet. Changed content, duplicate links, missing cards, or a removed skill marker stop import rather than replace reviewed cards. Ordinary note-type or deck name collisions also stop import.
+The desktop puts a source ID, skill ID, and payload digest in a `LearnRecurLink` note field. It searches those links before adding notes. Renaming a note type preserves the link. A scheduled package preserves the link too, but a package import that remaps native IDs cannot join the same synced skill yet. Unpublished local edits, duplicate links, missing cards, or a removed skill marker stop import rather than replace reviewed cards. Ordinary note-type or deck name collisions also stop import.
 
 Notes and cards are added with the companion's IDs in one native batch transaction. Independent imports from that companion therefore refer to the same native card when collections sync. Occupied IDs and known deletion records stop import; they never authorize overwriting another card. Their links commit with them, so there is no separate client receipt that could fall behind. An interruption during note-type or deck setup can leave empty setup objects; retry uses them. An interruption after the card commit finds the existing links. A successful import has one native undo entry. An identical retry does not replace review undo.
+
+## Update a skill
+
+Start a skill at revision 1. Post its next complete payload to the same endpoint with the same ID and `bank.revision` increased by one. [The revision fixture](../fixtures/spanish-revision.json) supplies revision 2 of the Spanish example. Use it in place of `spanish-import.json` in the POST command, then choose **Tools > Import skills…** again. The preview shows the revision number.
+
+Each published revision is immutable. The server accepts at most 100 revisions per skill and refuses gaps. Retrying an identical payload succeeds, even if it is an older revision; the response still contains the latest snapshot. A conflicting batch or an update that exceeds the snapshot limit rolls back completely.
+
+The client checks the saved skill against that history before updating its note in one native transaction. It keeps the note/card identity, deck, tags, schedule, and review records. The revised bank starts with its first exercise. Earlier definitions and banks stay in the cached note for history, but their exercises are no longer eligible for review. A stale snapshot cannot roll the cache back.
+
+Native undo and redo apply to the local import, including mixed batches of new and revised skills. Undo does not retract a published companion revision; importing again reapplies it. To change a published definition for every client, publish another revision. Collection sync also carries the revised cache. [The sync notes](../deploy/README.md) explain offline revision conflicts.
+
+Stores from the earlier format can gain revision history automatically when their skills are at revision 1. If an older store began at a later revision without the preceding payloads, startup stops without changing it. Back up that folder and use a fresh synthetic companion/profile with revision 1; don't replace reviewed identities.
 
 ## Checks and limits
 
@@ -70,10 +82,12 @@ ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python \
 ./ninja check:pytest:pylib check:pytest:aqt
 ```
 
-Tests cover authenticated HTTP, concurrent retries, restart persistence, full rollback on conflict, redirects and proxy settings, confirmation and profile guards, and client process death immediately before and after the native card commit. They also check that retry preserves ratings, exercise selection, undo, and scheduled package links.
+Tests cover authenticated HTTP, concurrent retries and competing revisions, restart persistence, retained-history size limits, full rollback on conflict, redirects and proxy settings, confirmation and profile guards, and client process death immediately before and after the native card commit. They also check that retry preserves ratings, exercise selection, undo, and scheduled package links.
 
 On October 1, 2026, the packaged Mac app passed preview, cancel, import, repeated import, paired reveal, Again, variation, undo, and redo in a fresh synthetic profile. After closing the app and reopening the collection, it still had one note, one card, one rating, and the next exercise (`trabajar`). Another import left the card and review record unchanged. After restarting the app with the companion stopped, it revealed the cached `trabajar` prompt and its paired `trabajé` answer. The build and ad hoc signature passed. The app still emitted the known Qt accessibility warnings during these checks.
 
+The revision checks also kill the client before and after the native update commit, reject a changed preimage, and preserve a renamed note type and moved deck. On October 1, the packaged Mac app passed revision preview/cancel, update, native undo/redo, and restart in a synthetic profile. Cancelling left `trabajar` eligible. Accepting revision 2 preserved the exact saved card and review rows. With the companion stopped, the restarted app revealed `cantar`/`canté`, advanced to `bailar` on Again, and restored the selection through native undo/redo. The reopened collection had the same card, two review records, revision 2, and the archived revision 1. Ignored evidence is in `out/learnrecur/revision-mac-20261001/`.
+
 The desktop requires identities from the companion. Older supplied snapshots remain readable by the local library helper, but the app refuses an older companion response. Existing test cards with locally assigned IDs are kept; importing their new companion snapshot stops with an identity conflict. Use fresh synthetic profiles for the sync proof. Duplicate links block skill review and are never automatically deleted, because another disconnected profile might still have reviews for either copy.
 
-This slice does not update revisions or run generation jobs. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.
+This slice does not run generation jobs or provide a Skill editor. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.

@@ -46,7 +46,7 @@ pub struct Chunk {
     pub(crate) skill_identities: Vec<SkillIdentity>,
 }
 
-#[derive(Serialize_tuple, Deserialize, Debug)]
+#[derive(Serialize_tuple, Deserialize, Debug, Clone)]
 pub struct NoteEntry {
     pub id: NoteId,
     pub guid: String,
@@ -232,7 +232,26 @@ impl Collection {
 
     fn add_or_update_note_if_newer(&mut self, entry: NoteEntry, pending_usn: Usn) -> Result<()> {
         let proceed = if let Some(existing_note) = self.storage.get_note(entry.id)? {
-            !existing_note.usn.is_pending_sync(pending_usn) || existing_note.mtime < entry.mtime
+            if self.storage.skill_identity_for_note(entry.id)?.is_some() {
+                let incoming: Note = entry.clone().into();
+                let (old_revision, old_fields) = self.skill_revision_state(&existing_note)?;
+                let (new_revision, new_fields) = self.skill_revision_state(&incoming)?;
+                if new_revision < old_revision {
+                    return Ok(());
+                }
+                if new_revision == old_revision {
+                    require!(
+                        old_fields == new_fields,
+                        "conflicting skill revision; both collections were kept"
+                    );
+                    !existing_note.usn.is_pending_sync(pending_usn)
+                        || existing_note.mtime < entry.mtime
+                } else {
+                    true // Companion revisions take precedence over offline edit timestamps.
+                }
+            } else {
+                !existing_note.usn.is_pending_sync(pending_usn) || existing_note.mtime < entry.mtime
+            }
         } else {
             true
         };
