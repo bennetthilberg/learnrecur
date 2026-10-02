@@ -41,8 +41,8 @@ def companion_connection() -> tuple[str, str]:
     return url, token
 
 
-def fetch_snapshot() -> object:
-    url, token = companion_connection()
+def fetch_snapshot(connection: tuple[str, str] | None = None) -> object:
+    url, token = connection or companion_connection()
     try:
         with requests.Session() as session:
             session.trust_env = (

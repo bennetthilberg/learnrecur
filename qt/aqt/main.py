@@ -766,7 +766,14 @@ class AnkiQt(QMainWindow):
     ##########################################################################
 
     def moveToState(self, state: MainWindowState, *args: Any) -> None:
-        # print("-> move from", self.state, "to", state)
+        # Wait for a queued cache append before loading a review question.
+        delivery = getattr(self, "_batch_delivery", None)
+        if (
+            state == "review"
+            and delivery
+            and delivery.defer_review(self, lambda: self.moveToState(state, *args))
+        ):
+            return
         oldState = self.state
         cleanup = getattr(self, f"_{oldState}Cleanup", None)
         if cleanup:
@@ -778,6 +785,10 @@ class AnkiQt(QMainWindow):
         if state != "resetRequired":
             self.bottomWeb.adjustHeightToFit()
         gui_hooks.state_did_change(state, oldState)
+        if state in ("deckBrowser", "overview"):
+            from aqt.learnrecur_delivery import check_delivery
+
+            check_delivery(self)
 
     def _deckBrowserState(self, oldState: MainWindowState) -> None:
         self.deckBrowser.show()

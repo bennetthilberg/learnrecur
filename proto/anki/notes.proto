@@ -132,6 +132,7 @@ message AddSkillNoteRequest {
 message AddSkillNotesRequest {
   repeated AddSkillNoteRequest requests = 1;
   repeated UpdateSkillNoteRequest updates = 2;
+  bool cache_only = 3;
 }
 
 message UpdateSkillNoteRequest {

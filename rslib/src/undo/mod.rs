@@ -63,6 +63,27 @@ pub(crate) struct UndoManager {
 }
 
 impl UndoManager {
+    pub(crate) fn has_saved_note_updates(&self, ids: &[NoteId]) -> bool {
+        use crate::notes::undo::UndoableNoteChange;
+        use crate::notetype::undo::UndoableNotetypeChange;
+
+        self.undo_steps
+            .iter()
+            .chain(self.redo_steps.iter())
+            .any(|step| {
+                step.changes.iter().any(|change| match change {
+                    UndoableChange::Note(
+                        UndoableNoteChange::Updated(note) | UndoableNoteChange::Removed(note),
+                    ) => ids.contains(&note.id),
+                    // Field or template undo may restore an older note layout.
+                    UndoableChange::Notetype(
+                        UndoableNotetypeChange::Updated(_) | UndoableNotetypeChange::Removed(_),
+                    ) => true,
+                    _ => false,
+                })
+            })
+    }
+
     fn save(&mut self, item: UndoableChange) {
         if let Some(step) = self.current_step.as_mut() {
             step.changes.push(item)

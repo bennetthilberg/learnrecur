@@ -388,7 +388,9 @@ def _cache_update_fields(
     return _fields(source, skill, previous, incoming_batches)
 
 
-def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
+def import_snapshot(
+    col: Collection, snapshot: object, *, cache_only: bool = False
+) -> SkillImportResult:
     from anki.collection import AddNoteRequest, OpChanges
     from anki.learnrecur_skills import MODEL_KIND, MODEL_MARKER
 
@@ -451,9 +453,16 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     identity["native_id"],
                     identity["guid"],
                 ):
+                    if cache_only:
+                        continue
                     raise SkillImportError(
                         "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
                     )
+            if cache_only:
+                # New descriptions still need a preview and explicit import.
+                cached = decode(note["LearnRecurSkill"].encode())
+                if cached.get("revision") != pending[key]["bank"]["revision"]:
+                    continue
             target_fields = _cache_update_fields(
                 source,
                 key,
@@ -477,7 +486,16 @@ def import_snapshot(col: Collection, snapshot: object) -> SkillImportResult:
                     card_id=note.cards()[0].id,
                 )
             )
-    missing = [skill for skill in skills if skill["id"] not in seen]
+    missing = (
+        [] if cache_only else [skill for skill in skills if skill["id"] not in seen]
+    )
+    if cache_only:
+        changes = (
+            col.add_skill_notes([], [], updates=updates, cache_only=True)
+            if updates
+            else OpChanges()
+        )
+        return SkillImportResult(changes, 0, len(seen) - len(updates), len(updates))
     if not missing and not updates:
         return SkillImportResult(OpChanges(), 0, len(seen))
     if identities:
