@@ -1,0 +1,14 @@
+{
+  "request_id": "spanish-openai-trial-1",
+  "skill_id": "spanish-ar-preterite-yo",
+  "revision": 1,
+  "count": 3,
+  "provider": "openai",
+  "examples": [
+    {
+      "prompt": "Ayer yo ___ español. (estudiar)",
+      "answer": "estudié",
+      "explanation": "For yo in the preterite, replace -ar with -é: estudiar → estudié."
+    }
+  ]
+}
