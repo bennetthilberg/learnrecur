@@ -1,7 +1,7 @@
 # Copyright: LearnRecur contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-"""A loopback-only companion for supplied skill batches, not paid generation."""
+"""A loopback-only companion with optional background refill requests."""
 
 from __future__ import annotations
 
@@ -225,7 +225,9 @@ class Store:
 class Server(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, store: Store, token: str, port: int = 45321):
+    def __init__(
+        self, store: Store, token: str, port: int = 45321, *, refill_provider=None
+    ):
         if (
             not token.isascii()
             or len(token) < 32
@@ -235,6 +237,9 @@ class Server(ThreadingHTTPServer):
                 "Set LEARNRECUR_COMPANION_TOKEN to at least 32 ASCII characters without spaces."
             )
         self.store = store
+        if refill_provider not in (None, "fixture", "openai"):
+            raise ValueError("Choose fixture or openai as the refill provider.")
+        self.refill_provider = refill_provider
         self.authorization = ("Bearer " + token).encode()
         super().__init__(("127.0.0.1", port), Handler)
 
@@ -283,7 +288,9 @@ class Handler(BaseHTTPRequestHandler):
         )
         if (
             self.path != "/v1/skills"
-            and not (write and self.path == "/v1/generation-jobs")
+            and not (
+                write and self.path in ("/v1/generation-jobs", "/v1/refill-requests")
+            )
             and not job_get
         ):
             self._reply(404, {"error": "Unknown endpoint."})
@@ -306,11 +313,14 @@ class Handler(BaseHTTPRequestHandler):
                 if len(data) != length:
                     raise SkillImportError("Incomplete skill batch.")
                 payload = decode(data)
-                result = (
-                    Jobs(self.server.store).enqueue(payload)
-                    if self.path == "/v1/generation-jobs"
-                    else self.server.store.import_batch(payload)
-                )
+                if self.path == "/v1/refill-requests":
+                    result = Jobs(self.server.store).request_refill(
+                        payload, self.server.refill_provider
+                    )
+                elif self.path == "/v1/generation-jobs":
+                    result = Jobs(self.server.store).enqueue(payload)
+                else:
+                    result = self.server.store.import_batch(payload)
             else:
                 result = (
                     Jobs(self.server.store).get(job_get[1])
@@ -330,12 +340,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--port", type=int, default=45321)
+    parser.add_argument("--refill-provider", choices=("fixture", "openai"))
     args = parser.parse_args()
     try:
         server = Server(
             Store(args.data_dir),
             os.environ.get("LEARNRECUR_COMPANION_TOKEN", ""),
             args.port,
+            refill_provider=args.refill_provider,
         )
     except ValueError as error:
         parser.error(str(error))

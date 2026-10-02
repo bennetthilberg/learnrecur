@@ -31,7 +31,7 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --data-dir out/learnrecur/companion --once
 ```
 
-The worker must use the same companion folder as the API. Omit `--once` to poll for jobs once a second. Only the original `spanish-import.json` skill is supported by the fixture provider; other definitions fail without publication. Requesting another identical fixture batch fails the duplicate-prompt check. A real provider comes later.
+The worker must use the same companion folder as the API. Omit `--once` to poll for jobs once a second. Only the original `spanish-import.json` skill is supported by the fixture provider; other definitions fail without publication. The fixture skips previously published prompts and supplied examples. Its six variations support two full batches; later requests stop when the pool is exhausted.
 
 Authenticated `GET /v1/generation-jobs/<job_id>` returns the saved request, generation context, state, attempt count, retry time, error, and usage when available. Repeating the same POST returns that job, including after completion or a restart. Reusing `request_id` with different settings returns 409. Use a new request ID for an intentional new batch.
 
@@ -41,7 +41,7 @@ After completion, choose **Tools > Import skills…** in a separately stored Lea
 
 A request contains `request_id`, `skill_id`, `revision`, and `count`. The skill must already exist and the revision must be current. This proof accepts 1–3 exercises per request. `provider` is optional: `fixture` is the default, and `openai` selects the separately enabled OpenAI worker. `examples` is optional and defaults to an empty list. Each example contains `prompt`, `answer`, and `explanation`; supply at most five. Text fields are limited to 8 KiB and the whole request to 64 KiB. OpenAI also limits the assembled model request to 32 KiB.
 
-Examples are saved with the job and passed separately to the provider as reference material. The OpenAI worker uses them to guide format and difficulty. They do not change the skill definition, override its boundaries, or become review exercises automatically. Exact copies of example prompts are refused during publication. The fixture ignores the guidance when choosing its predetermined output; tests confirm that the provider still receives the saved examples.
+Examples are saved with the job and passed separately to the provider as reference material. The OpenAI worker uses them to guide format and difficulty. They do not change the skill definition, override its boundaries, or become review exercises automatically. Exact copies of example prompts are refused during publication. The fixture uses predetermined output and excludes exact example prompts; tests confirm that the provider receives the saved examples.
 
 The context also freezes the skill payload, requested count, provider name, generation instructions, and instruction version. Credentials are not part of that context. Changing a skill after requesting a job makes the old job obsolete; output for the old revision stays unpublished.
 
@@ -84,7 +84,7 @@ Description revisions and batch sequences are separate. Importing a refill prese
 
 Sync orders trusted skill content by description revision, then batch sequence. Tags and other note metadata retain native conflict handling. A same-description refill must preserve prior exercises, batch history, and definition fields. Ordinary note behavior is unchanged. All clients and the sync server must run the matching LearnRecur build.
 
-The current proof retains at most 100 jobs, 100 batches per skill, and 100 active cached exercises per description revision. Published data and retained history share the 1 MiB snapshot limit. There is no cleanup, automatic refill trigger, Skill editor, hosting, or complete backup/restore flow yet. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
+The current proof retains at most 100 jobs, 100 batches per skill, and 100 active cached exercises per description revision. Published data and retained history share the 1 MiB snapshot limit. The Mac app can now make [bounded low-bank refill requests](REFILLS.md), but completed batches still need manual import. There is no cleanup, Skill editor, hosting, or complete backup/restore flow yet. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
 
 ## Verification
 

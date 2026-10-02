@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import re
 from dataclasses import dataclass
 
 from anki.cards import Card, CardId
@@ -31,6 +32,7 @@ class Exercise:
     prompt: str
     answer: str
     explanation: str
+    ordinal: int
 
 
 @dataclass(frozen=True)
@@ -40,6 +42,7 @@ class SkillReview:
     position: int
     exercise: Exercise
     cursor_hash: str
+    used: int
 
 
 def _text(value: object) -> str:
@@ -71,13 +74,17 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise]] | None:
         _text(raw["skill_id"])
         if type(raw["revision"]) is not int or raw["revision"] < 1:
             raise ValueError()
-        if not isinstance(raw["exercises"], list):
+        if not isinstance(raw["exercises"], list) or len(raw["exercises"]) > 100:
             raise ValueError()
         exercises = []
         ids = set()
-        for item in raw["exercises"]:
+        for ordinal, item in enumerate(raw["exercises"]):
             exercise = Exercise(
-                *(_text(item[key]) for key in ("id", "prompt", "answer", "explanation"))
+                *(
+                    _text(item[key])
+                    for key in ("id", "prompt", "answer", "explanation")
+                ),
+                ordinal,
             )
             if exercise.id in ids:
                 raise ValueError()
@@ -124,6 +131,19 @@ def _position(card: Card, bank_hash: str) -> int:
     return cursor["n"] if cursor["b"] == bank_hash else 0
 
 
+def _used(card: Card, bank_hash: str, position: int, exercises: list[Exercise]) -> int:
+    cursor = _custom_data(card.custom_data).get(CURSOR_KEY)
+    if not cursor or cursor["b"] != bank_hash:
+        return 0
+    if "u" not in cursor:
+        # Older counters advanced through eligible items, not raw bank positions.
+        return sum(1 << exercise.ordinal for exercise in exercises[:position])
+    value = cursor["u"]
+    if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{1,25}", value):
+        raise SkillReviewError("This skill has invalid review data.")
+    return int(value, 16)
+
+
 def select_skill_review(card: Card) -> SkillReview | None:
     if (bank := _bank(card)) is None:
         return None
@@ -131,9 +151,45 @@ def select_skill_review(card: Card) -> SkillReview | None:
     if not exercises:
         raise SkillReviewError("This skill has no available exercises.")
     position = _position(card, cursor_hash)
-    return SkillReview(
-        card.id, bank_hash, position, exercises[position % len(exercises)], cursor_hash
+    used = _used(card, cursor_hash, position, exercises)
+    exercise = next(
+        (exercise for exercise in exercises if not used & (1 << exercise.ordinal)),
+        exercises[position % len(exercises)],
     )
+    return SkillReview(card.id, bank_hash, position, exercise, cursor_hash, used)
+
+
+def skill_refill_request(card: Card) -> dict | None:
+    """Describe a low bank using only its companion identity and native usage."""
+    if (bank := _bank(card)) is None:
+        return None
+    from anki.learnrecur_skill_links import link_key
+
+    if (key := link_key(card.note())) is None:
+        return None
+    if not card.col.db.scalar(
+        "select exists(select 1 from learnrecur_skill_identities where nid=? and cid=? and guid=?)",
+        card.nid,
+        card.id,
+        card.note().guid,
+    ):
+        return None  # A deck package cannot authorize background generation.
+    _, cursor_hash, exercises = bank
+    used = _used(card, cursor_hash, _position(card, cursor_hash), exercises)
+    remaining = sum(not used & (1 << exercise.ordinal) for exercise in exercises)
+    if remaining > 2:
+        return None
+    raw = json.loads(card.note()[BANK_FIELD])
+    sequence = raw.get("bank_sequence", 0)
+    if type(sequence) is not int or not 0 <= sequence <= 100:
+        raise SkillReviewError("This skill has an invalid exercise bank.")
+    return {
+        "source_id": key[0],
+        "skill_id": key[1],
+        "revision": raw["revision"],
+        "bank_sequence": sequence,
+        "remaining": remaining,
+    }
 
 
 def validate_skill_review(card: Card, review: SkillReview) -> None:
@@ -176,7 +232,11 @@ def prepare_skill_answer(
         if answer.new_state.HasField("custom_data")
         else card.custom_data
     )
-    data[CURSOR_KEY] = {"b": review.cursor_hash, "n": review.position + 1}
+    data[CURSOR_KEY] = {
+        "b": review.cursor_hash,
+        "n": review.position + 1,
+        "u": format(review.used | (1 << review.exercise.ordinal), "x"),
+    }
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     # Native card custom data allows 100 bytes and keys of at most eight bytes.
     if len(encoded.encode()) > 100 or any(len(key.encode()) > 8 for key in data):

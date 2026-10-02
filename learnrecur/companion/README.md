@@ -45,7 +45,7 @@ Choose **Tools > Import skills…**. Confirm the preview, then study the **Learn
 
 ## API and storage
 
-Both endpoints require `Authorization: Bearer <token>`:
+The skill endpoints require `Authorization: Bearer <token>`:
 
 - `POST /v1/skills` takes `{"skills": [...]}`. Each skill has `id`, `title`, `description`, and `bank`. [The synthetic batch](../fixtures/spanish-import.json) shows the complete format. IDs must be unique within the batch. A bank's `skill_id` must match its enclosing ID.
 - `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. When revisions exist, `previous_revisions` maps each revised skill ID to its earlier payloads, in order. POST returns the latest snapshot after committing. Published jobs also add a `bank_updates` map; [the generation notes](GENERATION.md) describe its append-only batches.
@@ -90,4 +90,4 @@ The revision checks also kill the client before and after the native update comm
 
 The desktop requires identities from the companion. Older supplied snapshots remain readable by the local library helper, but the app refuses an older companion response. Existing test cards with locally assigned IDs are kept; importing their new companion snapshot stops with an identity conflict. Use fresh synthetic profiles for the sync proof. Duplicate links block skill review and are never automatically deleted, because another disconnected profile might still have reviews for either copy.
 
-A separate [local worker](GENERATION.md) processes durable jobs with optional example exercises. Free fixtures remain the default; [OpenAI](OPENAI.md) requires a private key and explicit spending authorization. A Skill editor and automatic refills remain ahead. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.
+A separate [local worker](GENERATION.md) processes durable jobs with optional example exercises. Free fixtures remain the default; [OpenAI](OPENAI.md) requires a private key and explicit spending authorization. [Low-bank requests](REFILLS.md) can queue refills, with manual import of completed batches. A Skill editor and automatic batch delivery remain ahead. [The local sync proof](../deploy/README.md) covers collection and media sync, independent imports, offline ratings, and restart recovery. Deleting and reimporting a synced skill needs an explicit recovery policy before production use; known deletion records currently block reimport. Complete backup restoration and the separate [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remain open before daily use or distribution.

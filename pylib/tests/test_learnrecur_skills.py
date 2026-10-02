@@ -282,3 +282,55 @@ def test_malformed_bank_stops_review(col, raw):
     card.load()
     with pytest.raises(SkillReviewError, match="invalid exercise bank"):
         select_skill_review(card)
+
+
+@pytest.mark.parametrize("used", [True, 3, "", "-1", "G", "f" * 26])
+def test_invalid_usage_mask_stops_review(col, used):
+    card, _ = next_answer(col, CardAnswer.GOOD)
+    review = select_skill_review(card)
+    card.custom_data = json.dumps({"lr": {"b": review.cursor_hash, "n": 1, "u": used}})
+    col.update_card(card)
+    with pytest.raises(SkillReviewError, match="invalid review data"):
+        select_skill_review(card)
+
+
+def test_unlinked_fixture_and_ordinary_cards_never_request_refill(col):
+    from anki.learnrecur_skills import skill_refill_request
+
+    card, _ = next_answer(col, CardAnswer.GOOD)
+    assert skill_refill_request(card) is None
+    card = col.get_card(col.find_cards('deck:"Ordinary sample"')[0])
+    assert skill_refill_request(card) is None
+
+
+def test_full_bank_usage_fits_native_custom_data_and_undo(col):
+    card, _ = next_answer(col, CardAnswer.AGAIN)
+    note = card.note()
+    bank = json.loads(note[BANK_FIELD])
+    bank["exercises"] = [
+        {
+            "id": f"synthetic-{n}",
+            "prompt": f"Exercise {n}",
+            "answer": str(n),
+            "explanation": "Synthetic capacity check.",
+        }
+        for n in range(100)
+    ]
+    note[BANK_FIELD] = json.dumps(bank)
+    col.update_note(note)
+    card.load()
+    review = select_skill_review(card)
+    card.custom_data = json.dumps(
+        {"lr": {"b": review.cursor_hash, "n": 99, "u": format((1 << 99) - 1, "x")}}
+    )
+    col.update_card(card)
+    card, answer = next_answer(col, CardAnswer.AGAIN)
+    before = snapshot(col, card.id)
+    review = select_skill_review(card)
+    assert review.exercise.id == "synthetic-99"
+    prepare_skill_answer(col, answer, review)
+    assert len(answer.new_state.custom_data.encode()) <= 100
+    col.sched.answer_card(answer)
+    assert select_skill_review(col.get_card(card.id)).used == (1 << 100) - 1
+    col.undo()
+    assert snapshot(col, card.id) == before
