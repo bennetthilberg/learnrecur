@@ -1,6 +1,6 @@
 # Local generation jobs
 
-The companion saves generation requests and processes them with a separate worker. Jobs and exercise batches share its SQLite database. The only enabled provider returns three predetermined Spanish exercises. It makes no network or model calls and incurs no API cost.
+The companion saves generation requests and processes them with a separate worker. Jobs and exercise batches share its SQLite database. The default provider returns three predetermined Spanish exercises without network or model calls. An explicit [OpenAI trial](OPENAI.md) can now generate a real batch after key setup and spending authorization.
 
 ## Request and run a batch
 
@@ -39,9 +39,9 @@ After completion, choose **Tools > Import skills…** in a separately stored Lea
 
 ## Request format and examples
 
-A request contains `request_id`, `skill_id`, `revision`, and `count`. The skill must already exist and the revision must be current. This proof accepts 1–3 exercises per request. `examples` is optional and defaults to an empty list. Each example contains `prompt`, `answer`, and `explanation`; supply at most five. Text fields are limited to 8 KiB and the whole request to 64 KiB.
+A request contains `request_id`, `skill_id`, `revision`, and `count`. The skill must already exist and the revision must be current. This proof accepts 1–3 exercises per request. `provider` is optional: `fixture` is the default, and `openai` selects the separately enabled OpenAI worker. `examples` is optional and defaults to an empty list. Each example contains `prompt`, `answer`, and `explanation`; supply at most five. Text fields are limited to 8 KiB and the whole request to 64 KiB. OpenAI also limits the assembled model request to 32 KiB.
 
-Examples are saved with the job and passed separately to the provider as reference material. They can guide format and difficulty when a real model is added. They do not change the skill definition, override its boundaries, or become review exercises automatically. Exact copies of example prompts are refused during publication. The fixture ignores the guidance when choosing its predetermined output; tests confirm that the provider still receives the saved examples.
+Examples are saved with the job and passed separately to the provider as reference material. The OpenAI worker uses them to guide format and difficulty. They do not change the skill definition, override its boundaries, or become review exercises automatically. Exact copies of example prompts are refused during publication. The fixture ignores the guidance when choosing its predetermined output; tests confirm that the provider still receives the saved examples.
 
 The context also freezes the skill payload, requested count, provider name, generation instructions, and instruction version. Credentials are not part of that context. Changing a skill after requesting a job makes the old job obsolete; output for the old revision stays unpublished.
 
@@ -52,6 +52,7 @@ The context also freezes the skill payload, requested count, provider name, gene
 | `queued` | Saved and ready for a worker. |
 | `waiting_budget` | No provider call; retry after a delay when funds may be available. |
 | `running` | Claimed with a 60-second lease and a reserved cost. |
+| `provider_pending` | An accepted OpenAI response ID is saved; retrieve it without another generation. |
 | `retry_wait` | A confirmed temporary, uncharged failure; another attempt is scheduled. |
 | `result_ready` | Output and usage are saved; validation/publication can resume without another call. |
 | `completed` | A batch was published in the companion; a desktop may still need to fetch it. |
@@ -65,15 +66,15 @@ An abandoned claim can resume if no call was started. The worker records that it
 
 Publication saves the batch and completion state together. Exercise IDs derive from the job ID and output position. A restart before publication resumes saved output; a restart after publication finds the completed job. Process-death tests cover both sides of that commit.
 
-There is no automatic resolver for uncertain attempts in this proof. Keep the database and reservation intact. Connecting a paid provider requires a way to retrieve or reconcile uncertain requests and account for any charged failures. Local publication can be made safe to retry; this cannot guarantee that a provider bills exactly once.
+There is no automatic resolver for an uncertain POST without a saved response ID. Keep the database and reservation intact. [The OpenAI notes](OPENAI.md) describe retrieval of saved responses and operator reconciliation of a confirmed ID, including charged failures. Local publication can be made safe to retry; this cannot guarantee that a provider bills exactly once.
 
 ## Cost records
 
 `generation_budget` stores the monthly out-of-pocket limit, available promotional credit, and its expiry. `generation_attempts` records each attempt's month, gross estimate, reserved credit, net reservation, and actual costs when known. Amounts use integer millionths of a US dollar: `5000000` is $5.
 
-Claims reserve estimated cost after available, unexpired credits. Concurrent claims account for existing reservations. Credit expiry is checked again immediately before a call. If the expired credit would exceed the budget, no call is made. Actual usage settles the reservation; a failed or obsolete batch still keeps any known cost. Uncertain attempts retain their reservation. Accounting stays attached to the attempt's original month.
+Claims reserve estimated cost after available, unexpired credits. Concurrent claims account for existing reservations. The budget and credit expiry are checked again immediately before a call. If the available budget cannot cover it, no call is made. A reservation made before midnight moves to the month in which the call starts. Actual usage settles the reservation; a failed or obsolete batch still keeps any known cost. Uncertain attempts retain their reservation across month changes.
 
-The fixture estimates and records zero cost. Tests use simulated prices and credits, without paid calls. For a fresh disposable store, `Jobs.configure_budget(monthly_limit, credit_total=0, credit_expires=0)` can configure those tests before the first attempt. This proof limits both configured amounts to $5 and has no budget-management UI. A real adapter must apply its actual discounts and offers, track expiry, and report usage; it must not infer that an error was free. Obtain authorization before enabling paid calls. An estimate cannot enforce a provider's billing cap.
+The fixture estimates and records zero cost. Tests use simulated prices and credits, without paid calls. For a fresh disposable store, `Jobs.configure_budget(monthly_limit, credit_total=0, credit_expires=0)` sets the allowance before the first attempt; repeating the same settings does not reset spend. This proof limits both configured amounts to $5 and has no budget-management UI. The OpenAI worker records token usage and estimates its cost from saved rates. Apply actual discounts and offers, track expiry, and never infer that an uncertain error was free. Obtain authorization before enabling paid calls. An estimate cannot enforce a provider's billing cap. Uncertain reservations remain committed in later months too.
 
 ## Exercise batches and cache updates
 

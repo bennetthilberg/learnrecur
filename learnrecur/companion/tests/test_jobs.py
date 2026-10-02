@@ -245,7 +245,7 @@ def test_budget_reservations_credits_expiry_and_actual_usage(jobs, payload):
         ).fetchone() == (80, 60, 20)
     jobs.clock = lambda: 1790888501
     assert jobs.claim(Priced()) is None  # Expired credits cannot fund another job.
-    # A reservation crossing a month boundary stays charged to its original month.
+    # Settled usage retains the month in which the call started.
     with jobs.store.connect() as db:
         assert (
             db.execute("select month from generation_attempts").fetchone()[0]
