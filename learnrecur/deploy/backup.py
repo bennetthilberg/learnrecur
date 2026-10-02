@@ -201,6 +201,9 @@ def restore_archive(archive_path: Path, destination: Path, revision: str):
         (stage / "companion/.restore-pending").write_text(
             "Inspect restored jobs before resuming.\n"
         )
+        (stage / "companion/.paid-restore-pending").write_text(
+            "Paid calls after this backup may be missing. Keep paid generation paused.\n"
+        )
         # Reserve the destination exclusively. An interrupted publication has
         # no root marker and cannot be launched as a complete deployment.
         destination.mkdir(mode=0o700)
@@ -273,14 +276,58 @@ def allow_fixture_worker(root):
     (root / "companion/.restore-pending").unlink(missing_ok=True)
 
 
+def inspect_generation(root):
+    root = validate_root(root)
+    path = root / "companion/skills.sqlite3"
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as db:
+        budget = db.execute(
+            "select monthly_limit,credit_total,credit_expires from generation_budget"
+        ).fetchone()
+        totals = db.execute(
+            "select month,coalesce(sum(net_actual),0),sum(case when net_actual is null then net_reserved else 0 end) from generation_attempts group by month"
+        ).fetchall()
+        attempts = db.execute(
+            "select a.job_id,a.attempt,j.state,a.state,a.response_id,a.net_reserved,a.net_actual from generation_attempts a join generation_jobs j on j.id=a.job_id order by a.job_id,a.attempt"
+        ).fetchall()
+    return {
+        "restore_paused": (root / "companion/.restore-pending").exists(),
+        "paid_restore_paused": (root / "companion/.paid-restore-pending").exists(),
+        "budget": dict(
+            zip(("monthly_limit", "credit_total", "credit_expires"), budget)
+        ),
+        "months": [
+            dict(zip(("month", "recorded_microusd", "held_microusd"), row))
+            for row in totals
+        ],
+        "attempts": [
+            dict(
+                zip(
+                    (
+                        "job_id",
+                        "attempt",
+                        "job_state",
+                        "attempt_state",
+                        "response_id",
+                        "reserved_microusd",
+                        "actual_microusd",
+                    ),
+                    row,
+                )
+            )
+            for row in attempts
+        ],
+        "recovery": "Retrieve known responses without resubmitting. A backup cannot account for calls made later; keep paid generation paused until that history is recovered.",
+    }
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("create", "restore", "allow-fixture-worker"):
+    for command in ("create", "restore", "allow-fixture-worker", "inspect-generation"):
         child = commands.add_parser(command)
         child.add_argument("--root", type=Path, required=True)
-        if command != "allow-fixture-worker":
+        if command in ("create", "restore"):
             child.add_argument("--archive", type=Path, required=True)
             child.add_argument(
                 "--revision",
@@ -298,8 +345,10 @@ def main():
             create(args.root, args.archive, args.recipient, args.revision)
         elif args.command == "restore":
             restore(args.archive, args.root, args.identity, args.revision)
-        else:
+        elif args.command == "allow-fixture-worker":
             allow_fixture_worker(args.root)
+        else:
+            print(json.dumps(inspect_generation(args.root), indent=2))
     except (
         ValueError,
         OSError,

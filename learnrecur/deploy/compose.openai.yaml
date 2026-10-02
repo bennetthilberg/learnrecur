@@ -1,0 +1,11 @@
+# Loaded only after configure-openai records an authorized allowance.
+services:
+  companion:
+    environment:
+      LEARNRECUR_GENERATION_PROVIDER: openai
+  worker:
+    environment:
+      LEARNRECUR_GENERATION_PROVIDER: openai
+      LEARNRECUR_GENERATION_LIMIT: ${LEARNRECUR_GENERATION_LIMIT:?Set the authorized allowance}
+    volumes:
+      - ${LEARNRECUR_SECRETS}/openai:/run/learnrecur-openai:ro

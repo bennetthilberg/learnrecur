@@ -127,6 +127,63 @@ def test_request_freezes_settings_and_examples_without_storing_credentials(
     assert jobs.enqueue(job["request"])["provider_response_id"] == "resp_test"
 
 
+def test_tightening_budget_preserves_charges_holds_and_credits(jobs, payload):
+    jobs.configure_budget(1000000, 100, 1791000000)
+    job = openai_job(jobs, payload)
+    transport = Transport()
+    transport.failure = TimeoutError
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    with jobs.store.connect() as db:
+        before = db.execute("select * from generation_attempts").fetchall()
+    jobs.configure_budget(1, 100, 1791000000)
+    with jobs.store.connect() as db:
+        assert db.execute("select * from generation_attempts").fetchall() == before
+    second = jobs.enqueue({**payload, "request_id": "second", "provider": "openai"})
+    jobs.run_once(provider)
+    assert jobs.get(second["id"])["state"] == "waiting_budget"
+    assert len(transport.calls) == 1
+    assert jobs.get(job["id"])["state"] == "needs_attention"
+    with pytest.raises(JobConflict):
+        jobs.configure_budget(1000000, 100, 1791000000)
+    with pytest.raises(JobConflict):
+        jobs.configure_budget(1, 200, 1791000000)
+
+
+@pytest.mark.parametrize("state", ["running", "provider_pending"])
+def test_restored_response_reconciliation_uses_get_and_keeps_paid_pause(
+    jobs, payload, state
+):
+    job = openai_job(jobs, payload)
+    transport = Transport(pending=True)
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    with jobs.store.connect() as db:
+        db.execute("update generation_jobs set state=? where id=?", (state, job["id"]))
+        before = db.execute(
+            "select gross_reserved,credit_reserved,net_reserved from generation_attempts"
+        ).fetchall()
+    marker = jobs.store.path.parent / ".paid-restore-pending"
+    marker.write_text("Restore paused")
+    with pytest.raises(JobConflict, match="paused"):
+        jobs.run_once(provider)
+    with pytest.raises(JobConflict):
+        jobs.reconcile(job["id"], "resp_another", provider)
+    assert jobs.reconcile(job["id"], "resp_test", provider)["state"] == "completed"
+    assert [call[0] for call in transport.calls] == ["POST", "GET"]
+    assert marker.exists()
+    with jobs.store.connect() as db:
+        assert (
+            db.execute(
+                "select gross_reserved,credit_reserved,net_reserved from generation_attempts"
+            ).fetchall()
+            == before
+        )
+        assert (
+            db.execute("select net_actual from generation_attempts").fetchone()[0] > 0
+        )
+
+
 def test_fixture_worker_never_claims_an_openai_job(jobs, payload):
     job = openai_job(jobs, payload)
     assert jobs.run_once(FixtureProvider()) is None

@@ -1,8 +1,8 @@
 # Linux deployment and restoration
 
-The backend runs as three processes in Linux containers: the matching Rust sync server, the Python companion, and an optional fixture worker. The image contains no desktop or Qt dependencies. Build it on a development machine or in CI, then transfer it to the VPS; the VPS does not need Rust or a GPU.
+The backend runs as three processes in Linux containers: the matching Rust sync server, the Python companion, and an optional generation worker. The image contains no desktop or Qt dependencies. Build it on a development machine or in CI, then transfer it to the VPS; the VPS does not need Rust or a GPU.
 
-This first deployment keeps both HTTP ports on the host's loopback address. Reach them through an SSH tunnel. Public HTTPS access and production OpenAI generation are later changes. The companion accepts fixture refill requests. They remain queued until the optional worker starts; it can only run fixtures in this configuration. Restored deployments disable refills and block the worker until their job history is checked. No API key is mounted.
+This first deployment keeps both HTTP ports on the host's loopback address. Reach them through an SSH tunnel. Public HTTPS access remains ahead. Fixtures are the default. OpenAI refills require the explicit setup below, an authorized allowance, and a private worker key. Restored deployments pause generation for inspection.
 
 ## Prepare the host
 
@@ -46,6 +46,29 @@ ssh -N -L 45331:127.0.0.1:45331 -L 45321:127.0.0.1:45321 server
 
 The LearnRecur profile uses `http://127.0.0.1:45331/` for native sync and `http://127.0.0.1:45321` for the companion. Supply the companion token through its existing launch environment. Use a fresh synthetic LearnRecur profile for the first VPS test. A tunnel disconnect leaves cached review available. This does not use an Anki profile or AnkiWeb account.
 
+
+## Enable OpenAI generation
+
+Get spending authorization first. Save the project key privately as `secrets/openai/openai-api-key`, owned by the service user, with mode `600` inside an `openai` folder with mode `700`. Transfer it over SSH or your credential system; never put it in a command, chat, repository, or desktop profile. Only the worker mounts this folder, read-only. The companion and sync server cannot read it. The key and generation configuration are excluded from backend backups.
+
+Stop the deployment, then set the approved allowance in millionths of a dollar. For a $1 trial:
+
+```sh
+python3 -m learnrecur.deploy.manage \
+  --state "$LEARNRECUR_STATE" --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" stop
+python3 -m learnrecur.deploy.manage \
+  --state "$LEARNRECUR_STATE" --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" configure-openai --monthly-limit-microusd 1000000
+python3 -m learnrecur.deploy.manage \
+  --state "$LEARNRECUR_STATE" --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" start-worker
+```
+
+The command checks key permissions and sets the database allowance before enabling OpenAI refills. It saves the provider choice in private `secrets/generation.json`, so later starts keep the same choice. Lowering a limit preserves all spending and held reservations. Increasing it or changing credits after attempts have begun is refused. No credits are assumed; apply only verified provider credits with an expiry before the first attempt. The companion queues OpenAI jobs; the worker uses the existing [GPT-6 Luna adapter](../companion/OPENAI.md) with `xhigh` reasoning. Ratings and answer reveals still use the local bank.
+
+The allowance is an estimated monthly cap, not a provider invoice cap. A single trial's authorization does not renew each month. Stop the worker when the trial ends. `stop` stops all three services; `start` brings back sync and companion without restarting the stopped worker. Docker keeps it stopped across host reboots. Protect the key separately from backups, and revoke it through OpenAI if the host is lost.
+
 ## Back up both stores
 
 Create an [age identity](https://github.com/FiloSottile/age#usage) on a separate trusted machine. Keep the private identity in your password manager and a second protected recovery location. Put only its public `age1…` recipient on the VPS. Losing the identity makes its backups unreadable. Server credentials and provider keys are deliberately excluded; keep them in the credential store separately.
@@ -82,9 +105,28 @@ python3 -m learnrecur.deploy.manage \
 
 Restoration verifies the image revision, file hashes, path safety, size limits, both store markers, and database integrity. It never replaces an existing state directory. An interrupted restore leaves an unmarked, incomplete destination that cannot start. Keep it for inspection and choose another fresh destination when retrying.
 
-Start sync and companion with the restored state, then download through a fresh synthetic client. Check ordinary cards, media, the skill card's exact schedule and history, its exercise bank, and an identical skill import. The restore leaves `.restore-pending` in the companion, and the worker cannot start while it exists.
+Start sync and companion with the restored state, then download through a fresh synthetic client. Check ordinary cards, media, the skill card's exact schedule and history, its exercise bank, and an identical skill import. The restore leaves `.restore-pending` and `.paid-restore-pending` in the companion. The first blocks all generation; the second continues to block OpenAI even after fixture-only acknowledgement. The job runner checks these markers too, so running it directly does not bypass the pause.
 
-Older paid job history needs reconciliation against the provider and the original host: a job that was queued when the backup was taken might have incurred a charge afterward. Don't remove the marker or recreate those requests to bypass that check. This deployment deliberately cannot resume paid work after restoration. Saved response IDs and reservations remain intact for the later recovery procedure.
+Older paid job history needs reconciliation against the provider and the original host: a job that was queued when the backup was taken might have incurred a charge afterward. Don't remove the marker or recreate those requests to bypass that check. New paid work stays blocked after restoration. Saved response IDs and reservations remain intact. Inspect them without a provider key or network access:
+
+```sh
+python3 -m learnrecur.deploy.manage \
+  --state /srv/learnrecur/restored --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" --project learnrecur-restored inspect-generation
+```
+
+The report shows recorded spending, held amounts, attempt states, and response IDs. These are the backup's records, not proof that no later calls happened. For a known saved response, stop the restored services and provide the private worker key separately:
+
+```sh
+python3 -m learnrecur.deploy.manage \
+  --state /srv/learnrecur/restored --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" --project learnrecur-restored reconcile-openai \
+  --job-id SAVED_JOB_ID --response-id resp_SAVED_RESPONSE_ID
+```
+
+Reconciliation retrieves that response through GET, checks its saved model and request identity, and records known usage without reserving or submitting another call. It can also finish a saved pending response after restoration. It leaves both restore markers in place. Missing usage or an unavailable response retains the hold.
+
+There is no command to unpause paid generation from an old backup. Recover the original host's latest complete state and account for calls made after the backup before designing that release step. Looking up IDs contained in the backup alone cannot recover requests it never recorded.
 
 For a fixture-only restore, stop the restored services, run the manager's `allow-fixture-worker` command, then `start-worker`. The acknowledgement refuses any saved OpenAI job, including completed jobs. It permits the queued fixture job to finish once without changing its ID.
 
@@ -114,4 +156,4 @@ The two running services used about 24 MiB of RAM. After reboot, about 566 MiB o
 
 The subscription's spending limit remains enabled. Student credits expire August 4, 2027. Expected out-of-pocket hosting is $0 while credits remain. With the [published free VM and disk allowances](https://azure.microsoft.com/en-us/free/students), the standard IPv4 address uses about $3.65/month in credits at $0.005/hour, before traffic or other charges. Confirm actual billed usage once Azure reports it. Credit balance is shared with unrelated resources and is recorded privately in the ignored deployment metadata. Renew eligibility, stop, or move before the credit or free allowance ends; do not upgrade to pay-as-you-go without authorization.
 
-This checks private SSH access, fixture generation, restart, and complete cross-host recovery. Hosted OpenAI generation, paid-job reconciliation after restore, automatic off-host backups, retention, and public HTTPS are still separate work.
+This checks private SSH access, fixture generation, restart, and complete cross-host recovery. The hosted OpenAI trial is recorded below. Automatic off-host backups, retention, release of paid generation after restoring old state, and public HTTPS remain ahead.
