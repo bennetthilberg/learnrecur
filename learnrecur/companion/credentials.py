@@ -20,11 +20,14 @@ def key_path():
 def _path(path):
     path = Path(os.path.abspath(Path(path).expanduser()))
     repo = Path(__file__).resolve().parents[2]
+    folded = Path(str(path).casefold())
     if (
-        path.is_relative_to(repo)
+        any(
+            folded.is_relative_to(Path(str(folder).casefold()))
+            for folder in (repo, Path.home() / "Library/Application Support")
+        )
         or any(p.casefold() in {"anki", "anki2", ".anki"} for p in path.parts)
         or any(p.is_symlink() for p in (path, *path.parents))
-        or path.is_relative_to(Path.home() / "Library/Application Support")
     ):
         raise ValueError(
             "Keep the key outside repositories and desktop profiles, without links."

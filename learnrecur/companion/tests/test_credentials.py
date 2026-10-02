@@ -64,3 +64,31 @@ def test_repository_path_is_refused_before_reading():
 
     with pytest.raises(ValueError):
         load_key(Path(__file__).resolve().parents[1] / "key")
+
+
+@pytest.mark.parametrize("location", ["repository", "profile"])
+@pytest.mark.parametrize("operation", ["save", "load"])
+def test_protected_paths_reject_mac_case_aliases_before_access(
+    monkeypatch, tmp_path, location, operation
+):
+    from pathlib import Path
+
+    from learnrecur.companion import credentials
+
+    monkeypatch.setattr(
+        credentials,
+        "__file__",
+        str(tmp_path / "repos/LearnRecur/learnrecur/companion/credentials.py"),
+    )
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
+    path = (
+        tmp_path / "repos/lEaRnReCuR/key"
+        if location == "repository"
+        else tmp_path / "home/library/application support/LearnRecur/key"
+    )
+    with pytest.raises(ValueError):
+        if operation == "save":
+            save_key(path, KEY)
+        else:
+            load_key(path)
+    assert not path.parent.exists()

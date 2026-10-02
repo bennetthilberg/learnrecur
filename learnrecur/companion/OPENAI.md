@@ -14,7 +14,7 @@ Run this yourself in an interactive terminal, from the repository root:
 out/pyenv/bin/python -m learnrecur.companion.credentials
 ```
 
-Paste the project key at the hidden prompt. The helper writes `~/.config/learnrecur/secrets/openai-api-key` with mode `600`, inside a folder with mode `700`. It refuses an existing file rather than overwrite it. The file contains plain text readable only by your account; keep it outside shared folders and backups of project files. The loader rejects links, unsafe permissions, non-regular files, this repository, and desktop application-data paths before reading the key.
+Paste the project key at the hidden prompt. The helper writes `~/.config/learnrecur/secrets/openai-api-key` with mode `600`, inside a folder with mode `700`. It refuses an existing file rather than overwrite it. The file contains plain text readable only by your account; keep it outside shared folders and backups of project files. The loader rejects links, unsafe permissions, non-regular files, this repository, and desktop application-data paths before reading the key. Protected-path checks ignore capitalization, including on Mac's default case-insensitive filesystem.
 
 Do not paste the key into chat, source files, commands, or a profile. The worker reads the file directly into memory and sends it only in the HTTPS authorization header. The API server and Mac app do not load it. Database rows, job context, card content, exports, and test evidence never include it. A host deployment will need its own protected secret storage.
 
@@ -84,4 +84,16 @@ Simulated responses cover the outbound schema and examples, cache-aware usage ac
 
 On October 2, 2026, a real three-exercise request with `gpt-6-luna` and `xhigh` reasoning authenticated and returned a background response ID. Retrieval reported `credit_balance_exhausted`, with no exercises or usage record. The job stopped in `needs_attention`, without another generation call. Its $0.008567 estimated reservation remains held because no usage was supplied; this is not a confirmed charge.
 
-The disposable trial store is `out/learnrecur/openai-mac-20261002/companion`, with a $0.25 allowance. Preserve it for another authorized trial so the held reservation still counts. After API credits are available, post a request with a new `request_id` and use that same folder for the worker. Reusing the first request ID returns the failed job. Real exercise quality and manual Mac review of a generated batch remain unchecked.
+After the user added API credits and requested a retry, a new job in the same disposable store completed with one submission and a later retrieval. It used 349 input tokens and 281 output tokens, including 132 reasoning tokens. There were no cache reads or writes. The estimated cost from recorded usage is $0.000176; total committed spending, including the first job's held reservation, is $0.008743 of the approved $0.25 allowance. These are estimates, not a reconciled invoice.
+
+All three exercises passed a manual check for correct answers, clear past-tense context, regular first-person forms, similar difficulty, and useful variation. Each explanation correctly replaces `-ar` with `-é`.
+
+| Generated prompt | Answer |
+| --- | --- |
+| El sábado yo ___ por el parque. (caminar) | caminé |
+| La semana pasada yo ___ a mis primos. (visitar) | visité |
+| Anoche yo ___ la cena. (preparar) | preparé |
+
+The packaged Mac app imported the batch through **Tools > Import skills…**. Native import undo/redo passed. After quitting, an exact comparison confirmed the same card, schedule, original review, and cursor, with the bank expanded from three exercises to six. The companion was then stopped. A Mac reboot interrupted the first review attempt; the saved job, bank, and original review remained intact afterward. The resumed check passed paired reveal of all three generated exercises, Again, variation, review undo/redo, and another app restart. The last revealed exercise stayed unrated and reappeared after reopening. One card retained five review rows and five repetitions.
+
+Evidence is in the ignored folder `out/learnrecur/openai-mac-20261002/`, including provider responses, job records, and collection comparisons. No further generation is running. Preserve `companion/` there so the held reservation still counts toward any future authorized trial. Reusing either request ID returns its existing job. This checks one narrow skill; broader exercise quality, automatic refills, hosted operation, and the existing Qt accessibility crash remain open. The cause of the Mac reboot was not investigated in this slice.
