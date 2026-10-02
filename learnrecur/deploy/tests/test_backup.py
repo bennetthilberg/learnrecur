@@ -17,6 +17,7 @@ from learnrecur.deploy.backup import (
     allow_fixture_worker,
     create_archive,
     inspect_generation,
+    publish_ready,
     restore_archive,
     validate_root,
 )
@@ -277,6 +278,42 @@ def test_restore_inspection_keeps_unknown_spending_held(state, tmp_path):
     assert report["attempts"][0]["job_id"] == job["id"]
     assert report["attempts"][0]["actual_microusd"] is None
     assert tables(jobs.store.path) == before
+
+
+def test_ready_paid_result_can_publish_on_restored_host_without_a_key(state, tmp_path):
+    from learnrecur.companion.openai_provider import OpenAIProvider
+    from learnrecur.companion.tests.test_openai_provider import SYNTHETIC_KEY, Transport
+
+    jobs = Jobs(Store(state / "companion"))
+    job = jobs.enqueue(
+        {
+            "request_id": "ready",
+            "skill_id": "spanish-ar-preterite-yo",
+            "revision": 1,
+            "count": 3,
+            "provider": "openai",
+        }
+    )
+    transport = Transport()
+    jobs.publish = Mock()
+    jobs.run_once(OpenAIProvider(SYNTHETIC_KEY, transport=transport))
+    assert jobs.get(job["id"])["state"] == "result_ready"
+    archive = tmp_path / "ready.tar.gz"
+    create_archive(state, archive, REVISION)
+    restored = tmp_path / "restored"
+    restore_archive(archive, restored, REVISION)
+    recovered = Jobs(Store(restored / "companion"))
+    before = tables(recovered.store.path)["generation_attempts"]
+    publish_ready(restored)
+    publish_ready(restored)
+    assert recovered.get(job["id"])["state"] == "completed"
+    assert (
+        len(recovered.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"]) == 1
+    )
+    assert tables(recovered.store.path)["generation_attempts"] == before
+    assert len(transport.calls) == 1
+    assert (restored / "companion/.restore-pending").exists()
+    assert (restored / "companion/.paid-restore-pending").exists()
 
 
 @pytest.mark.parametrize("failure", ["none", "copy", "still_running", "stop"])

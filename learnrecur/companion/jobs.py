@@ -829,7 +829,6 @@ class Jobs:
             )
 
     def run_once(self, provider):
-        self.check_restore(provider)
         with self.store.connect() as db:
             ready = db.execute(
                 "select id from generation_jobs where state='result_ready' order by next_run,id limit 1"
@@ -837,6 +836,7 @@ class Jobs:
         if ready:
             self.publish(ready[0])
             return ready[0]
+        self.check_restore(provider)
         # A saved response resumes through reads; never call generate again for it.
         resumed = self._resume(provider)
         if resumed:

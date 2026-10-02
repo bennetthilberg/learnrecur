@@ -369,6 +369,7 @@ def main():
             "allow-fixture-worker",
             "configure-openai",
             "inspect-generation",
+            "publish-ready",
             "reconcile-openai",
         ),
     )
@@ -394,7 +395,7 @@ def main():
                 deployment.backup(args.archive, args.recipient)
             elif args.command == "restore" and args.archive and args.identity:
                 deployment.restore(args.archive, args.identity)
-            elif args.command == "allow-fixture-worker":
+            elif args.command in ("allow-fixture-worker", "publish-ready"):
                 validate_root(deployment.state)
                 deployment.verify_containers()
                 if deployment.running():
@@ -403,7 +404,7 @@ def main():
                     )
                 deployment.helper(
                     [(deployment.state, "/state", False)],
-                    "allow-fixture-worker",
+                    args.command,
                     "--root",
                     "/state",
                 )

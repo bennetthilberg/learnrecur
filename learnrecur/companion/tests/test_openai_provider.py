@@ -184,6 +184,31 @@ def test_restored_response_reconciliation_uses_get_and_keeps_paid_pause(
         )
 
 
+def test_restored_ready_result_publishes_without_provider_access(
+    jobs, payload, monkeypatch
+):
+    job = openai_job(jobs, payload)
+    transport = Transport()
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    publish = jobs.publish
+    monkeypatch.setattr(jobs, "publish", lambda _: None)
+    jobs.run_once(provider)
+    assert jobs.get(job["id"])["state"] == "result_ready"
+    with jobs.store.connect() as db:
+        before = db.execute("select * from generation_attempts").fetchall()
+    for name in (".restore-pending", ".paid-restore-pending"):
+        (jobs.store.path.parent / name).write_text("paused")
+    monkeypatch.setattr(jobs, "publish", publish)
+    assert jobs.run_once(provider) == job["id"]
+    assert jobs.get(job["id"])["state"] == "completed"
+    assert len(transport.calls) == 1
+    with jobs.store.connect() as db:
+        assert db.execute("select * from generation_attempts").fetchall() == before
+    with pytest.raises(JobConflict, match="paused"):
+        jobs.run_once(provider)
+    assert (jobs.store.path.parent / ".paid-restore-pending").exists()
+
+
 def test_fixture_worker_never_claims_an_openai_job(jobs, payload):
     job = openai_job(jobs, payload)
     assert jobs.run_once(FixtureProvider()) is None

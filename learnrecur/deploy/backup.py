@@ -320,11 +320,31 @@ def inspect_generation(root):
     }
 
 
+def publish_ready(root):
+    from learnrecur.companion.jobs import Jobs
+    from learnrecur.companion.server import Store
+
+    root = validate_root(root)
+    jobs = Jobs(Store(root / "companion"))
+    with jobs.store.connect() as db:
+        ready = db.execute(
+            "select id from generation_jobs where state='result_ready' order by id"
+        ).fetchall()
+    for (job_id,) in ready:
+        jobs.publish(job_id)
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for command in ("create", "restore", "allow-fixture-worker", "inspect-generation"):
+    for command in (
+        "create",
+        "restore",
+        "allow-fixture-worker",
+        "inspect-generation",
+        "publish-ready",
+    ):
         child = commands.add_parser(command)
         child.add_argument("--root", type=Path, required=True)
         if command in ("create", "restore"):
@@ -347,6 +367,8 @@ def main():
             restore(args.archive, args.root, args.identity, args.revision)
         elif args.command == "allow-fixture-worker":
             allow_fixture_worker(args.root)
+        elif args.command == "publish-ready":
+            publish_ready(args.root)
         else:
             print(json.dumps(inspect_generation(args.root), indent=2))
     except (
