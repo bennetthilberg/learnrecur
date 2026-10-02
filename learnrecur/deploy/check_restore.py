@@ -124,7 +124,7 @@ def main():
     parser.add_argument("--image", required=True)
     args = parser.parse_args()
     root = safe_path(args.root)
-    root.mkdir(mode=0o700)  # Every run needs fresh synthetic storage.
+    root.mkdir(mode=0o700, parents=True)  # Every run needs fresh synthetic storage.
     keys = root / "keys"
     keys.mkdir(mode=0o700)
     source = Deployment(
