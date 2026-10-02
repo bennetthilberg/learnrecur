@@ -967,3 +967,36 @@ def test_automatic_bank_delivery_converges_after_offline_reviews(
             col.reopen()
             assert (col.get_card(cid).note().fields, records(col)) == before
         assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+
+
+@pytest.mark.parametrize("redo", [False, True])
+def test_automatic_bank_still_syncs_after_undoing_last_rating(
+    server, snapshot, tmp_path, redo
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        cid = a.find_cards("")[0]
+        original = a.db.all("select * from cards")
+        last_sync = a.db.scalar("select ls from col")
+        rate(a)
+        latest = generated_snapshot(tmp_path)
+        assert import_snapshot(a, latest, cache_only=True).updated == 1
+        committed = a.mod
+        a.undo()
+        if redo:
+            a.redo()
+            a.undo()
+        assert a.db.all("select * from cards") == original
+        assert records(a) == []
+        assert a.mod >= committed and a.mod > last_sync
+        sync(a, auth)
+        sync(b, auth)
+        for col in (a, b):
+            assert (
+                len(
+                    json.loads(col.get_card(cid).note()["LearnRecurSkill"])["exercises"]
+                )
+                == 6
+            )
+            assert records(col) == []

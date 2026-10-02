@@ -389,3 +389,31 @@ import_snapshot(col, json.load(open(sys.argv[2])), cache_only=True)
         assert state(col)[1:] == before
     finally:
         col.close()
+
+
+def test_automatic_bank_remains_changed_for_backup_after_rating_undo(
+    col, revisions, tmp_path
+):
+    original, _ = revisions
+    import_snapshot(col, original)
+    backups = tmp_path / "backups"
+    backups.mkdir()
+    assert col.create_backup(
+        backup_folder=str(backups), force=True, wait_for_completion=True
+    )
+    before_backup = col.mod
+    rate(col)
+    import_snapshot(col, appended(original), cache_only=True)
+    changed = col.mod
+    col.undo()
+    assert col.mod >= changed and col.mod > before_backup
+    assert col.create_backup(
+        backup_folder=str(backups), force=True, wait_for_completion=True
+    )
+
+    after_undo_backup = col.mod
+    col.redo()
+    assert col.mod > after_undo_backup
+    assert col.create_backup(
+        backup_folder=str(backups), force=True, wait_for_completion=True
+    )

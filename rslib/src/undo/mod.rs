@@ -60,9 +60,14 @@ pub(crate) struct UndoManager {
     mode: UndoMode,
     current_step: Option<UndoableOp>,
     counter: usize,
+    pub(crate) cache_modified: Option<TimestampMillis>,
 }
 
 impl UndoManager {
+    pub(crate) fn retain_cache_modified_time(&mut self, modified: TimestampMillis) {
+        self.cache_modified = Some(self.cache_modified.unwrap_or(modified).max(modified));
+    }
+
     pub(crate) fn has_saved_note_updates(&self, ids: &[NoteId]) -> bool {
         use crate::notes::undo::UndoableNoteChange;
         use crate::notetype::undo::UndoableNotetypeChange;
@@ -92,6 +97,7 @@ impl UndoManager {
 
     fn begin_step(&mut self, op: Option<Op>) {
         if op.is_none() {
+            self.cache_modified = None;
             self.undo_steps.clear();
             self.redo_steps.clear();
         } else if self.mode == UndoMode::NormalOp {

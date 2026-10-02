@@ -10,6 +10,8 @@ A batch update passes the existing snapshot, identity, content, and append-only 
 
 The native cache transaction keeps the existing undo and redo queues and adds no background undo step. Rating undo restores its schedule and usage while retaining the downloaded bank. Rollback also preserves the queues.
 
+Cache writes retain a collection modification marker through later undo and redo. Each change advances it, even within the same millisecond, so sync and timestamp-based backups still notice the bank and later edits. The marker clears with the native undo queues, including after sync or reopening the profile.
+
 If a saved note edit, deletion, or note-type change could restore an older bank or field layout, automatic delivery defers instead of changing that undo history. Reopening the profile clears in-memory undo history and allows delivery again. This is conservative: an unrelated note-type edit can also defer delivery. Manual import remains available as an explicit undoable operation.
 
 Undoing the original skill import still removes that card. Background delivery never recreates it. Redo restores the original import, and a later delivery check can fetch its published batches again.
@@ -29,3 +31,7 @@ The store retains its existing 100-exercise and 1 MiB snapshot limits. This slic
 On October 2, 2026, the packaged Mac app rated the original `hablar` exercise in fresh synthetic storage. The fixture worker completed three variations while `trabajar` remained displayed; reveal still showed `trabajé`. Returning to the deck list automatically expanded the bank from three to six. A comparison through the app's debug console confirmed the exact native card row, review row, and Answer Card undo action were unchanged. Native undo and redo restored that same state while retaining six exercises.
 
 With the companion stopped, the restarted app reviewed through `trabajar` and `comprar` to the delivered `cantar`/`canté`. Again, undo, and redo passed. Reopening retained one card, four review records, and six exercises. Reconnecting queued exactly one second refill; after it completed, returning to the deck list expanded the bank to nine with the exact card and all four reviews preserved. Both fixture batches cost zero. Ignored evidence is in `out/learnrecur/delivery-mac-20261002/`.
+
+The final packaged build reopened the nine-exercise profile and revealed `bailar`/`bailé` without adding a rating. Reopening retained the exact card and four reviews, and the companion still had exactly two completed jobs. The package and ad hoc signature pass. Test app, worker, and companion processes were stopped after verification.
+
+The initial review found that rating undo could rewind the collection timestamp past an unuploaded cache update. After the fix, a fresh packaged profile rated one exercise offline, reconnected, and automatically received both missed batches. Delivery preserved its exact card and review. Native undo removed the rating while retaining nine exercises and advancing the modification marker; redo restored the exact card and review and advanced it again. The saved rows matched after quitting. Regression tests also confirm that a second client receives the bank after undo and that backups detect undo and redo.

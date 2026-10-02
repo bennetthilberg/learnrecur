@@ -29,7 +29,23 @@ impl Collection {
     /// modifying the database.
     pub fn set_modified(&mut self) -> Result<()> {
         let stamps = self.storage.get_collection_timestamps()?;
-        self.set_modified_time_undoable(TimestampMillis::now(), stamps.collection_change)
+        let modified =
+            self.modified_time_with_cache(TimestampMillis::now(), stamps.collection_change);
+        self.set_modified_time_undoable(modified, stamps.collection_change)
+    }
+
+    pub(crate) fn modified_time_with_cache(
+        &self,
+        proposed: TimestampMillis,
+        previous: TimestampMillis,
+    ) -> TimestampMillis {
+        if let Some(cache) = self.state.undo.cache_modified {
+            // A retained cache is outside undo. Later edits and undo/redo must
+            // keep it dirty and remain visible to timestamp-based backups.
+            proposed.max(cache).max(TimestampMillis(previous.0 + 1))
+        } else {
+            proposed
+        }
     }
 
     /// Forces the next sync in one direction.

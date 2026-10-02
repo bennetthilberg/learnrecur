@@ -25,16 +25,23 @@ class BatchDelivery:
         self.snapshot = None
         self.connection = None
         self.resume_review = None
+        self.navigation = 0
+
+    def cancel_review(self) -> None:
+        self.navigation += 1
+        self.resume_review = None
 
     def defer_review(self, mw, resume) -> bool:
         if not self.applying or not self.safe(mw):
             return False
         state = mw.state
+        navigation = self.navigation
         deck = self.collection.decks.selected()
 
         def resume_if_current():
             if (
                 self.safe(mw)
+                and self.navigation == navigation
                 and mw.state == state
                 and self.collection.decks.selected() == deck
             ):

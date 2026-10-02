@@ -182,7 +182,9 @@ def test_queued_apply_cannot_write_another_profile(server, tmp_path, monkeypatch
         col.close()
 
 
-@pytest.mark.parametrize("change", ["none", "state", "deck", "profile"])
+@pytest.mark.parametrize(
+    "change", ["none", "state", "deck", "profile", "away_and_back"]
+)
 def test_study_waits_for_cache_write_and_cancels_after_navigation(
     server, tmp_path, monkeypatch, change
 ):
@@ -204,6 +206,8 @@ def test_study_waits_for_cache_write_and_cancels_after_navigation(
             monkeypatch.setattr(col.decks, "selected", lambda: -1)
         elif change == "profile":
             mw.col = object()
+        elif change == "away_and_back":
+            delivery.cancel_review()
         mw.progress.single_shot.call_args.args[1]()
         assert resume.call_count == (1 if change == "none" else 0)
     finally:

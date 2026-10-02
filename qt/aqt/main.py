@@ -774,6 +774,8 @@ class AnkiQt(QMainWindow):
             and delivery.defer_review(self, lambda: self.moveToState(state, *args))
         ):
             return
+        if delivery:
+            delivery.cancel_review()
         oldState = self.state
         cleanup = getattr(self, f"_{oldState}Cleanup", None)
         if cleanup:

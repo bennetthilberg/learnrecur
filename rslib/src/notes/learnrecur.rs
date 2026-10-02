@@ -44,8 +44,19 @@ impl Collection {
             );
             // A cache append changes no card state. Keep rating undo and redo,
             // including on rollback, without adding a background undo step.
-            let undo = std::mem::take(&mut self.state.undo);
+            let stamps = self.storage.get_collection_timestamps()?;
+            let previous = stamps.collection_change.max(stamps.last_sync).max(
+                self.state
+                    .last_backup_modified
+                    .unwrap_or(TimestampMillis(0)),
+            );
+            let modified = TimestampMillis::now().max(TimestampMillis(previous.0 + 1));
+            let mut undo = std::mem::take(&mut self.state.undo);
+            self.state.undo.retain_cache_modified_time(modified);
             let result = self.add_skill_notes_inner(input, Op::SkipUndo);
+            if result.is_ok() {
+                undo.retain_cache_modified_time(modified);
+            }
             self.state.undo = undo;
             result
         } else {
