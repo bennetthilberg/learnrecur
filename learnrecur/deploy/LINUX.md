@@ -2,7 +2,7 @@
 
 The backend runs as three processes in Linux containers: the matching Rust sync server, the Python companion, and an optional fixture worker. The image contains no desktop or Qt dependencies. Build it on a development machine or in CI, then transfer it to the VPS; the VPS does not need Rust or a GPU.
 
-This first deployment keeps both HTTP ports on the host's loopback address. Reach them through an SSH tunnel. Public HTTPS access and production OpenAI generation are later changes. The worker is off by default and can only run fixtures in this configuration. No API key is mounted.
+This first deployment keeps both HTTP ports on the host's loopback address. Reach them through an SSH tunnel. Public HTTPS access and production OpenAI generation are later changes. The companion accepts fixture refill requests. They remain queued until the optional worker starts; it can only run fixtures in this configuration. Restored deployments disable refills and block the worker until their job history is checked. No API key is mounted.
 
 ## Prepare the host
 
@@ -100,4 +100,4 @@ The check needs the matching native Python backend (`./ninja pylib`), Docker, an
 
 Separate containers on one Docker host prove the Linux runtime and restore procedure. They do not meet the milestone's different-host requirement. That needs a VPS and another restore target. Measure representative collection sizes and resource use before committing to a host; keep the $5/month hosting limit after credits and promotions, and get spending authorization before provisioning.
 
-On October 2, 2026, the Apple Silicon Docker host ran both source and restored Linux deployments. The restored native client had two cards, one review, matching skill ownership and media, and six exercises. One queued fixture job then resumed once and expanded the bank to nine. A tampered encrypted archive failed authentication and created no destination. The three processes used about 43 MiB of memory in this tiny fixture. All 201 affected tests pass. This is an ARM64 Linux proof; x86-64 Linux CI and a different VPS host remain separate checks. Ignored evidence is in `out/learnrecur/linux-deploy/`.
+On October 2, 2026, the Apple Silicon Docker host ran both source and restored Linux deployments. The restored native client had two cards, four reviews, matching skill ownership and media, and six exercises. Native ratings queued both jobs through the app's refill endpoint. One queued fixture job then resumed once and expanded the bank to nine. A tampered encrypted archive failed authentication and created no destination. The three processes used about 43 MiB of memory in this tiny fixture. All 201 affected tests pass. This is an ARM64 Linux proof; x86-64 Linux CI and a different VPS host remain separate checks. Ignored evidence is in `out/learnrecur/linux-deploy/`.

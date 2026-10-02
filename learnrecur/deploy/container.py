@@ -41,6 +41,9 @@ def main():
             read_secret("companion_token"),
             45321,
             host="0.0.0.0",
+            refill_provider=None
+            if Path("/state/companion/.restore-pending").exists()
+            else "fixture",
         )
         server.serve_forever()
     elif mode == "worker":

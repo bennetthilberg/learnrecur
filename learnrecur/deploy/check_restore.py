@@ -15,7 +15,11 @@ from uuid import uuid4
 
 from anki.collection import Collection
 from anki.learnrecur_skill_import import DECK_NAME, import_snapshot
-from anki.learnrecur_skills import prepare_skill_answer, select_skill_review
+from anki.learnrecur_skills import (
+    prepare_skill_answer,
+    select_skill_review,
+    skill_refill_request,
+)
 from anki.scheduler.v3 import CardAnswer
 from learnrecur.deploy.backup import safe_path
 from learnrecur.deploy.manage import Deployment
@@ -99,6 +103,20 @@ def rows(col):
     }
 
 
+def verify_private_listeners(deployment):
+    ids = deployment.compose("ps", "--quiet").split()
+    containers = json.loads(
+        subprocess.run(
+            ["docker", "inspect", *ids], check=True, capture_output=True, text=True
+        ).stdout
+    )
+    for item in containers:
+        assert item["HostConfig"]["ReadonlyRootfs"]
+        assert item["Config"]["User"] != "0:0"
+        for bindings in item["HostConfig"]["PortBindings"].values():
+            assert all(binding["HostIp"] == "127.0.0.1" for binding in bindings)
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
@@ -137,17 +155,7 @@ def main():
         source.initialize()
         source.start()
         ready(endpoint(source))
-        ids = source.compose("ps", "--quiet").split()
-        containers = json.loads(
-            subprocess.run(
-                ["docker", "inspect", *ids], check=True, capture_output=True, text=True
-            ).stdout
-        )
-        for item in containers:
-            assert item["HostConfig"]["ReadonlyRootfs"]
-            assert item["Config"]["User"] != "0:0"
-            for bindings in item["HostConfig"]["PortBindings"].values():
-                assert all(binding["HostIp"] == "127.0.0.1" for binding in bindings)
+        verify_private_listeners(source)
         token = (source.credentials / "companion-token").read_text().strip()
         user, password = (
             (source.credentials / "sync-account").read_text().strip().split(":", 1)
@@ -158,34 +166,6 @@ def main():
             payload=json.loads(
                 (ROOT / "learnrecur/fixtures/spanish-import.json").read_text()
             ),
-        )
-        job_request = {
-            "request_id": "first",
-            "skill_id": "spanish-ar-preterite-yo",
-            "revision": 1,
-            "count": 3,
-        }
-        first = request(companion(source), token, "/v1/generation-jobs", job_request)
-        source.compose(
-            "exec",
-            "-T",
-            "companion",
-            "python",
-            "-c",
-            'from pathlib import Path; from learnrecur.companion.server import Store; from learnrecur.companion.jobs import Jobs, FixtureProvider; Jobs(Store(Path("/state/companion"))).run_once(FixtureProvider())',
-        )
-        assert (
-            request(companion(source), token, "/v1/generation-jobs/" + first["id"])[
-                "state"
-            ]
-            == "completed"
-        )
-        snapshot = request(companion(source), token)
-        pending = request(
-            companion(source),
-            token,
-            "/v1/generation-jobs",
-            {**job_request, "request_id": "pending"},
         )
         for name in ("client-a", "client-b"):
             folder = root / name
@@ -200,6 +180,36 @@ def main():
         media = b'<svg xmlns="http://www.w3.org/2000/svg"><circle r="10"/></svg>'
         a.media.write_data("synthetic.svg", media)
         skill_card = rate(a)
+        checkpoint = skill_refill_request(a.get_card(skill_card))
+        assert checkpoint is not None
+        first = request(companion(source), token, "/v1/refill-requests", checkpoint)
+        assert first["status"] == "queued"
+        source.compose(
+            "exec",
+            "-T",
+            "companion",
+            "python",
+            "-c",
+            'from pathlib import Path; from learnrecur.companion.server import Store; from learnrecur.companion.jobs import Jobs, FixtureProvider; Jobs(Store(Path("/state/companion"))).run_once(FixtureProvider())',
+        )
+        assert (
+            request(companion(source), token, "/v1/generation-jobs/" + first["job_id"])[
+                "state"
+            ]
+            == "completed"
+        )
+        snapshot = request(companion(source), token)
+        assert import_snapshot(a, snapshot, cache_only=True).updated == 1
+        for _ in range(3):
+            rate(a)
+        checkpoint = skill_refill_request(a.get_card(skill_card))
+        assert checkpoint is not None and checkpoint["bank_sequence"] == 1
+        queued = request(companion(source), token, "/v1/refill-requests", checkpoint)
+        assert queued["status"] == "queued" and queued["job_id"] != first["job_id"]
+        pending = request(
+            companion(source), token, "/v1/generation-jobs/" + queued["job_id"]
+        )
+        expected_answer = select_skill_review(a.get_card(skill_card)).exercise.answer
         auth = a.sync_login(user, password, endpoint(source) + "/")
         full_sync(a, auth, True)
         media_sync(a, auth)
@@ -268,6 +278,9 @@ def main():
         restored.start()
         ready(endpoint(restored))
         assert request(companion(restored), token) == snapshot
+        assert request(
+            companion(restored), token, "/v1/refill-requests", checkpoint
+        ) == {"status": "disabled", "job_id": None}
         assert (
             request(companion(restored), token, "/v1/generation-jobs/" + pending["id"])
             == pending
@@ -288,7 +301,10 @@ def main():
         assert before["notes"] == after["notes"]
         assert (Path(b.media.dir()) / "synthetic.svg").read_bytes() == media
         assert import_snapshot(b, snapshot).existing == 1
-        assert select_skill_review(b.get_card(skill_card)).exercise.answer == "trabajé"
+        assert (
+            select_skill_review(b.get_card(skill_card)).exercise.answer
+            == expected_answer
+        )
         restored.compose("stop")
         restored.helper(
             [(restored.state, "/state", False)],
@@ -315,14 +331,19 @@ def main():
             rows(b)["cards"] == unchanged["cards"]
             and rows(b)["reviews"] == unchanged["reviews"]
         )
+        assert request(
+            companion(restored), token, "/v1/refill-requests", checkpoint
+        ) == {"status": "awaiting_import", "job_id": None}
         assert (
-            request(
-                companion(restored),
-                token,
-                "/v1/generation-jobs",
-                {**job_request, "request_id": "pending"},
-            )["id"]
-            == pending["id"]
+            restored.compose(
+                "exec",
+                "-T",
+                "companion",
+                "python",
+                "-c",
+                'import sqlite3; db=sqlite3.connect("/state/companion/skills.sqlite3"); print(db.execute("select count(*) from generation_jobs").fetchone()[0])',
+            ).strip()
+            == "2"
         )
         ids = restored.compose("ps", "--quiet").split()
         stats = subprocess.run(
