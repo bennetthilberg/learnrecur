@@ -396,6 +396,9 @@ class Reviewer:
 
     def _showQuestion(self) -> None:
         self._prepare_skill_review()
+        from aqt.learnrecur_refill import check_refill
+
+        check_refill(self)
         self._reps += 1
         self.state = "question"
         self.typedAnswer: str | None = None
@@ -583,8 +586,15 @@ class Reviewer:
         )
 
         def after_answer(changes: OpChanges) -> None:
-            if gui_hooks.reviewer_did_answer_card.count() > 0:
+            if (
+                self._skill_review is not None
+                or gui_hooks.reviewer_did_answer_card.count() > 0
+            ):
                 self.card.load()
+            if self._skill_review is not None:
+                from aqt.learnrecur_refill import check_refill
+
+                check_refill(self)
             # v3 scheduler doesn't report this
             suspended = self.card is not None and self.card.queue < 0
             self._after_answering(ease)

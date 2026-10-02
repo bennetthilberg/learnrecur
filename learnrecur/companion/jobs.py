@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import re
 import time
 from datetime import datetime, timezone
@@ -168,72 +169,170 @@ class Jobs:
         now = self.clock()
         with self.store.connect() as db:
             db.execute("begin immediate")
-            existing = db.execute(
-                "select * from generation_jobs where request_id=?", (request_id,)
-            ).fetchone()
-            if existing:
-                if existing[2] != encoded:
-                    raise JobConflict(
-                        "This request_id already has different generation settings."
-                    )
-                return self._read(db, existing)
-            if db.execute("select count(*) from generation_jobs").fetchone()[0] >= 100:
+            return self._enqueue(
+                db, value, request_id, skill_id, examples, provider_name, encoded, now
+            )
+
+    def _enqueue(
+        self, db, value, request_id, skill_id, examples, provider_name, encoded, now
+    ):
+        existing = db.execute(
+            "select * from generation_jobs where request_id=?", (request_id,)
+        ).fetchone()
+        if existing:
+            if existing[2] != encoded:
                 raise JobConflict(
-                    "The local proof can retain at most 100 generation jobs."
+                    "This request_id already has different generation settings."
                 )
-            row = db.execute(
-                "select payload from skills where id=?", (skill_id,)
-            ).fetchone()
-            if not row:
-                raise JobConflict("Import the skill before requesting exercises.")
+            return self._read(db, existing)
+        if db.execute("select count(*) from generation_jobs").fetchone()[0] >= 100:
+            raise JobConflict("The local proof can retain at most 100 generation jobs.")
+        row = db.execute(
+            "select payload from skills where id=?", (skill_id,)
+        ).fetchone()
+        if not row:
+            raise JobConflict("Import the skill before requesting exercises.")
+        skill = decode(row[0].encode())
+        if skill["bank"]["revision"] != value["revision"]:
+            raise JobConflict("Request exercises for the current skill revision.")
+        context = {
+            "skill": skill,
+            "examples": examples,
+            "count": value["count"],
+            "instructions": INSTRUCTIONS,
+            "provider": "fixture-spanish-v1",
+            "instructions_version": 1,
+        }
+        context["existing_prompts"] = [e["prompt"] for e in skill["bank"]["exercises"]]
+        for (batch,) in db.execute(
+            "select payload from exercise_batches where skill_id=? order by sequence",
+            (skill_id,),
+        ):
+            batch = decode(batch.encode())
+            if batch["revision"] == value["revision"]:
+                context["existing_prompts"].extend(
+                    e["prompt"] for e in batch["exercises"]
+                )
+        if len(context["existing_prompts"]) + value["count"] > 100:
+            raise JobConflict("The current exercise bank is full.")
+        if provider_name == "openai":
+            from learnrecur.companion.openai_provider import (
+                CONFIG,
+                GUIDANCE,
+                NAME,
+                request_body,
+            )
+
+            context["provider"] = NAME
+            context["provider_config"] = copy.deepcopy(CONFIG)
+            context["instructions"] = GUIDANCE + " " + INSTRUCTIONS
+            request_body(context)
+        job_id = uuid4().hex
+        db.execute(
+            "insert into generation_jobs (id,request_id,request,context,state,next_run) values (?,?,?,?,?,?)",
+            (job_id, request_id, encoded, encode(context), "queued", now),
+        )
+        return self._read(
+            db,
+            db.execute(
+                "select * from generation_jobs where id=?", (job_id,)
+            ).fetchone(),
+        )
+
+    def request_refill(self, value, provider):
+        """Queue once per imported bank checkpoint, under the same write lock."""
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {"source_id", "skill_id", "revision", "bank_sequence", "remaining"}
+            or not isinstance(value["source_id"], str)
+            or not isinstance(value["skill_id"], str)
+            or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", value["skill_id"])
+            or type(value["revision"]) is not int
+            or not 1 <= value["revision"] <= 100
+            or type(value["bank_sequence"]) is not int
+            or not 0 <= value["bank_sequence"] <= 100
+            or type(value["remaining"]) is not int
+            or not 0 <= value["remaining"] <= 2
+        ):
+            raise SkillImportError("Supply a valid low-bank checkpoint.")
+        if provider is None:
+            return {"status": "disabled", "job_id": None}
+        if provider not in ("fixture", "openai"):
+            raise SkillImportError("Choose fixture or openai as the refill provider.")
+        key = value["skill_id"]
+        checkpoint = {
+            k: value[k] for k in ("source_id", "skill_id", "revision", "bank_sequence")
+        }
+        request_id = "refill-" + hashlib.sha256(encode(checkpoint).encode()).hexdigest()
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            source = db.execute(
+                "select value from metadata where key='source_id'"
+            ).fetchone()[0]
+            row = db.execute("select payload from skills where id=?", (key,)).fetchone()
+            if source != value["source_id"] or not row:
+                raise JobConflict(
+                    "Import this companion's skill before requesting a refill."
+                )
             skill = decode(row[0].encode())
             if skill["bank"]["revision"] != value["revision"]:
-                raise JobConflict("Request exercises for the current skill revision.")
-            context = {
-                "skill": skill,
-                "examples": examples,
-                "count": value["count"],
-                "instructions": INSTRUCTIONS,
-                "provider": "fixture-spanish-v1",
-                "instructions_version": 1,
-            }
-            if provider_name == "openai":
-                from learnrecur.companion.openai_provider import (
-                    CONFIG,
-                    GUIDANCE,
-                    NAME,
-                    request_body,
+                raise JobConflict(
+                    "Import the current skill revision before requesting a refill."
                 )
-
-                context["provider"] = NAME
-                context["provider_config"] = copy.deepcopy(CONFIG)
-                context["instructions"] = GUIDANCE + " " + INSTRUCTIONS
-                context["existing_prompts"] = [
-                    e["prompt"] for e in skill["bank"]["exercises"]
-                ]
-                for (batch,) in db.execute(
-                    "select payload from exercise_batches where skill_id=? order by sequence",
-                    (skill_id,),
+            sequence = db.execute(
+                "select coalesce(max(sequence),0) from exercise_batches where skill_id=?",
+                (key,),
+            ).fetchone()[0]
+            if value["bank_sequence"] > sequence:
+                raise JobConflict("The imported bank checkpoint is unknown.")
+            if value["bank_sequence"] < sequence:
+                return {"status": "awaiting_import", "job_id": None}
+            existing = db.execute(
+                "select id,state from generation_jobs where request_id=?", (request_id,)
+            ).fetchone()
+            if existing:
+                return {"status": existing[1], "job_id": existing[0]}
+            # Any uncertain charge needs explicit recovery before automatic work.
+            uncertain = db.execute(
+                "select id from generation_jobs where state='needs_attention' limit 1"
+            ).fetchone()
+            if uncertain:
+                return {"status": "needs_attention", "job_id": uncertain[0]}
+            for job_id, context, state in db.execute(
+                "select id,context,state from generation_jobs where state not in ('completed','obsolete')"
+            ):
+                saved = decode(context.encode())["skill"]
+                if (
+                    saved["id"] == key
+                    and saved["bank"]["revision"] == value["revision"]
                 ):
-                    batch = decode(batch.encode())
-                    if batch["revision"] == value["revision"]:
-                        context["existing_prompts"].extend(
-                            e["prompt"] for e in batch["exercises"]
-                        )
-                if len(context["existing_prompts"]) + value["count"] > 100:
-                    raise JobConflict("The current exercise bank is full.")
-                request_body(context)
-            job_id = uuid4().hex
-            db.execute(
-                "insert into generation_jobs (id,request_id,request,context,state,next_run) values (?,?,?,?,?,?)",
-                (job_id, request_id, encoded, encode(context), "queued", now),
-            )
-            return self._read(
+                    return {"status": state, "job_id": job_id}
+            examples = [
+                {
+                    k: skill["bank"]["exercises"][0][k]
+                    for k in ("prompt", "answer", "explanation")
+                }
+            ]
+            request = {
+                "request_id": request_id,
+                "skill_id": key,
+                "revision": value["revision"],
+                "count": 3,
+                "examples": examples,
+                "provider": provider,
+            }
+            job = self._enqueue(
                 db,
-                db.execute(
-                    "select * from generation_jobs where id=?", (job_id,)
-                ).fetchone(),
+                request,
+                request_id,
+                key,
+                examples,
+                provider,
+                encode(request),
+                self.clock(),
             )
+            return {"status": job["state"], "job_id": job["id"]}
 
     def configure_budget(self, monthly_limit, credit_total=0, credit_expires=0):
         # Set the local allowance before its first provider attempt.
@@ -819,7 +918,28 @@ class FixtureProvider:
                 "tomé",
                 "For yo in the preterite, replace -ar with -é: tomar → tomé.",
             ),
+            (
+                "Ayer yo ___ español en casa. (estudiar)",
+                "estudié",
+                "For yo in the preterite, replace -ar with -é: estudiar → estudié.",
+            ),
+            (
+                "Anoche yo ___ la cena. (preparar)",
+                "preparé",
+                "For yo in the preterite, replace -ar with -é: preparar → preparé.",
+            ),
+            (
+                "Ayer yo ___ por el parque. (caminar)",
+                "caminé",
+                "For yo in the preterite, replace -ar with -é: caminar → caminé.",
+            ),
         ]
+        excluded = set(context.get("existing_prompts", [])) | {
+            example["prompt"] for example in context.get("examples", [])
+        }
+        texts = [values for values in texts if values[0] not in excluded]
+        if len(texts) < context["count"]:
+            raise TerminalFailure()
         return {
             "exercises": [
                 dict(zip(("prompt", "answer", "explanation"), values))

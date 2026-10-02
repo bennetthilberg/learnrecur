@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from aqt.main import AnkiQt
 
 
-def fetch_snapshot() -> object:
+def companion_connection() -> tuple[str, str]:
     url = os.environ.get("LEARNRECUR_COMPANION_URL", "http://127.0.0.1:45321")
     token = os.environ.get("LEARNRECUR_COMPANION_TOKEN", "")
     match = re.fullmatch(r"http://127\.0\.0\.1:([0-9]{1,5})", url)
@@ -38,6 +38,11 @@ def fetch_snapshot() -> object:
         raise SkillImportError(
             "Set LEARNRECUR_COMPANION_TOKEN before launching LearnRecur."
         )
+    return url, token
+
+
+def fetch_snapshot() -> object:
+    url, token = companion_connection()
     try:
         with requests.Session() as session:
             session.trust_env = (

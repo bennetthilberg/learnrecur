@@ -129,3 +129,61 @@ def test_invalid_batch_never_changes_collection(col, revisions, damage):
     with pytest.raises(SkillImportError):
         import_snapshot(col, candidate)
     assert state(col) == before
+
+
+def test_wrapped_bank_prefers_new_batch_and_undo_restores_usage(col, revisions):
+    from anki.learnrecur_skills import skill_refill_request
+
+    original, _ = revisions
+    import_snapshot(col, original)
+    for _ in range(5):
+        cid = rate(col)
+    before = select_skill_review(col.get_card(cid))
+    assert before.position == 5
+    assert skill_refill_request(col.get_card(cid))["remaining"] == 0
+    import_snapshot(col, appended(original))
+    fresh = select_skill_review(col.get_card(cid))
+    assert fresh.exercise.id == "generated-cantar"
+    assert fresh.used == before.used == 7
+    assert skill_refill_request(col.get_card(cid))["remaining"] == 2
+    rate(col)
+    assert skill_refill_request(col.get_card(cid))["remaining"] == 1
+    col.undo()
+    assert select_skill_review(col.get_card(cid)) == fresh
+    col.redo()
+    assert select_skill_review(col.get_card(cid)).exercise.id == "generated-bailar"
+    col.close()
+    col.reopen()
+    assert skill_refill_request(col.get_card(cid))["remaining"] == 1
+
+
+def test_legacy_counter_is_conservative_and_upgrade_uses_native_answer(col, revisions):
+    from anki.learnrecur_skills import skill_refill_request
+
+    original, _ = revisions
+    import_snapshot(col, appended(original))
+    cid = rate(col)
+    card = col.get_card(cid)
+    data = json.loads(card.custom_data)
+    del data["lr"]["u"]
+    data["lr"]["n"] = 8
+    card.custom_data = json.dumps(data)
+    col.update_card(card)
+    assert skill_refill_request(card)["remaining"] == 0
+    before = state(col)
+    rate(col)
+    assert "u" in json.loads(col.get_card(cid).custom_data)["lr"]
+    col.undo()
+    assert state(col) == before
+
+
+def test_untrusted_package_link_cannot_request_generation(col, revisions):
+    from anki.learnrecur_skills import skill_refill_request
+
+    original, _ = revisions
+    import_snapshot(col, original)
+    cid = rate(col)
+    assert skill_refill_request(col.get_card(cid))["remaining"] == 2
+    col.db.execute("delete from learnrecur_skill_identities")
+    assert select_skill_review(col.get_card(cid)) is not None
+    assert skill_refill_request(col.get_card(cid)) is None
