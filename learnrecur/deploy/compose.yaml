@@ -1,0 +1,46 @@
+name: learnrecur
+x-service: &service
+  image: ${LEARNRECUR_IMAGE:?Set the built LearnRecur image tag}
+  user: ${LEARNRECUR_UID:-10001}:${LEARNRECUR_UID:-10001}
+  init: true
+  restart: unless-stopped
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  stop_grace_period: 30s
+  logging:
+    driver: json-file
+    options: {max-size: "5m", max-file: "2"}
+services:
+  sync:
+    <<: *service
+    command: [sync]
+    ports: ["127.0.0.1:${LEARNRECUR_SYNC_PORT:-45331}:45331"]
+    volumes:
+      - ${LEARNRECUR_STATE:?Set a dedicated state directory}/sync:/state/sync
+    secrets: [sync_account]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:45331/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  companion:
+    <<: *service
+    command: [companion]
+    ports: ["127.0.0.1:${LEARNRECUR_COMPANION_PORT:-45321}:45321"]
+    volumes:
+      - ${LEARNRECUR_STATE}/companion:/state/companion
+    secrets: [companion_token]
+  worker:
+    <<: *service
+    command: [worker]
+    profiles: [worker]
+    volumes:
+      - ${LEARNRECUR_STATE}/companion:/state/companion
+    # This first deployment uses fixtures. Paid generation remains disabled.
+secrets:
+  sync_account:
+    file: ${LEARNRECUR_SECRETS:?Set a private secrets directory}/sync-account
+  companion_token:
+    file: ${LEARNRECUR_SECRETS}/companion-token

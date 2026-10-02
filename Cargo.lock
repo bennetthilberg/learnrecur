@@ -151,6 +151,8 @@ name = "anki-sync-server"
 version = "0.0.0"
 dependencies = [
  "anki",
+ "rusqlite",
+ "unicase",
 ]
 
 [[package]]

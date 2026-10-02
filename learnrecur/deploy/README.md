@@ -1,6 +1,6 @@
-# Local sync proof
+# Sync and deployment
 
-The matching standalone LearnRecur server uses Anki's collection and media sync. The companion runs beside it and supplies immutable skills with stable native card identities. Both use separate, marked LearnRecur folders. This is a loopback development setup with synthetic accounts; hosting, paid generation, and production backups remain ahead.
+The matching standalone LearnRecur server uses Anki's collection and media sync. The companion runs beside it and supplies immutable skills with stable native card identities. Both use separate, marked LearnRecur folders. These commands cover the loopback development setup with synthetic accounts. [LINUX.md](LINUX.md) covers the Linux container deployment, encrypted backups, and restoration. A VPS and different-host restore remain ahead.
 
 ## Run the server
 
