@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hmac
 import os
+import re
 import sqlite3
 import time
 from contextlib import closing, contextmanager
@@ -24,6 +25,7 @@ from anki.learnrecur_skill_import import (
     validate_skills,
     validate_snapshot,
 )
+from learnrecur.companion.jobs import JobConflict, Jobs
 
 
 class Conflict(SkillImportError):
@@ -88,6 +90,9 @@ class Store:
                     "The stored skills are too large to add card identities. "
                     "Back up this folder and import a smaller batch into a new companion folder."
                 )
+            from learnrecur.companion.jobs import initialize
+
+            initialize(db)
             try:
                 validate_snapshot(self._snapshot(db))
             except SkillImportError as error:
@@ -148,6 +153,17 @@ class Store:
                 previous[skill["id"]] = versions
         if previous:
             result["previous_revisions"] = previous
+        batches = {}
+        # This table is created during the same upgrade transaction.
+        if db.execute(
+            "select 1 from sqlite_master where name='exercise_batches'"
+        ).fetchone():
+            for key, payload in db.execute(
+                "select skill_id,payload from exercise_batches order by skill_id,sequence"
+            ):
+                batches.setdefault(key, []).append(decode(payload.encode()))
+        if batches:
+            result["bank_updates"] = batches
         return result
 
     @staticmethod
@@ -260,7 +276,16 @@ class Handler(BaseHTTPRequestHandler):
         ):
             self._reply(401, {"error": "Authentication required."})
             return
-        if self.path != "/v1/skills":
+        job_get = (
+            re.fullmatch(r"/v1/generation-jobs/([0-9a-f]{32})", self.path)
+            if not write
+            else None
+        )
+        if (
+            self.path != "/v1/skills"
+            and not (write and self.path == "/v1/generation-jobs")
+            and not job_get
+        ):
             self._reply(404, {"error": "Unknown endpoint."})
             return
         try:
@@ -280,11 +305,20 @@ class Handler(BaseHTTPRequestHandler):
                 data = self.rfile.read(length)
                 if len(data) != length:
                     raise SkillImportError("Incomplete skill batch.")
-                result = self.server.store.import_batch(decode(data))
+                payload = decode(data)
+                result = (
+                    Jobs(self.server.store).enqueue(payload)
+                    if self.path == "/v1/generation-jobs"
+                    else self.server.store.import_batch(payload)
+                )
             else:
-                result = self.server.store.snapshot()
+                result = (
+                    Jobs(self.server.store).get(job_get[1])
+                    if job_get
+                    else self.server.store.snapshot()
+                )
             self._reply(200, result)
-        except Conflict as error:
+        except (Conflict, JobConflict) as error:
             self._reply(409, {"error": str(error)})
         except SkillImportError as error:
             self._reply(400, {"error": str(error)})

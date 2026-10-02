@@ -18,6 +18,7 @@ TOKEN = "synthetic-test-token-not-a-secret-12345"
 
 @pytest.fixture
 def server(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT))
     module = runpy.run_path(str(ROOT / "learnrecur/companion/server.py"))
     server = module["Server"](module["Store"](tmp_path / "companion"), TOKEN, 0)
     server.store.import_batch(

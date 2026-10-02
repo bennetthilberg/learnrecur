@@ -795,3 +795,139 @@ def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_p
             a.get_card(cid).note()["Description"] == latest["skills"][0]["description"]
         )
         assert records(a) == []  # The failed transaction did not copy B's rating.
+
+
+def generated_snapshot(tmp_path):
+    from learnrecur.companion.jobs import FixtureProvider, Jobs
+
+    store = Store(tmp_path / "companion")
+    jobs = Jobs(store)
+    jobs.enqueue(
+        {
+            "request_id": "sync-fixture",
+            "skill_id": "spanish-ar-preterite-yo",
+            "revision": 1,
+            "count": 3,
+        }
+    )
+    jobs.run_once(FixtureProvider())
+    return store.snapshot()
+
+
+def test_generated_bank_sync_keeps_offline_reviews_cursor_tags_and_retry(
+    server, snapshot, tmp_path
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        cid = rate(a)
+        before = a.db.all("select * from cards")
+        latest = generated_snapshot(tmp_path)
+        assert import_snapshot(a, latest).updated == 1
+        assert a.db.all("select * from cards") == before
+        assert select_skill_review(a.get_card(cid)).exercise.id == "trabajar"
+        note = b.get_card(cid).note()
+        note.tags = ["offline-tag"]
+        b.update_note(note)
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(a, auth)
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            assert col.card_count() == 1 and len(records(col)) == 1
+            assert col.get_card(cid).note().tags == ["offline-tag"]
+            assert select_skill_review(col.get_card(cid)).exercise.id == "trabajar"
+            state_before = (
+                col.get_card(cid).note().fields,
+                records(col),
+                col.db.all("select * from cards"),
+            )
+            assert import_snapshot(col, snapshot).existing == 1
+            assert import_snapshot(col, latest).existing == 1
+            assert (
+                col.get_card(cid).note().fields,
+                records(col),
+                col.db.all("select * from cards"),
+            ) == state_before
+        rate(b)
+        rate(b)
+        assert select_skill_review(b.get_card(cid)).exercise.id.startswith("job-")
+        sync(b, auth)
+        sync(a, auth)
+        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+        assert records(a) == records(b)
+        assert (
+            select_skill_review(a.get_card(cid)).exercise.id
+            == select_skill_review(b.get_card(cid)).exercise.id
+        )
+
+
+def test_later_bank_sequence_survives_stale_offline_bank(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        first = generated_snapshot(tmp_path)
+        import_snapshot(b, first)
+        from learnrecur.companion.jobs import FixtureProvider, Jobs
+
+        class Different(FixtureProvider):
+            def generate(self, context):
+                result = super().generate(context)
+                for exercise in result["exercises"]:
+                    exercise["prompt"] = "En 2020: " + exercise["prompt"]
+                return result
+
+        store = Store(tmp_path / "companion")
+        jobs = Jobs(store)
+        jobs.enqueue(
+            {
+                "request_id": "second-bank",
+                "skill_id": "spanish-ar-preterite-yo",
+                "revision": 1,
+                "count": 3,
+            }
+        )
+        jobs.run_once(Different())
+        latest = store.snapshot()
+        import_snapshot(a, latest)
+        sync(a, auth)
+        cid = a.find_cards("")[0]
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(b, auth)
+        sync(a, auth)
+        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+        assert (
+            json.loads(b.get_card(cid).note()["LearnRecurSkill"])["bank_sequence"] == 2
+        )
+        assert import_snapshot(b, first).existing == 1
+
+
+def test_refill_sync_refuses_rewriting_existing_exercises(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        latest = generated_snapshot(tmp_path)
+        import_snapshot(a, latest)
+        sync(a, auth)
+        cid = b.find_cards("")[0]
+        note = b.get_card(cid).note()
+        # Simulate an invalid client declaring a later batch that rewrites an old prompt.
+        from anki.learnrecur_skill_import import _fields
+
+        damaged = copy.deepcopy(latest)
+        key = damaged["skills"][0]["id"]
+        damaged["skills"][0]["bank"]["exercises"][0]["prompt"] = (
+            "Changed existing prompt"
+        )
+        note.fields = _fields(
+            damaged["source_id"],
+            damaged["skills"][0],
+            batches=damaged["bank_updates"][key],
+        )
+        b.update_note(note)
+        before = (note.fields, records(b))
+        with pytest.raises(Exception):
+            b.sync_collection(auth, False)
+        assert (b.get_card(cid).note().fields, records(b)) == before
+        full_sync(a, auth, False)
+        assert a.get_card(cid).note()["Prompt"] != note["Prompt"]

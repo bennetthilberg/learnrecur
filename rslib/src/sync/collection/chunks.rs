@@ -247,6 +247,13 @@ impl Collection {
                         return Ok(());
                     }
                 } else {
+                    if new_revision.0 == old_revision.0 {
+                        if new_revision > old_revision {
+                            Self::validate_skill_bank_append(&old_fields, &new_fields)?;
+                        } else {
+                            Self::validate_skill_bank_append(&new_fields, &old_fields)?;
+                        }
+                    }
                     let fields = if new_revision > old_revision {
                         new_fields
                     } else {

@@ -118,10 +118,12 @@ impl Collection {
                         && cards[0].id == cid,
                     "skill card identity changed"
                 );
-                require!(
-                    col.skill_revision_state(&note)?.0 > col.skill_revision_state(&original)?.0,
-                    "skill revision must advance"
-                );
+                let (new_order, new_fields) = col.skill_revision_state(&note)?;
+                let (old_order, old_fields) = col.skill_revision_state(&original)?;
+                require!(new_order > old_order, "skill revision or bank must advance");
+                if new_order.0 == old_order.0 {
+                    Self::validate_skill_bank_append(&old_fields, &new_fields)?;
+                }
                 let nt = col
                     .get_notetype(note.notetype_id)?
                     .or_invalid("missing note type")?;
@@ -143,6 +145,63 @@ impl Collection {
         })
     }
 
+    pub(crate) fn validate_skill_bank_append(older: &[String], newer: &[String]) -> Result<()> {
+        let old: serde_json::Value =
+            serde_json::from_str(&older[5]).or_invalid("invalid old bank")?;
+        let new: serde_json::Value =
+            serde_json::from_str(&newer[5]).or_invalid("invalid new bank")?;
+        let old_link: serde_json::Value =
+            serde_json::from_str(&older[6]).or_invalid("invalid old link")?;
+        let new_link: serde_json::Value =
+            serde_json::from_str(&newer[6]).or_invalid("invalid new link")?;
+        let empty = vec![];
+        let old_batches = old
+            .get("bank_updates")
+            .and_then(|v| v.as_array())
+            .unwrap_or(&empty);
+        let new_batches = new
+            .get("bank_updates")
+            .and_then(|v| v.as_array())
+            .or_invalid("missing bank history")?;
+        let old_exercises = old
+            .get("exercises")
+            .and_then(|v| v.as_array())
+            .or_invalid("missing old exercises")?;
+        let new_exercises = new
+            .get("exercises")
+            .and_then(|v| v.as_array())
+            .or_invalid("missing new exercises")?;
+        require!(
+            older[..5] == newer[..5]
+                && old_link["source_id"] == new_link["source_id"]
+                && old_link["skill_id"] == new_link["skill_id"]
+                && old["version"] == new["version"]
+                && old["skill_id"] == new["skill_id"]
+                && old["revision"] == new["revision"]
+                && old.get("definition") == new.get("definition")
+                && old.get("retired_revisions") == new.get("retired_revisions")
+                && new_batches.len() > old_batches.len()
+                && new_batches.starts_with(old_batches)
+                && new.get("bank_sequence").and_then(|v| v.as_u64())
+                    == Some(new_batches.len() as u64)
+                && new_exercises.len() > old_exercises.len()
+                && new_exercises.starts_with(old_exercises),
+            "conflicting exercise batch; cached content was kept"
+        );
+        if let Some(base) = old.get("base_skill") {
+            require!(
+                new.get("base_skill") == Some(base),
+                "skill definition changed during refill"
+            );
+        } else {
+            require!(
+                new["base_skill"]["bank"]["exercises"] == old["exercises"],
+                "base exercises changed during refill"
+            );
+        }
+        Ok(())
+    }
+
     pub(crate) fn set_skill_revision_fields(
         &mut self,
         note: &mut Note,
@@ -162,7 +221,10 @@ impl Collection {
         Ok(())
     }
 
-    pub(crate) fn skill_revision_state(&mut self, note: &Note) -> Result<(u64, Vec<String>)> {
+    pub(crate) fn skill_revision_state(
+        &mut self,
+        note: &Note,
+    ) -> Result<((u64, u64), Vec<String>)> {
         let nt = self
             .get_notetype(note.notetype_id)?
             .or_invalid("missing skill note type")?;
@@ -188,6 +250,13 @@ impl Collection {
             .and_then(|value| value.as_u64())
             .filter(|revision| (1..=100).contains(revision))
             .or_invalid("invalid skill revision")?;
-        Ok((revision, fields))
+        let sequence = match bank.get("bank_sequence") {
+            Some(value) => value
+                .as_u64()
+                .filter(|n| (1..=100).contains(n))
+                .or_invalid("invalid bank sequence")?,
+            None => 0,
+        };
+        Ok(((revision, sequence), fields))
     }
 }

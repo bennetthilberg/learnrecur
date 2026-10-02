@@ -39,6 +39,7 @@ class SkillReview:
     bank_hash: str
     position: int
     exercise: Exercise
+    cursor_hash: str
 
 
 def _text(value: object) -> str:
@@ -47,7 +48,7 @@ def _text(value: object) -> str:
     return value
 
 
-def _bank(card: Card) -> tuple[str, list[Exercise]] | None:
+def _bank(card: Card) -> tuple[str, str, list[Exercise]] | None:
     note = card.note()
     model = card.note_type()
     if model.get(MODEL_MARKER) != MODEL_KIND:
@@ -89,7 +90,12 @@ def _bank(card: Card) -> tuple[str, list[Exercise]] | None:
         digest = hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()[
             :16
         ]
-        return digest, exercises
+        from anki.learnrecur_batches import cursor_bank
+
+        cursor_hash = hashlib.sha256(
+            json.dumps(cursor_bank(raw), sort_keys=True).encode()
+        ).hexdigest()[:16]
+        return digest, cursor_hash, exercises
     except (KeyError, TypeError, ValueError, RecursionError) as error:
         raise SkillReviewError("This skill has an invalid exercise bank.") from error
 
@@ -121,12 +127,12 @@ def _position(card: Card, bank_hash: str) -> int:
 def select_skill_review(card: Card) -> SkillReview | None:
     if (bank := _bank(card)) is None:
         return None
-    bank_hash, exercises = bank
+    bank_hash, cursor_hash, exercises = bank
     if not exercises:
         raise SkillReviewError("This skill has no available exercises.")
-    position = _position(card, bank_hash)
+    position = _position(card, cursor_hash)
     return SkillReview(
-        card.id, bank_hash, position, exercises[position % len(exercises)]
+        card.id, bank_hash, position, exercises[position % len(exercises)], cursor_hash
     )
 
 
@@ -170,7 +176,7 @@ def prepare_skill_answer(
         if answer.new_state.HasField("custom_data")
         else card.custom_data
     )
-    data[CURSOR_KEY] = {"b": review.bank_hash, "n": review.position + 1}
+    data[CURSOR_KEY] = {"b": review.cursor_hash, "n": review.position + 1}
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     # Native card custom data allows 100 bytes and keys of at most eight bytes.
     if len(encoded.encode()) > 100 or any(len(key.encode()) > 8 for key in data):
