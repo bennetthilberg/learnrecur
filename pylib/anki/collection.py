@@ -563,6 +563,7 @@ class Collection(DeprecatedNamesMixin):
         card_ids: Sequence[CardId],
         *,
         updates: Sequence[notes_pb2.UpdateSkillNoteRequest] = (),
+        cache_only: bool = False,
     ) -> OpChanges:
         """Create cards and revise existing skill notes in one native transaction."""
         if len(requests) != len(card_ids):
@@ -579,6 +580,7 @@ class Collection(DeprecatedNamesMixin):
                 for request, cid in zip(requests, card_ids)
             ],
             updates=updates,
+            cache_only=cache_only,
         ).changes
 
     def remove_notes(self, note_ids: Sequence[NoteId]) -> OpChangesWithCount:

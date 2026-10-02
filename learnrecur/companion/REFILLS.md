@@ -2,7 +2,7 @@
 
 With refills enabled, the Mac app asks the companion for three exercises when a linked skill has at most two unused exercises. The check runs when a question appears and after a successful rating. Requests run on a background thread outside the collection queue. Reveal and rating use the local bank, even when the companion is unavailable.
 
-Completed batches still arrive through **Tools > Import skills…**. A request never changes the exercise on screen or adds an undo entry. Automatic batch delivery is a separate task.
+Completed batches now use [automatic delivery](DELIVERY.md) at the deck list or deck overview. **Tools > Import skills…** remains available. A refill request never changes the exercise on screen or adds an undo entry.
 
 ## Enable a local fixture proof
 
@@ -20,7 +20,7 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --data-dir out/learnrecur/companion --provider fixture --once
 ```
 
-Import again to add the completed batch. The fixture has six predetermined variations, enough for two three-exercise refills. It skips prompts already in the bank or supplied as examples, then stops when its pool is exhausted. It makes no model calls and costs nothing.
+Return to the deck list after the fetch interval, or restart the app, to add the completed batch automatically. The fixture has six predetermined variations, enough for two three-exercise refills. It skips prompts already in the bank or supplied as examples, then stops when its pool is exhausted. It makes no model calls and costs nothing.
 
 The server disables refills by default. `--refill-provider openai` queues OpenAI jobs, but the worker still requires a private key, `--allow-paid-generation`, and spending authorization. The model remains `gpt-6-luna` with `xhigh` reasoning. Set the budget before starting the worker; see [OpenAI setup](OPENAI.md). Enabling the server alone does not run generation.
 
@@ -56,7 +56,7 @@ Older cards with only a counter conservatively treat the first `n` active exerci
 
 ## Limits
 
-This slice requests refills but does not automatically download or apply them. It adds no skill editor, reporting UI, hosting, budget UI, or paid trial. The store still caps jobs and batches at 100, exercises at 100 per revision, and snapshots at 1 MiB. A full bank stops generation rather than deleting older exercises. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
+Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. It adds no skill editor, reporting UI, hosting, budget UI, or paid trial. The store still caps jobs and batches at 100, exercises at 100 per revision, and snapshots at 1 MiB. A full bank stops generation rather than deleting older exercises. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
 
 
 ## Verification

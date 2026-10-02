@@ -28,7 +28,48 @@ impl Collection {
             (1..=100).contains(&(input.requests.len() + input.updates.len())),
             "invalid skill batch size"
         );
-        self.transact(Op::AddNote, |col| {
+        if input.cache_only {
+            require!(
+                input.requests.is_empty(),
+                "cache updates cannot create skills"
+            );
+            let ids = input
+                .updates
+                .iter()
+                .filter_map(|update| update.note.as_ref().map(|note| NoteId(note.id)))
+                .collect::<Vec<_>>();
+            require!(
+                !self.state.undo.has_saved_note_updates(&ids),
+                "cache update deferred while a skill edit can be undone"
+            );
+            // A cache append changes no card state. Keep rating undo and redo,
+            // including on rollback, without adding a background undo step.
+            let stamps = self.storage.get_collection_timestamps()?;
+            let previous = stamps.collection_change.max(stamps.last_sync).max(
+                self.state
+                    .last_backup_modified
+                    .unwrap_or(TimestampMillis(0)),
+            );
+            let modified = TimestampMillis::now().max(TimestampMillis(previous.0 + 1));
+            let mut undo = std::mem::take(&mut self.state.undo);
+            self.state.undo.retain_cache_modified_time(modified);
+            let result = self.add_skill_notes_inner(input, Op::SkipUndo);
+            if result.is_ok() {
+                undo.retain_cache_modified_time(modified);
+            }
+            self.state.undo = undo;
+            result
+        } else {
+            self.add_skill_notes_inner(input, Op::AddNote)
+        }
+    }
+
+    fn add_skill_notes_inner(
+        &mut self,
+        input: AddSkillNotesRequest,
+        op: Op,
+    ) -> Result<OpOutput<Vec<NoteId>>> {
+        self.transact(op, |col| {
             let mut ids = input
                 .requests
                 .into_iter()
@@ -121,6 +162,10 @@ impl Collection {
                 let (new_order, new_fields) = col.skill_revision_state(&note)?;
                 let (old_order, old_fields) = col.skill_revision_state(&original)?;
                 require!(new_order > old_order, "skill revision or bank must advance");
+                require!(
+                    !input.cache_only || new_order.0 == old_order.0,
+                    "cache updates cannot revise a skill description"
+                );
                 if new_order.0 == old_order.0 {
                     Self::validate_skill_bank_append(&old_fields, &new_fields)?;
                 }

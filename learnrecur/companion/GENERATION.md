@@ -35,7 +35,7 @@ The worker must use the same companion folder as the API. Omit `--once` to poll 
 
 Authenticated `GET /v1/generation-jobs/<job_id>` returns the saved request, generation context, state, attempt count, retry time, error, and usage when available. Repeating the same POST returns that job, including after completion or a restart. Reusing `request_id` with different settings returns 409. Use a new request ID for an intentional new batch.
 
-After completion, choose **Tools > Import skills…** in a separately stored LearnRecur profile. The snapshot includes the published batch. Its native import keeps the existing card, schedule, reviews, and exercise cursor; cached reveal and ratings work with the companion stopped.
+After completion, [automatic delivery](DELIVERY.md) adds batches at a safe boundary in a separately stored LearnRecur profile. **Tools > Import skills…** remains available. The snapshot includes the published batch. Its native import keeps the existing card, schedule, reviews, and exercise cursor; cached reveal and ratings work with the companion stopped.
 
 ## Request format and examples
 
@@ -84,7 +84,7 @@ Description revisions and batch sequences are separate. Importing a refill prese
 
 Sync orders trusted skill content by description revision, then batch sequence. Tags and other note metadata retain native conflict handling. A same-description refill must preserve prior exercises, batch history, and definition fields. Ordinary note behavior is unchanged. All clients and the sync server must run the matching LearnRecur build.
 
-The current proof retains at most 100 jobs, 100 batches per skill, and 100 active cached exercises per description revision. Published data and retained history share the 1 MiB snapshot limit. The Mac app can now make [bounded low-bank refill requests](REFILLS.md), but completed batches still need manual import. There is no cleanup, Skill editor, hosting, or complete backup/restore flow yet. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
+The current proof retains at most 100 jobs, 100 batches per skill, and 100 active cached exercises per description revision. Published data and retained history share the 1 MiB snapshot limit. The Mac app can now make [bounded low-bank refill requests](REFILLS.md), and [automatic delivery](DELIVERY.md) applies completed batches outside review. There is no cleanup, Skill editor, hosting, or complete backup/restore flow yet. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
 
 ## Verification
 

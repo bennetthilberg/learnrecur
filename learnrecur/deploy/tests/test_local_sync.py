@@ -759,6 +759,9 @@ def test_revision_sync_preserves_newer_offline_tag_edits(
         note.tags = tags
         b.update_note(note)
         b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        # The simulated later edit must advance the collection clock too.
+        # Equal millisecond collection clocks make native sync skip the exchange.
+        b.db.execute("update col set mod=mod+60000")
         sync(b, auth)
         sync(a, auth)
         for col in (a, b):
@@ -931,3 +934,69 @@ def test_refill_sync_refuses_rewriting_existing_exercises(server, snapshot, tmp_
         assert (b.get_card(cid).note().fields, records(b)) == before
         full_sync(a, auth, False)
         assert a.get_card(cid).note()["Prompt"] != note["Prompt"]
+
+
+def test_automatic_bank_delivery_converges_after_offline_reviews(
+    server, snapshot, tmp_path
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        cid = rate(a)
+        rate(b)
+        latest = generated_snapshot(tmp_path)
+        for col in (a, b):
+            before = (col.db.all("select * from cards"), records(col))
+            assert import_snapshot(col, latest, cache_only=True).updated == 1
+            assert (col.db.all("select * from cards"), records(col)) == before
+            col.undo()
+            assert records(col) == []
+            col.redo()
+            assert (col.db.all("select * from cards"), records(col)) == before
+        sync(a, auth)
+        server.stop(crash=True)
+        server.start()
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            assert col.card_count() == 1 and len(records(col)) == 2
+            before = (col.get_card(cid).note().fields, records(col))
+            assert import_snapshot(col, latest, cache_only=True).updated == 0
+            assert import_snapshot(col, snapshot, cache_only=True).updated == 0
+            col.close()
+            col.reopen()
+            assert (col.get_card(cid).note().fields, records(col)) == before
+        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+
+
+@pytest.mark.parametrize("redo", [False, True])
+def test_automatic_bank_still_syncs_after_undoing_last_rating(
+    server, snapshot, tmp_path, redo
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        cid = a.find_cards("")[0]
+        original = a.db.all("select * from cards")
+        last_sync = a.db.scalar("select ls from col")
+        rate(a)
+        latest = generated_snapshot(tmp_path)
+        assert import_snapshot(a, latest, cache_only=True).updated == 1
+        committed = a.mod
+        a.undo()
+        if redo:
+            a.redo()
+            a.undo()
+        assert a.db.all("select * from cards") == original
+        assert records(a) == []
+        assert a.mod >= committed and a.mod > last_sync
+        sync(a, auth)
+        sync(b, auth)
+        for col in (a, b):
+            assert (
+                len(
+                    json.loads(col.get_card(cid).note()["LearnRecurSkill"])["exercises"]
+                )
+                == 6
+            )
+            assert records(col) == []
