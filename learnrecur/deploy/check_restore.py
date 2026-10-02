@@ -60,6 +60,22 @@ def ready(endpoint):
     raise RuntimeError("The Linux sync server did not become ready.")
 
 
+def ready_companion(endpoint, token):
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        try:
+            request(endpoint, token)
+            return
+        except OSError:
+            time.sleep(0.1)
+    raise RuntimeError("The Linux companion did not become ready.")
+
+
+def ready_services(sync, companion, token):
+    ready(sync)
+    ready_companion(companion, token)
+
+
 def full_sync(col, auth, upload):
     col.close_for_full_sync()
     try:
@@ -154,9 +170,9 @@ def main():
     try:
         source.initialize()
         source.start()
-        ready(endpoint(source))
-        verify_private_listeners(source)
         token = (source.credentials / "companion-token").read_text().strip()
+        ready_services(endpoint(source), companion(source), token)
+        verify_private_listeners(source)
         user, password = (
             (source.credentials / "sync-account").read_text().strip().split(":", 1)
         )
@@ -276,7 +292,7 @@ def main():
         restored.restore(archive, keys / "identity")
         assert (restored.state / "companion/.restore-pending").exists()
         restored.start()
-        ready(endpoint(restored))
+        ready_services(endpoint(restored), companion(restored), token)
         assert request(companion(restored), token) == snapshot
         assert request(
             companion(restored), token, "/v1/refill-requests", checkpoint
@@ -313,7 +329,7 @@ def main():
             "/state",
         )
         restored.start(worker=True)
-        ready(endpoint(restored))
+        ready_services(endpoint(restored), companion(restored), token)
         deadline = time.monotonic() + 20
         while (
             request(companion(restored), token, "/v1/generation-jobs/" + pending["id"])[
