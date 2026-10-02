@@ -13,6 +13,8 @@ path = "main.rs"
 name = "anki-sync-server"
 
 [dependencies]
+rusqlite.workspace = true
+unicase.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 anki = { workspace = true, features = ["native-tls"] }

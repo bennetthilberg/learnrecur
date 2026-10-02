@@ -226,7 +226,13 @@ class Server(ThreadingHTTPServer):
     daemon_threads = True
 
     def __init__(
-        self, store: Store, token: str, port: int = 45321, *, refill_provider=None
+        self,
+        store: Store,
+        token: str,
+        port: int = 45321,
+        *,
+        refill_provider=None,
+        host="127.0.0.1",
     ):
         if (
             not token.isascii()
@@ -241,7 +247,9 @@ class Server(ThreadingHTTPServer):
             raise ValueError("Choose fixture or openai as the refill provider.")
         self.refill_provider = refill_provider
         self.authorization = ("Bearer " + token).encode()
-        super().__init__(("127.0.0.1", port), Handler)
+        if host not in ("127.0.0.1", "0.0.0.0"):
+            raise ValueError("Use loopback or the private container listener.")
+        super().__init__((host, port), Handler)
 
     def get_request(self):
         connection, address = super().get_request()
