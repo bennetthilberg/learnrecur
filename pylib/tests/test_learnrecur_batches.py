@@ -187,3 +187,36 @@ def test_untrusted_package_link_cannot_request_generation(col, revisions):
     col.db.execute("delete from learnrecur_skill_identities")
     assert select_skill_review(col.get_card(cid)) is not None
     assert skill_refill_request(col.get_card(cid)) is None
+
+
+@pytest.mark.parametrize("status", ["reported", "retired"])
+@pytest.mark.parametrize("ratings", [1, 4])
+def test_legacy_usage_maps_rated_active_items_to_raw_positions(
+    col, revisions, status, ratings
+):
+    from anki.learnrecur_skills import skill_refill_request
+
+    original, _ = revisions
+    import_snapshot(col, original)
+    cid = rate(col)
+    card = col.get_card(cid)
+    note = card.note()
+    bank = json.loads(note["LearnRecurSkill"])
+    bank["exercises"][0]["status"] = status
+    note["LearnRecurSkill"] = json.dumps(bank)
+    col.update_note(note)
+    card.load()
+    fingerprint = select_skill_review(card).cursor_hash
+    card.custom_data = json.dumps({"lr": {"b": fingerprint, "n": ratings}})
+    col.update_card(card)
+    review = select_skill_review(card)
+    assert review.used == (2 if ratings == 1 else 6)
+    assert review.exercise.id == ("comprar" if ratings == 1 else "trabajar")
+    assert skill_refill_request(card)["remaining"] == (1 if ratings == 1 else 0)
+    before = state(col)
+    rate(col)
+    assert json.loads(col.get_card(cid).custom_data)["lr"]["u"] == "6"
+    col.undo()
+    assert state(col) == before
+    col.redo()
+    assert json.loads(col.get_card(cid).custom_data)["lr"]["u"] == "6"

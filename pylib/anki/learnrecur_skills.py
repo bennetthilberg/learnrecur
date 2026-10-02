@@ -131,13 +131,13 @@ def _position(card: Card, bank_hash: str) -> int:
     return cursor["n"] if cursor["b"] == bank_hash else 0
 
 
-def _used(card: Card, bank_hash: str, position: int) -> int:
+def _used(card: Card, bank_hash: str, position: int, exercises: list[Exercise]) -> int:
     cursor = _custom_data(card.custom_data).get(CURSOR_KEY)
     if not cursor or cursor["b"] != bank_hash:
         return 0
     if "u" not in cursor:
-        # Older clients only stored a counter. Treat the first n items as used.
-        return (1 << min(position, 100)) - 1
+        # Older counters advanced through eligible items, not raw bank positions.
+        return sum(1 << exercise.ordinal for exercise in exercises[:position])
     value = cursor["u"]
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{1,25}", value):
         raise SkillReviewError("This skill has invalid review data.")
@@ -151,7 +151,7 @@ def select_skill_review(card: Card) -> SkillReview | None:
     if not exercises:
         raise SkillReviewError("This skill has no available exercises.")
     position = _position(card, cursor_hash)
-    used = _used(card, cursor_hash, position)
+    used = _used(card, cursor_hash, position, exercises)
     exercise = next(
         (exercise for exercise in exercises if not used & (1 << exercise.ordinal)),
         exercises[position % len(exercises)],
@@ -175,7 +175,7 @@ def skill_refill_request(card: Card) -> dict | None:
     ):
         return None  # A deck package cannot authorize background generation.
     _, cursor_hash, exercises = bank
-    used = _used(card, cursor_hash, _position(card, cursor_hash))
+    used = _used(card, cursor_hash, _position(card, cursor_hash), exercises)
     remaining = sum(not used & (1 << exercise.ordinal) for exercise in exercises)
     if remaining > 2:
         return None
