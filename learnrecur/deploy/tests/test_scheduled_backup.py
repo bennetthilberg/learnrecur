@@ -68,8 +68,10 @@ def runner(tmp_path):
         "container": "backups",
     }
     deployment = Mock()
+    deployment.running.return_value = {"sync", "companion"}
+    deployment.state = tmp_path / "state"
     deployment.lock.return_value.__enter__ = Mock()
-    deployment.lock.return_value.__exit__ = Mock()
+    deployment.lock.return_value.__exit__ = Mock(return_value=False)
     deployment.backup.side_effect = lambda path, recipient: path.write_bytes(
         b"age-encryption.org/v1\nsynthetic-encrypted-data"
     )
@@ -233,3 +235,59 @@ def test_old_pending_snapshot_does_not_look_fresh_after_retry(runner):
     assert not healthy(runner.status(), later)
     runner.run(later)
     assert healthy(runner.status(), later)
+
+
+def test_crash_while_stopped_recovers_only_previously_running_services(
+    runner, monkeypatch
+):
+    monkeypatch.setattr("learnrecur.deploy.scheduled_backup.validate_root", Mock())
+    original = runner.deployment.backup.side_effect
+    runner.deployment.backup.side_effect = KeyboardInterrupt()
+    with pytest.raises(KeyboardInterrupt):
+        runner.run(NOW)
+    assert runner.status()["resume_services"] == ["companion", "sync"]
+    runner.deployment.backup.side_effect = original
+    runner.recover()
+    runner.deployment.stop_helpers.assert_called_once()
+    runner.deployment.compose.assert_called_once_with("start", "companion", "sync")
+    assert runner.status()["resume_services"] == []
+    runner.run(NOW + timedelta(hours=1))
+    assert healthy(runner.status(), NOW + timedelta(hours=1))
+
+
+def test_stopped_service_recovery_refuses_another_configuration(runner):
+    runner.deployment.backup.side_effect = KeyboardInterrupt()
+    with pytest.raises(KeyboardInterrupt):
+        runner.run(NOW)
+    runner.config["state"] = "/some/other/state"
+    with pytest.raises(ValueError, match="configuration"):
+        runner.recover()
+    runner.deployment.compose.assert_not_called()
+
+
+def test_saved_archive_is_not_successful_until_stopped_services_recover(
+    runner, monkeypatch
+):
+    monkeypatch.setattr("learnrecur.deploy.scheduled_backup.validate_root", Mock())
+    backup = runner.deployment.backup.side_effect
+
+    def fail_restart(path, recipient):
+        backup(path, recipient)
+        raise RuntimeError("compose start failed")
+
+    runner.deployment.backup.side_effect = fail_restart
+    with pytest.raises(RuntimeError):
+        runner.run(NOW)
+    pending = runner.status()["pending"]
+    assert (runner.folder / pending).exists()
+    assert runner.remote.calls == []
+    runner.deployment.compose.side_effect = OSError("restart still failing")
+    with pytest.raises(OSError):
+        runner.run(NOW + timedelta(hours=1))
+    assert runner.status()["result"] == "failed"
+    assert runner.remote.calls == []
+    runner.deployment.compose.side_effect = None
+    runner.run(NOW + timedelta(hours=2))
+    assert runner.status()["archive"] == pending
+    assert runner.deployment.backup.call_count == 1
+    assert runner.status()["resume_services"] == []

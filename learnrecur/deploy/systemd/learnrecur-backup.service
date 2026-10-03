@@ -1,7 +1,7 @@
 [Unit]
 Description=Back up LearnRecur to private object storage
-Wants=network-online.target
-After=network-online.target docker.service
+Wants=network-online.target learnrecur-backup-recover.service
+After=network-online.target docker.service learnrecur-backup-recover.service
 
 [Service]
 Type=oneshot
@@ -10,6 +10,8 @@ Group=learnrecur
 WorkingDirectory=/srv/learnrecur/repo
 Environment=PYTHONDONTWRITEBYTECODE=1
 ExecStart=/srv/learnrecur/backup-venv/bin/python -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json run
+ExecStopPost=/srv/learnrecur/backup-venv/bin/python -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json recover
+TimeoutStopSec=3min
 UMask=0077
 TimeoutStartSec=30min
 NoNewPrivileges=yes

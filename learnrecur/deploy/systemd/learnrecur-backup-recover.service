@@ -1,0 +1,22 @@
+[Unit]
+Description=Recover services after an interrupted LearnRecur backup
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=learnrecur
+Group=learnrecur
+WorkingDirectory=/srv/learnrecur/repo
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/learnrecur/backup-venv/bin/python -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json recover
+UMask=0077
+TimeoutStartSec=3min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/srv/learnrecur
+
+[Install]
+WantedBy=multi-user.target

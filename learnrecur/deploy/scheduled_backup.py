@@ -16,8 +16,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from learnrecur.deploy.backup import digest, safe_path
-from learnrecur.deploy.manage import Deployment
+from learnrecur.deploy.backup import digest, safe_path, validate_root
+from learnrecur.deploy.manage import SERVICES, Deployment
 
 MARKER = ".learnrecur-automatic-backups"
 VERSION = "learnrecur-automatic-backups-v1\n"
@@ -217,6 +217,44 @@ class ScheduledBackup:
             )
         return json.loads(private_file(self.status_path).read_text())
 
+    def resume(self, status):
+        running = status.get("resume_services", [])
+        if not running:
+            return
+        if not isinstance(running, list) or not set(running) <= SERVICES:
+            raise ValueError("Unrecognized services in backup recovery.")
+        fingerprint = hashlib.sha256(
+            json.dumps(self.config, sort_keys=True).encode()
+        ).hexdigest()
+        if status.get("pending_config") != fingerprint:
+            raise ValueError(
+                "Recover the stopped deployment before changing its configuration."
+            )
+        validate_root(self.deployment.state)
+        self.deployment.verify_containers()
+        self.deployment.stop_helpers()
+        if "worker" in running and any(
+            (self.deployment.state / "companion" / marker).exists()
+            for marker in (".restore-pending", ".paid-restore-pending")
+        ):
+            raise ValueError("Restored generation must stay paused.")
+        self.deployment.compose("start", *running)
+        status["resume_services"] = []
+        save(self.status_path, status)
+
+    def recover(self):
+        fd = os.open(
+            safe_path(self.folder / ".lock"),
+            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+            0o600,
+        )
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with self.deployment.lock():
+                self.resume(self.status())
+        finally:
+            os.close(fd)
+
     def run(self, now=None):
         now = now or instant()
         status = self.status()
@@ -259,9 +297,15 @@ class ScheduledBackup:
     def _run(self, status, now):
         name = status["pending"]
         path = safe_path(self.folder / name)
-        if not path.exists():
-            with self.deployment.lock():
+        with self.deployment.lock():
+            self.resume(status)
+            if not path.exists():
+                self.deployment.verify_containers()
+                status["resume_services"] = sorted(self.deployment.running())
+                save(self.status_path, status)
                 self.deployment.backup(path, self.config["recipient"])
+                status["resume_services"] = []
+                save(self.status_path, status)
         size = path.stat().st_size
         if not path.is_file() or path.stat().st_mode & 0o077 or size > MAX_ARCHIVE:
             raise ValueError("Use a private encrypted archive within the size limit.")
@@ -326,13 +370,15 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("command", choices=("init", "run", "status"))
+    parser.add_argument("command", choices=("init", "run", "status", "recover"))
     args = parser.parse_args()
     try:
         config = settings(args.config)
         runner = ScheduledBackup(config, None)
         if args.command == "init":
             runner.initialize()
+        elif args.command == "recover":
+            runner.recover()
         elif args.command == "status":
             status = runner.status()
             print(json.dumps(status, indent=2))

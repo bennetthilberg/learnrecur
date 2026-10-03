@@ -46,18 +46,19 @@ sudo -u learnrecur /srv/learnrecur/backup-venv/bin/python \
   -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json init
 ```
 
-Install the four files in `learnrecur/deploy/systemd/` under `/etc/systemd/system/`, owned by root. Check them with `systemd-analyze verify`, then enable both timers:
+Install the five files in `learnrecur/deploy/systemd/` under `/etc/systemd/system/`, owned by root. Check them with `systemd-analyze verify`, then enable both timers and the boot recovery service:
 
 ```sh
 sudo systemctl daemon-reload
-sudo systemctl enable --now learnrecur-backup.timer learnrecur-backup-check.timer
+sudo systemctl enable --now learnrecur-backup.timer learnrecur-backup-check.timer \
+  learnrecur-backup-recover.service
 ```
 
 The daily timer runs at 06:00 UTC, with up to 15 minutes of jitter. `Persistent=true` catches a missed daily run after reboot. The hourly check reports a failed run or a snapshot older than 36 hours as a failed systemd service. Status contains only backup names, sizes, hashes, image, timestamps, and exception class names. It contains no deck content or credentials. These checks are local to the VPS; no email, external uptime monitor, or notification delivery is configured. A powered-off VM cannot report its own failure.
 
 ## Upload, retry, and retention
 
-The scheduler takes an exclusive lock. Its existing deployment manager briefly stops all running writers, captures a consistent snapshot, and restarts only the services that were running. A stopped paid worker stays stopped. The server is unavailable while its snapshot is made; upload and read-back happen after services resume.
+The scheduler takes an exclusive lock. Its existing deployment manager briefly stops all running writers, captures a consistent snapshot, and restarts only the services that were running. A stopped paid worker stays stopped. The server is unavailable while its snapshot is made; upload and read-back happen after services resume. Before stopping writers, the scheduler saves which services were running. Recovery runs after a failed service, at boot, and before the next backup. It stops any abandoned, labeled backup helper before restarting those same services. An existing pending archive cannot count as successful while its stopped services still need recovery.
 
 Uploads use unique names under `learnrecur/v1/` and refuse overwrites. The scheduler downloads the entire encrypted object and compares its size and SHA-256 hash. Only then does it remove older backups, keeping the newest snapshot from seven distinct UTC days and four ISO weeks. These overlap, so the usual total is at most eleven objects. It also keeps the just-verified object if two snapshots share a timestamp. Three local encrypted copies remain. Unrecognized objects stop retention instead of being deleted.
 
