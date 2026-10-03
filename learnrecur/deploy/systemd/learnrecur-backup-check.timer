@@ -1,0 +1,10 @@
+[Unit]
+Description=Hourly LearnRecur backup freshness check
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+Unit=learnrecur-backup-check.service
+
+[Install]
+WantedBy=timers.target

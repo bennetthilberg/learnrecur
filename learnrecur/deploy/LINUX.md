@@ -87,7 +87,7 @@ The archive includes synced collections, media, trusted card identities, skill d
 
 A backend backup covers what reached the server. Reviews or media still offline on a client need that client's separate LearnRecur backup. This tool does not discover or back up desktop profiles.
 
-Copy encrypted archives off the VPS after checking success. Keeping them only on the VPS doesn't protect against losing that machine. Scheduling, retention, and automatic off-host copying are not configured in this slice.
+Copy encrypted archives off the VPS after checking success. Keeping them only on the VPS doesn't protect against losing that machine. For scheduling, retention, and verified off-host copying, follow [Automatic backend backups](AUTOMATIC-BACKUPS.md).
 
 ## Restore on another host
 

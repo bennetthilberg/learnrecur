@@ -227,6 +227,8 @@ class Deployment:
             "--rm",
             "--network",
             "none",
+            "--label",
+            "io.learnrecur.deployment-helper=" + self.project,
             "--read-only",
             "--user",
             f"{self.uid}:{self.uid}",
@@ -249,6 +251,40 @@ class Deployment:
             [*command, self.image, "-m", "learnrecur.deploy.backup", *arguments],
             check=True,
         )
+
+    def stop_helpers(self):
+        # Manager locking prevents stopping a helper from a concurrent operation.
+        ids = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "--quiet",
+                "--filter",
+                "label=io.learnrecur.deployment-helper=" + self.project,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.split()
+        if not ids:
+            return
+        items = json.loads(
+            subprocess.run(
+                ["docker", "inspect", *ids],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout
+        )
+        for item in items:
+            if item["Config"]["Image"] != self.image or not any(
+                mount.get("Source") == str(self.state)
+                and mount.get("Destination") == "/state"
+                and not mount.get("RW")
+                for mount in item["Mounts"]
+            ):
+                raise ValueError("An abandoned helper belongs to another deployment.")
+        subprocess.run(["docker", "stop", *ids], check=True, capture_output=True)
 
     def backup(self, archive, recipient):
         validate_root(self.state)
