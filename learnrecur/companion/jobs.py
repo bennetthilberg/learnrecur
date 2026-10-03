@@ -123,6 +123,8 @@ class Jobs:
             )
 
     def enqueue(self, value):
+        if (self.store.path.parent / ".generation-source-retired").exists():
+            raise JobConflict("This generation source is retired.")
         if (
             not isinstance(value, dict)
             or set(value)
@@ -509,6 +511,8 @@ class Jobs:
         return row[3]
 
     def calling(self, job_id, token):
+        if (self.store.path.parent / ".generation-source-retired").exists():
+            raise JobConflict("This generation source is retired.")
         with self.store.connect() as db:
             db.execute("begin immediate")
             attempt = self._owned(db, job_id, token)
@@ -689,7 +693,10 @@ class Jobs:
 
         job = self.get(job_id)
         restored_response = (
-            (self.store.path.parent / ".paid-restore-pending").exists()
+            any(
+                (self.store.path.parent / name).exists()
+                for name in (".paid-restore-pending", ".generation-source-retired")
+            )
             and job["state"] in {"running", "provider_pending"}
             and job["provider_response_id"] == value
         )
@@ -896,9 +903,13 @@ class Jobs:
 
     def check_restore(self, provider):
         folder = self.store.path.parent
-        if (folder / ".restore-pending").exists() or (
-            getattr(provider, "name", "") == "openai-responses-v1"
-            and (folder / ".paid-restore-pending").exists()
+        if (
+            (folder / ".generation-source-retired").exists()
+            or (folder / ".restore-pending").exists()
+            or (
+                getattr(provider, "name", "") == "openai-responses-v1"
+                and (folder / ".paid-restore-pending").exists()
+            )
         ):
             raise JobConflict(
                 "Restored generation is paused; reconcile history before new calls."

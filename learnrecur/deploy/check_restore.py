@@ -133,6 +133,97 @@ def verify_private_listeners(deployment):
             assert all(binding["HostIp"] == "127.0.0.1" for binding in bindings)
 
 
+def endpoint(deployment):
+    return "http://127.0.0.1:" + deployment.env["LEARNRECUR_SYNC_PORT"]
+
+
+def companion(deployment):
+    return "http://127.0.0.1:" + deployment.env["LEARNRECUR_COMPANION_PORT"]
+
+
+def prepare_paid_handoff(source, a, auth, public, root, token):
+    # Later generation and reviews must not disappear into the older backup.
+    late_job = source.compose(
+        "exec",
+        "-T",
+        "companion",
+        "python",
+        "-c",
+        """import json
+from pathlib import Path
+from learnrecur.companion.server import Store
+from learnrecur.companion.jobs import Jobs, FixtureProvider
+from learnrecur.companion.openai_provider import OpenAIProvider
+jobs = Jobs(Store(Path("/state/companion")))
+jobs.run_once(FixtureProvider())
+job = jobs.enqueue({"request_id":"post-backup","skill_id":"spanish-ar-preterite-yo","revision":1,"count":3,"provider":"openai"})
+def transport(method, path, body=None, trace=None):
+    assert method == "POST"
+    exercises = [{"prompt":f"Ayer yo ___ algo. ({verb})","answer":answer,"explanation":"The yo preterite ending is -é."} for verb,answer in [("revisar","revisé"),("dibujar","dibujé"),("ordenar","ordené")]]
+    return {"id":"resp_synthetic_handoff","model":"gpt-6-luna","service_tier":"default","metadata":body["metadata"],"status":"completed","usage":{"input_tokens":500,"output_tokens":100,"total_tokens":600,"input_tokens_details":{"cached_tokens":100}},"output":[{"type":"message","content":[{"type":"output_text","text":json.dumps({"exercises":exercises})}]}]}
+jobs.run_once(OpenAIProvider("sk-synthetic-only", transport=transport))
+assert jobs.get(job["id"])["state"] == "completed"
+print(job["id"])""",
+    ).strip()
+    final_snapshot = request(companion(source), token)
+    assert import_snapshot(a, final_snapshot, cache_only=True).updated == 1
+    rate(a)
+    full_sync(a, auth, True)
+    final_rows = rows(a)
+    handoff_archive = root / "backups/final.age"
+    source.handoff_backup(handoff_archive, public)
+    assert not source.running()
+    try:
+        source.start()
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("The retired source restarted.")
+    return final_snapshot, final_rows, late_job
+
+
+def verify_paid_handoff(
+    final, keys, token, final_snapshot, final_rows, late_job, media
+):
+    root = final.state.parent
+    handoff_archive = root / "backups/final.age"
+    final.restore(handoff_archive, keys / "identity")
+    from learnrecur.deploy.recovery import RECEIPT
+
+    receipt = json.loads((final.state / RECEIPT).read_text())
+    final.helper(
+        [(final.state, "/state", False)],
+        "allow-paid-worker",
+        "--root",
+        "/state",
+        "--handoff-id",
+        receipt["handoff_id"],
+        "--confirm-sole-active-host",
+    )
+    final.start()  # No worker or real model calls are enabled by this proof.
+    ready_services(endpoint(final), companion(final), token)
+    assert request(companion(final), token) == final_snapshot
+    assert (
+        request(companion(final), token, "/v1/generation-jobs/" + late_job)["usage"][
+            "gross_cost_microusd"
+        ]
+        == 91
+    )
+    folder = root / "client-final"
+    folder.mkdir()
+    c = Collection(str(folder / "collection.anki2"))
+
+    user, password = (
+        (final.credentials / "sync-account").read_text().strip().split(":", 1)
+    )
+    auth_c = c.sync_login(user, password, endpoint(final) + "/")
+    full_sync(c, auth_c, False)
+    media_sync(c, auth_c)
+    assert rows(c) == final_rows
+    assert (Path(c.media.dir()) / "synthetic.svg").read_bytes() == media
+    return c
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
@@ -155,15 +246,15 @@ def main():
         args.image,
         "learnrecur-proof-" + uuid4().hex[:10],
     )
-    for deployment in (source, restored):
+    final = Deployment(
+        root / "final",
+        root / "credentials",
+        args.image,
+        "learnrecur-proof-" + uuid4().hex[:10],
+    )
+    for deployment in (source, restored, final):
         deployment.env["LEARNRECUR_SYNC_PORT"] = str(free_port())
         deployment.env["LEARNRECUR_COMPANION_PORT"] = str(free_port())
-
-    def endpoint(deployment):
-        return "http://127.0.0.1:" + deployment.env["LEARNRECUR_SYNC_PORT"]
-
-    def companion(deployment):
-        return "http://127.0.0.1:" + deployment.env["LEARNRECUR_COMPANION_PORT"]
 
     started = time.monotonic()
     clients = []
@@ -271,7 +362,9 @@ def main():
         archive = root / "backups/backend.age"
         source.backup(archive, public)
         assert source.running() == {"sync", "companion"}  # Worker was never started.
-        source.compose("stop")
+        final_snapshot, final_rows, late_job = prepare_paid_handoff(
+            source, a, auth, public, root, token
+        )
         damaged = archive.with_name("damaged.age")
         ciphertext = bytearray(archive.read_bytes())
         ciphertext[-1] ^= 1
@@ -368,6 +461,12 @@ def main():
             capture_output=True,
             text=True,
         ).stdout
+        restored.compose("stop")
+        clients.append(
+            verify_paid_handoff(
+                final, keys, token, final_snapshot, final_rows, late_job, media
+            )
+        )
         report = {
             "image": args.image,
             "elapsed_seconds": round(time.monotonic() - started, 2),
@@ -375,6 +474,9 @@ def main():
             "reviews": len(after["reviews"]),
             "exercises": 9,
             "pending_job_resumed_once": pending["id"],
+            "post_backup_paid_job": late_job,
+            "paid_handoff_reviews": len(final_rows["reviews"]),
+            "paid_handoff_released": True,
             "backup_bytes": archive.stat().st_size,
             "stats": [json.loads(line) for line in stats.splitlines()],
             "limit": "Separate Linux containers on one Docker host; a different VPS restore is still required.",
@@ -386,7 +488,7 @@ def main():
     finally:
         for client in clients:
             client.close()
-        for deployment in (source, restored):
+        for deployment in (source, restored, final):
             deployment.verify_containers()
             (root / (deployment.project + ".log")).write_text(
                 deployment.compose("logs", "--no-color")

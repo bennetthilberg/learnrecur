@@ -179,6 +179,8 @@ class Store:
             return self._snapshot(db)
 
     def import_batch(self, payload):
+        if (self.path.parent / ".generation-source-retired").exists():
+            raise Conflict("This companion source is retired.")
         if not isinstance(payload, dict) or set(payload) != {"skills"}:
             raise SkillImportError("Expected a skill batch.")
         skills = validate_skills(payload["skills"])
@@ -234,6 +236,8 @@ class Server(ThreadingHTTPServer):
         refill_provider=None,
         host="127.0.0.1",
     ):
+        if (store.path.parent / ".generation-source-retired").exists():
+            raise ValueError("This companion source is retired.")
         if (
             not token.isascii()
             or len(token) < 32

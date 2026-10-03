@@ -2,7 +2,7 @@
 
 The VPS makes a daily age-encrypted backup of both server stores and uploads it to a private Azure Blob container. Your Mac can be asleep. This preserves server data; it does not replace app sync or protect reviews that have not synced yet.
 
-The snapshot includes native collections and media, skill descriptions and revisions, exercise banks, jobs, response IDs, and generation accounting. Passwords, provider keys, and generation configuration remain outside it. Keep those credentials separately, along with the exact backend image named in each backup. [Linux recovery](LINUX.md#restore-on-another-host) describes the restore procedure and paid-generation pause.
+The snapshot includes native collections and media, skill descriptions and revisions, exercise banks, jobs, response IDs, and generation accounting. Passwords, provider keys, and generation configuration remain outside it. Keep those credentials separately, along with the exact backend image named in each backup. [Linux recovery](LINUX.md#restore-on-another-host) describes the restore procedure and paid-generation pause. Scheduled archives cannot release paid generation. If the source survives, a [final source handoff](LINUX.md#recover-paid-generation-from-the-original-host) can recover later work before replacing it.
 
 ## Storage and identity
 

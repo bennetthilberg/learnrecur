@@ -24,7 +24,7 @@ jobs:
           cargo build --locked -p anki-sync-server
       - name: Check backup guards and companion behavior
         run: |
-          ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/deploy/tests/test_backup.py learnrecur/deploy/tests/test_generation.py learnrecur/deploy/tests/test_scheduled_backup.py learnrecur/companion/tests -q
+          ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/deploy/tests/test_backup.py learnrecur/deploy/tests/test_generation.py learnrecur/deploy/tests/test_recovery.py learnrecur/deploy/tests/test_scheduled_backup.py learnrecur/companion/tests -q
           out/pyenv/bin/ruff check learnrecur/deploy learnrecur/companion
       - name: Build the Linux backend image
         run: docker build -f learnrecur/deploy/Dockerfile --build-arg BUILD_REVISION="$GITHUB_SHA" -t learnrecur-backend:test -t "learnrecur-backend:$GITHUB_SHA" .

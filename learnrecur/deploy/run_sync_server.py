@@ -24,6 +24,9 @@ def server_environment(folder: Path, port: int, account: str) -> dict[str, str]:
     if not 1 <= port <= 65535:
         raise ValueError("Choose a port from 1 to 65535.")
     folder = Path(os.path.abspath(folder.expanduser()))
+    from learnrecur.deploy.recovery import require_active
+
+    require_active(folder)
     if any(
         part.casefold() in {"anki", "anki2", ".anki"} for part in folder.parts
     ) or any(path.is_symlink() for path in (folder, *folder.parents)):

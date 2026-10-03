@@ -128,9 +128,47 @@ Reconciliation retrieves that response through GET, checks its saved model and r
 
 If usage and the complete result were already saved but publication was interrupted, run `publish-ready` through the manager while services are stopped. It publishes only saved `result_ready` jobs, without a provider key or network access. Repeating it adds no duplicate batch and leaves both restore markers in place.
 
-There is no command to unpause paid generation from an old backup. Recover the original host's latest complete state and account for calls made after the backup before designing that release step. Looking up IDs contained in the backup alone cannot recover requests it never recorded.
+An ordinary backup cannot release the paid pause. Looking up its saved response IDs cannot recover requests it never recorded. If the original state survives, use the final handoff below. Otherwise, keep paid generation paused; there is no force option.
 
 For a fixture-only restore, stop the restored services, run the manager's `allow-fixture-worker` command, then `start-worker`. The acknowledgement refuses any saved OpenAI job, including completed jobs. It permits the queued fixture job to finish once without changing its ID.
+
+## Recover paid generation from the original host
+
+A final handoff brings both stores across together, including work done after an older backup. It retires the source before taking the snapshot. Restore that snapshot into a fresh destination; this procedure does not merge rows into an older restored copy.
+
+Use matching tools and an image that supports `handoff-backup`. Before retiring the source, sync any client reviews you want included. Finish pending automatic backups, then disable the source's backup timers and boot recovery service. Stop any active backup services too:
+
+```sh
+sudo systemctl disable --now learnrecur-backup.timer learnrecur-backup-check.timer \
+  learnrecur-backup-recover.service
+sudo systemctl stop learnrecur-backup.service learnrecur-backup-check.service
+python3 -m learnrecur.deploy.manage \
+  --state /srv/learnrecur/state --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" --project learnrecur handoff-backup \
+  --archive /srv/learnrecur/backups/final-handoff.age \
+  --recipient "$LEARNRECUR_BACKUP_RECIPIENT"
+```
+
+The command writes retirement markers in both stores, stops and removes the source containers, verifies that they stopped, and exports an encrypted archive. It prints the handoff ID. It never restarts the source, including after an export failure. Retry a failed export with a new archive filename. Keep the source data, archive, matching image, and decryption identity until the replacement is checked.
+
+Retirement blocks the supported sync, companion, and worker launchers, imports, and new generation. Do not remove the retirement markers or start the native server directly. These checks protect the normal deployment path; they cannot fence a separate writable clone on another machine. Keep only one active backend.
+
+If a saved response is still pending, use `reconcile-openai` on the stopped, retired source to retrieve it through GET. Use `publish-ready` for a saved result awaiting publication. Then export another final handoff with a new filename. Every attempt must have recorded usage and charges, and no job may remain running, provider-pending, or in need of attention. An unknown response or uncertain charge keeps recovery paused.
+
+Copy the final archive off-host and restore it with the matching image and existing private credentials, as above. Leave all replacement services stopped. Run `inspect-generation` and check its `handoff_id`, spending, and attempts. Then release the restore pause:
+
+```sh
+python3 -m learnrecur.deploy.manage \
+  --state /srv/learnrecur/restored --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" --project learnrecur-restored allow-paid-worker \
+  --handoff-id SAVED_HANDOFF_ID --confirm-sole-active-host
+```
+
+The acknowledgement means the retired source will stay retired and this replacement will be the only writable copy. The command verifies the final snapshot receipt, source identity, unchanged companion database, and settled generation records before removing both restore markers. It makes no provider call, changes no allowance, and starts no worker. Paid work still requires its private key, explicit provider configuration, and separate spending authorization.
+
+Release the pause before running commands that change the restored companion database, including provider configuration. An altered database or uncheckpointed journal refuses release. Keep that destination for inspection and restore a fresh final snapshot. If you need to reconcile more source responses, do so on the retired source and export again. This deliberately favors preserving complete history over merging two writable copies.
+
+After release, start sync and companion, check the restored cards and media through a fresh client, and only then start an authorized worker. Configure automatic backups for the replacement. Never reactivate the retired source or another copy of the handoff archive.
 
 ## Check the setup before a VPS
 
@@ -140,7 +178,7 @@ ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python \
   --root out/learnrecur/linux-restore-proof --image "$image"
 ```
 
-The check needs the matching native Python backend (`./ninja pylib`), Docker, and fresh synthetic storage. It uploads ordinary and skill cards, media, and a rating to the Linux server. It creates an encrypted backup, stops the source, restores into another deployment, and downloads through a fresh client. It compares cards, reviews, identities, note content, media, and pending jobs, then explicitly resumes a fixture-only job once. It writes resource measurements and a result under the chosen ignored proof folder and removes only its own containers.
+The check needs the matching native Python backend (`./ninja pylib`), Docker, and fresh synthetic storage. It uploads ordinary and skill cards, media, and a rating to the Linux server. It creates an encrypted backup, stops the source, restores into another deployment, and downloads through a fresh client. It compares cards, reviews, identities, note content, media, and pending jobs, then explicitly resumes a fixture-only job once. A mocked OpenAI job and another review are created after that older backup. A final source handoff preserves their exercises, charges, and native history, while the old backup stays ineligible for paid release. No model call runs. It writes resource measurements and a result under the chosen ignored proof folder and removes only its own containers.
 
 Separate containers on one Docker host prove the Linux runtime and restore procedure. They do not meet the milestone's different-host requirement. That needs a VPS and another restore target. Measure representative collection sizes and resource use before committing to a host; keep the $5/month hosting limit after credits and promotions, and get spending authorization before provisioning.
 
