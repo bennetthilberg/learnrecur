@@ -27,6 +27,10 @@ MAX_ARCHIVE = 32 * 1024**2
 MAX_REMOTE = 512 * 1024**2
 
 
+class OversizedArchive(ValueError):
+    """An encrypted snapshot needs inspection before it can be replaced."""
+
+
 def instant():
     return datetime.now(timezone.utc)
 
@@ -255,6 +259,61 @@ class ScheduledBackup:
         finally:
             os.close(fd)
 
+    def replace_oversized(self, name):
+        """Preserve an unuploaded oversized archive and allow a fresh snapshot."""
+        timestamp(name)
+        fd = os.open(
+            safe_path(self.folder / ".lock"),
+            os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW,
+            0o600,
+        )
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            status = self.status()
+            if status["pending"] != name:
+                raise ValueError("Specify the current pending archive name.")
+            fingerprint = hashlib.sha256(
+                json.dumps(self.config, sort_keys=True).encode()
+            ).hexdigest()
+            if status.get("pending_config") != fingerprint:
+                raise ValueError("Use the pending backup's original configuration.")
+            with self.deployment.lock():
+                self.resume(status)
+                path = safe_path(self.folder / name)
+                info = path.stat()
+                if (
+                    not path.is_file()
+                    or info.st_mode & 0o077
+                    or info.st_uid != os.getuid()
+                    or info.st_size <= MAX_ARCHIVE
+                ):
+                    raise ValueError(
+                        "Only an oversized private archive can be replaced."
+                    )
+                with path.open("rb") as stream:
+                    if stream.read(22) != b"age-encryption.org/v1\n":
+                        raise ValueError("Only an encrypted archive can be replaced.")
+                if name in self.remote.list():
+                    raise ValueError("The pending archive exists remotely; retry it.")
+                preserved = safe_path(self.folder / (".oversized-" + name))
+                try:
+                    os.link(path, preserved)
+                except FileExistsError:
+                    if not preserved.is_file() or not os.path.samefile(path, preserved):
+                        raise ValueError(
+                            "The preserved archive has different content."
+                        ) from None
+                status.update(
+                    result="failed",
+                    pending=None,
+                    pending_config=None,
+                    oversized_archive=preserved.name,
+                    error="Oversized archive preserved; a fresh snapshot is required.",
+                )
+                save(self.status_path, status)
+        finally:
+            os.close(fd)
+
     def run(self, now=None):
         now = now or instant()
         status = self.status()
@@ -307,12 +366,16 @@ class ScheduledBackup:
                 status["resume_services"] = []
                 save(self.status_path, status)
         size = path.stat().st_size
-        if not path.is_file() or path.stat().st_mode & 0o077 or size > MAX_ARCHIVE:
+        if not path.is_file() or path.stat().st_mode & 0o077:
             raise ValueError("Use a private encrypted archive within the size limit.")
         # Reject plaintext even when an interrupted run left a file behind.
         with path.open("rb") as stream:
             if stream.read(22) != b"age-encryption.org/v1\n":
                 raise ValueError("Only age-encrypted archives may leave this host.")
+        if size > MAX_ARCHIVE:
+            raise OversizedArchive(
+                "Encrypted archive exceeds the size limit; inspect it before replacement."
+            )
         sha = digest(path)
         before = self.remote.list()
         if (
@@ -370,8 +433,13 @@ def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("command", choices=("init", "run", "status", "recover"))
+    parser.add_argument(
+        "command", choices=("init", "run", "status", "recover", "replace-oversized")
+    )
+    parser.add_argument("--archive", help="Exact pending archive name to replace")
     args = parser.parse_args()
+    if (args.command == "replace-oversized") != (args.archive is not None):
+        parser.error("Use --archive only with replace-oversized.")
     try:
         config = settings(args.config)
         runner = ScheduledBackup(config, None)
@@ -385,8 +453,14 @@ def main():
             return 0 if healthy(status) else 1
         else:
             runner.remote = AzureBlobs(config["account"], config["container"])
-            runner.run()
-            print("Encrypted backup verified off-host; retention completed.")
+            if args.command == "replace-oversized":
+                runner.replace_oversized(args.archive)
+                print(
+                    "Oversized archive preserved; run a fresh backup after reducing its size."
+                )
+            else:
+                runner.run()
+                print("Encrypted backup verified off-host; retention completed.")
         return 0
     except Exception as error:
         # SDK exceptions may contain tokens or private request details.

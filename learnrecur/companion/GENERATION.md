@@ -45,6 +45,8 @@ Examples are saved with the job and passed separately to the provider as referen
 
 The context also freezes the skill payload, requested count, provider name, generation instructions, and instruction version. Credentials are not part of that context. Changing a skill after requesting a job makes the old job obsolete; output for the old revision stays unpublished.
 
+OpenAI jobs also save their request settings and prices. Pending responses and manual reconciliation use those saved settings, even after the defaults change. A job that has not submitted a request can keep its saved token limit and price-check date, but changed prices require a new job before it can spend. The adapter still rejects unsupported models, request options, and malformed prices; changing its supported request format requires an adapter update.
+
 ## States and recovery
 
 | State | Meaning |
