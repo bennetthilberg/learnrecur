@@ -19,6 +19,7 @@ from learnrecur.companion.openai_provider import (
     ReadFailure,
     UncertainResponse,
     identity,
+    request_body,
 )
 from learnrecur.companion.server import Store
 from learnrecur.companion.tests.test_jobs import ROOT, example, jobs, payload
@@ -227,6 +228,108 @@ def test_pending_response_resumes_after_restart_with_get_only(jobs, payload):
     assert [c[0] for c in transport.calls] == ["POST", "GET"]
     assert restored.get(job["id"])["attempts"] == 1
     assert len(restored.store.snapshot()["bank_updates"][payload["skill_id"]]) == 1
+
+
+@pytest.mark.parametrize("started", [False, True])
+def test_default_changes_preserve_saved_request_and_accounting(
+    jobs, payload, monkeypatch, started
+):
+    job = openai_job(jobs, payload)
+    transport = Transport(pending=started)
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    estimate = provider.estimate(job["context"])
+    if started:
+        jobs.run_once(provider)
+    monkeypatch.setitem(CONFIG, "prices_checked", "2026-10-03")
+    if started:
+        monkeypatch.setitem(CONFIG, "output_usd_per_million", "0.75")
+    monkeypatch.setitem(CONFIG, "max_output_tokens", 8192)
+    restored = Jobs(Store(jobs.store.path.parent), clock=lambda: 1790888410)
+    if not started:
+        assert provider.estimate(job["context"]) == estimate
+    restored.run_once(provider)
+    result = restored.get(job["id"])
+    assert result["state"] == "completed" and result["attempts"] == 1
+    assert result["usage"]["gross_cost_microusd"] == 91
+    assert [call[0] for call in transport.calls] == (
+        ["POST", "GET"] if started else ["POST"]
+    )
+    assert transport.calls[0][2]["max_output_tokens"] == 16384
+    assert result["context"]["provider_config"] == job["context"]["provider_config"]
+    fresh = restored.enqueue(
+        {**payload, "request_id": "new-defaults", "provider": "openai"}
+    )
+    assert fresh["context"]["provider_config"] == CONFIG
+
+
+def test_unsubmitted_job_cannot_spend_with_stale_prices(jobs, payload, monkeypatch):
+    job = openai_job(jobs, payload)
+    transport = Transport()
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    monkeypatch.setitem(CONFIG, "output_usd_per_million", "0.75")
+    jobs.run_once(provider)
+    assert jobs.get(job["id"])["state"] == "failed"
+    assert transport.calls == []
+    with jobs.store.connect() as db:
+        assert db.execute("select count(*) from generation_attempts").fetchone() == (0,)
+    with pytest.raises(SkillImportError, match="current provider prices"):
+        provider.submit(job["context"], identity(job["id"], 1))
+    assert transport.calls == []
+
+
+def test_manual_reconciliation_keeps_saved_prices_after_default_change(
+    jobs, payload, monkeypatch
+):
+    job = openai_job(jobs, payload)
+    transport = Transport()
+    transport.failure = TimeoutError
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    monkeypatch.setitem(CONFIG, "output_usd_per_million", "0.75")
+    transport.failure = None
+    result = jobs.reconcile(job["id"], "resp_test", provider)
+    assert result["state"] == "completed"
+    assert result["usage"]["gross_cost_microusd"] == 91
+    assert [call[0] for call in transport.calls] == ["POST", "GET"]
+
+
+def test_response_must_obey_saved_token_limit(jobs, payload, monkeypatch):
+    monkeypatch.setitem(CONFIG, "max_output_tokens", 99)
+    job = openai_job(jobs, payload)
+    transport = Transport(pending=True)
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    monkeypatch.setitem(CONFIG, "max_output_tokens", 16384)
+    jobs.clock = lambda: 1790888410
+    jobs.run_once(provider)
+    assert jobs.get(job["id"])["state"] == "needs_attention"
+    with jobs.store.connect() as db:
+        assert db.execute("select net_actual from generation_attempts").fetchone() == (
+            None,
+        )
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("model", "unsupported-model"),
+        ("service_tier", "priority"),
+        ("reasoning_effort", "unsupported"),
+        ("prompt_cache_mode", "unsupported"),
+        ("max_output_tokens", True),
+        ("max_output_tokens", 16385),
+        ("input_usd_per_million", "-1"),
+        ("cached_input_usd_per_million", "NaN"),
+        ("cache_write_usd_per_million", "1001"),
+        ("output_usd_per_million", 0.5),
+        ("prices_checked", "not-a-date"),
+    ],
+)
+def test_saved_configuration_remains_validated(jobs, payload, field, value):
+    context = openai_job(jobs, payload)["context"]
+    context["provider_config"][field] = value
+    with pytest.raises(SkillImportError):
+        request_body(context)
 
 
 def test_only_one_worker_can_poll_the_same_response(jobs, payload):

@@ -25,7 +25,7 @@ git diff 26.09.3 --stat
 git diff 26.09.3 -- qt ts pylib rslib proto
 ```
 
-LearnRecur now changes application identity, storage, updater behavior, and build configuration. The Mac build, package, isolation tests, and a synthetic review have passed locally. Read `AGENTS.md` and [MAC-DEVELOPMENT.md](MAC-DEVELOPMENT.md) before following upstream run instructions. Hosted sync hasn't been checked.
+LearnRecur changes application identity, storage, updater behavior, and build configuration. The Mac build, package, isolation tests, and a synthetic review have passed locally. Hosted sync and restoration have passed synthetic checks on separate Linux hosts, including Azure; see [the Linux deployment notes](deploy/LINUX.md). Read `AGENTS.md` and [MAC-DEVELOPMENT.md](MAC-DEVELOPMENT.md) before following upstream run instructions.
 
 ## Update from upstream
 

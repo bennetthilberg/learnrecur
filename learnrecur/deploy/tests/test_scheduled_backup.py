@@ -7,11 +7,13 @@ from unittest.mock import Mock
 import pytest
 
 from learnrecur.deploy.scheduled_backup import (
+    MAX_ARCHIVE,
     MAX_REMOTE,
     ScheduledBackup,
     digest,
     healthy,
     retained,
+    save,
     settings,
 )
 
@@ -291,3 +293,109 @@ def test_saved_archive_is_not_successful_until_stopped_services_recover(
     assert runner.status()["archive"] == pending
     assert runner.deployment.backup.call_count == 1
     assert runner.status()["resume_services"] == []
+
+
+def oversized_pending(runner):
+    original = runner.deployment.backup.side_effect
+
+    def backup(path, recipient):
+        original(path, recipient)
+        with path.open("ab") as stream:
+            stream.truncate(MAX_ARCHIVE + 1)
+
+    runner.deployment.backup.side_effect = backup
+    with pytest.raises(ValueError, match="size limit"):
+        runner.run(NOW)
+    assert runner.status()["error"] == "OversizedArchive"
+    runner.deployment.backup.side_effect = original
+    return runner.status()["pending"]
+
+
+def test_oversized_recovery_preserves_archive_and_allows_new_snapshot(runner):
+    pending = oversized_pending(runner)
+    # A retry must not silently discard an archive, even if new data is smaller.
+    with pytest.raises(ValueError, match="size limit"):
+        runner.run(NOW + timedelta(hours=1))
+    assert runner.deployment.backup.call_count == 1
+    runner.replace_oversized(pending)
+    status = runner.status()
+    preserved = runner.folder / status["oversized_archive"]
+    assert preserved.stat().st_size == MAX_ARCHIVE + 1
+    assert status["pending"] is None and not healthy(status, NOW)
+    assert runner.remote.calls == []
+    for day in range(1, 5):
+        runner.run(NOW + timedelta(days=day))
+    assert healthy(runner.status(), NOW + timedelta(days=4))
+    assert runner.status()["archive"] != pending
+    assert preserved.is_file() and preserved.stat().st_size == MAX_ARCHIVE + 1
+
+
+@pytest.mark.parametrize(
+    "damage", ["name", "config", "remote", "plaintext", "symlink", "private"]
+)
+def test_oversized_recovery_refuses_unsafe_replacement(runner, damage):
+    pending = oversized_pending(runner)
+    path = runner.folder / pending
+    if damage == "name":
+        pending = name(NOW, 123)
+    elif damage == "config":
+        runner.config["image"] = "learnrecur:different"
+    elif damage == "remote":
+        runner.remote.files[pending] = b"existing remote archive"
+    elif damage == "plaintext":
+        with path.open("r+b") as stream:
+            stream.write(b"plaintext instead of age")
+    elif damage == "symlink":
+        other = runner.folder / "unrelated"
+        path.rename(other)
+        path.symlink_to(other)
+    elif damage == "private":
+        path.chmod(0o644)
+    with pytest.raises(ValueError):
+        runner.replace_oversized(pending)
+    assert runner.status()["pending"] is not None
+    assert not any(call[0] == "delete" for call in runner.remote.calls)
+
+
+def test_uploaded_small_archive_cannot_be_abandoned(runner):
+    runner.remote.fail = "put"
+    with pytest.raises(OSError):
+        runner.run(NOW)
+    pending = runner.status()["pending"]
+    with pytest.raises(ValueError, match="oversized"):
+        runner.replace_oversized(pending)
+    runner.remote.fail = None
+    runner.run(NOW + timedelta(hours=1))
+    assert runner.status()["archive"] == pending
+
+
+def test_oversized_recovery_resumes_services_before_clearing_pending(
+    runner, monkeypatch
+):
+    monkeypatch.setattr("learnrecur.deploy.scheduled_backup.validate_root", Mock())
+    pending = oversized_pending(runner)
+    status = runner.status()
+    status["resume_services"] = ["companion", "sync"]
+    save(runner.status_path, status)
+    runner.deployment.compose.side_effect = OSError("restart failed")
+    with pytest.raises(OSError):
+        runner.replace_oversized(pending)
+    assert runner.status()["pending"] == pending
+    runner.deployment.compose.side_effect = None
+    runner.replace_oversized(pending)
+    runner.deployment.compose.assert_called_with("start", "companion", "sync")
+    assert runner.status()["resume_services"] == []
+
+
+def test_oversized_recovery_retries_after_interrupted_status_save(runner, monkeypatch):
+    pending = oversized_pending(runner)
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            "learnrecur.deploy.scheduled_backup.save",
+            Mock(side_effect=OSError("disk full")),
+        )
+        with pytest.raises(OSError):
+            runner.replace_oversized(pending)
+    assert runner.status()["pending"] == pending
+    runner.replace_oversized(pending)
+    assert runner.status()["pending"] is None

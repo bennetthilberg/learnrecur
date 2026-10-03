@@ -8,6 +8,7 @@ from __future__ import annotations
 import http.client
 import json
 import re
+from datetime import date
 from fractions import Fraction
 
 from anki.learnrecur_skill_import import MAX_BYTES, SkillImportError, decode, encode
@@ -28,6 +29,14 @@ CONFIG = {
     "prices_checked": "2026-10-02",
 }
 MAX_REQUEST_BYTES = 32768
+# Keep the adapter's supported contract separate from defaults for new jobs.
+CONFIG_FIELDS = frozenset(CONFIG)
+PRICE_FIELDS = (
+    "input_usd_per_million",
+    "cached_input_usd_per_million",
+    "cache_write_usd_per_million",
+    "output_usd_per_million",
+)
 GUIDANCE = (
     "Generate short exercises for retention practice of an already learned skill. "
     "Test precisely the supplied rule or procedure at comparable difficulty. "
@@ -69,11 +78,39 @@ def response_id(response):
     return value
 
 
-def request_body(context):
-    if context.get("provider") != NAME or context.get("provider_config") != CONFIG:
+def saved_config(context):
+    config = context.get("provider_config")
+    if (
+        context.get("provider") != NAME
+        or not isinstance(config, dict)
+        or set(config) != CONFIG_FIELDS
+        or config["model"] != "gpt-6-luna"
+        or config["service_tier"] != "default"
+        or config["reasoning_effort"] != "xhigh"
+        or config["prompt_cache_mode"] != "explicit"
+        or type(config["max_output_tokens"]) is not int
+        or not 1 <= config["max_output_tokens"] <= 16384
+    ):
         raise SkillImportError(
             "This worker does not support the saved provider settings."
         )
+    for field in PRICE_FIELDS:
+        value = config[field]
+        if (
+            not isinstance(value, str)
+            or not re.fullmatch(r"[0-9]{1,4}(?:\.[0-9]{1,12})?", value)
+            or Fraction(value) > 1000
+        ):
+            raise SkillImportError("Invalid saved provider prices.")
+    try:
+        date.fromisoformat(config["prices_checked"])
+    except (TypeError, ValueError):
+        raise SkillImportError("Invalid saved provider price date.") from None
+    return config
+
+
+def request_body(context):
+    config = saved_config(context)
     exercise = {
         "type": "object",
         "properties": {
@@ -84,12 +121,12 @@ def request_body(context):
     }
     skill = context["skill"]
     body = {
-        "model": CONFIG["model"],
-        "service_tier": CONFIG["service_tier"],
-        "max_output_tokens": CONFIG["max_output_tokens"],
-        "reasoning": {"effort": CONFIG["reasoning_effort"]},
+        "model": config["model"],
+        "service_tier": config["service_tier"],
+        "max_output_tokens": config["max_output_tokens"],
+        "reasoning": {"effort": config["reasoning_effort"]},
         # No breakpoints: this short trial does not create cache writes.
-        "prompt_cache_options": {"mode": CONFIG["prompt_cache_mode"]},
+        "prompt_cache_options": {"mode": config["prompt_cache_mode"]},
         "background": True,
         "store": True,
         "instructions": context["instructions"],
@@ -173,14 +210,23 @@ class OpenAIProvider:
 
     def estimate(self, context):
         body = request_body(context)
+        config = saved_config(context)
+        if any(
+            Fraction(config[field]) != Fraction(CONFIG[field]) for field in PRICE_FIELDS
+        ):
+            raise SkillImportError(
+                "Request a new job with the current provider prices."
+            )
         # UTF-8 bytes plus framing slack are a conservative text-token estimate.
         input_bound = len(encode(body).encode()) + 1024
-        cost = input_bound * Fraction(CONFIG["cache_write_usd_per_million"]) + CONFIG[
-            "max_output_tokens"
-        ] * Fraction(CONFIG["output_usd_per_million"])
+        input_rate = max(Fraction(config[field]) for field in PRICE_FIELDS[:3])
+        cost = input_bound * input_rate + config["max_output_tokens"] * Fraction(
+            config["output_usd_per_million"]
+        )
         return (cost.numerator + cost.denominator - 1) // cost.denominator
 
     def submit(self, context, meta):
+        self.estimate(context)  # Never submit an uncharged job with stale prices.
         body = {**request_body(context), "metadata": meta}
         return self._transport(
             "POST", "/v1/responses", body, meta["learnrecur_request_id"]
@@ -192,10 +238,11 @@ class OpenAIProvider:
 
     @staticmethod
     def check(response, context, meta):
+        config = saved_config(context)
         response_id(response)
         if (
-            response.get("model") != context["provider_config"]["model"]
-            or response.get("service_tier") != "default"
+            response.get("model") != config["model"]
+            or response.get("service_tier") != config["service_tier"]
             or response.get("metadata") != meta
             or response.get("status")
             not in {
@@ -211,6 +258,7 @@ class OpenAIProvider:
 
     def result(self, response, context, meta):
         self.check(response, context, meta)
+        config = saved_config(context)
         if response["status"] in {"queued", "in_progress"}:
             return None
         usage = response.get("usage")
@@ -237,15 +285,15 @@ class OpenAIProvider:
             )
             or total != inputs + outputs
             or cached + writes > inputs
-            or outputs > CONFIG["max_output_tokens"]
+            or outputs > config["max_output_tokens"]
             or inputs > len(encode(request_body(context)).encode()) + 1024
         ):
             raise UncertainResponse()
         cost = (
-            (inputs - cached - writes) * Fraction(CONFIG["input_usd_per_million"])
-            + cached * Fraction(CONFIG["cached_input_usd_per_million"])
-            + writes * Fraction(CONFIG["cache_write_usd_per_million"])
-            + outputs * Fraction(CONFIG["output_usd_per_million"])
+            (inputs - cached - writes) * Fraction(config["input_usd_per_million"])
+            + cached * Fraction(config["cached_input_usd_per_million"])
+            + writes * Fraction(config["cache_write_usd_per_million"])
+            + outputs * Fraction(config["output_usd_per_million"])
         )
         # Reasoning tokens are already included in output_tokens.
         cost = (cost.numerator + cost.denominator - 1) // cost.denominator

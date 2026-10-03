@@ -22,7 +22,7 @@ COPY pylib/anki/learnrecur_skill_import.py /app/anki/learnrecur_skill_import.py
 COPY pylib/anki/learnrecur_batches.py /app/anki/learnrecur_batches.py
 COPY learnrecur/companion /app/learnrecur/companion
 COPY learnrecur/fixtures /app/learnrecur/fixtures
-COPY learnrecur/deploy /app/learnrecur/deploy
+COPY learnrecur/deploy/backup.py learnrecur/deploy/container.py learnrecur/deploy/run_sync_server.py /app/learnrecur/deploy/
 COPY LICENSE /app/LICENSE
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 USER 10001:10001

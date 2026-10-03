@@ -64,6 +64,16 @@ Uploads use unique names under `learnrecur/v1/` and refuse overwrites. The sched
 
 A failed upload leaves the local archive and older remote copies intact. The next run retries the same archive, including when Azure received it but the acknowledgement was lost. A pending snapshot from several days ago does not become fresh merely because its upload succeeded today. Run the service again to take a current snapshot after that retry. Finish a pending backup before changing its image, destination, or other configuration.
 
+An archive over 32 MiB cannot upload, and normal retries keep it. After inspecting status, an operator can replace that pending snapshot:
+
+```sh
+sudo -u learnrecur /srv/learnrecur/backup-venv/bin/python \
+  -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json \
+  replace-oversized --archive EXACT_PENDING_ARCHIVE_NAME
+```
+
+This requires the original configuration and exact pending name. It recovers any stopped services, refuses archives already listed remotely, and preserves the encrypted file as `.oversized-<name>` before clearing the pending state. Preserved files are outside automatic retention; inspect and remove them manually when no longer needed. The command does not mark backups healthy, change storage limits, or resume a stopped worker. After reducing snapshot size, run the backup service to create and verify a fresh snapshot. A small archive with a failed upload must use the normal retry path.
+
 Inspect or retry without enabling generation:
 
 ```sh
