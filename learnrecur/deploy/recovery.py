@@ -61,6 +61,11 @@ def retire_source(root):
             os.fsync(fd)
         finally:
             os.close(fd)
+    from learnrecur.companion.jobs import Jobs
+    from learnrecur.companion.server import Store
+
+    # Reserved attempts have not reached the provider, even if their worker died.
+    Jobs(Store(root / "companion")).abandon_retired_claims()
     return retirement_id(root)
 
 

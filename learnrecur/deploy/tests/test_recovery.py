@@ -137,7 +137,7 @@ def test_known_response_can_settle_on_retired_source_without_another_call(
     assert Jobs(Store(target / "companion")).get(later["id"])["attempts"] == 1
 
 
-def test_claim_before_retirement_cannot_start_a_call_afterward(state):
+def test_claim_before_retirement_cannot_start_a_call_afterward(state, tmp_path):
     jobs = Jobs(Store(state / "companion"))
     job(jobs)
     claimed = jobs.claim(OpenAIProvider(SYNTHETIC_KEY, transport=Transport()))
@@ -146,6 +146,32 @@ def test_claim_before_retirement_cannot_start_a_call_afterward(state):
         jobs.calling(claimed[0], claimed[1])
     with pytest.raises(JobConflict, match="retired"):
         job(jobs, "another")
+    assert jobs.get(claimed[0])["state"] == "queued"
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select state,gross_actual,credit_actual,net_actual from generation_attempts"
+        ).fetchone() == ("abandoned", 0, 0, 0)
+    value, target = handoff(state, tmp_path)
+    allow_paid_worker(target, value, True)
+    transport = Transport()
+    restored = Jobs(Store(target / "companion"))
+    restored.run_once(OpenAIProvider(SYNTHETIC_KEY, transport=transport))
+    assert restored.get(claimed[0])["state"] == "completed"
+    assert [call[0] for call in transport.calls] == ["POST"]
+
+
+def test_retirement_keeps_attempts_that_might_have_called_held(state, tmp_path):
+    jobs = Jobs(Store(state / "companion"))
+    job(jobs)
+    claimed = jobs.claim(OpenAIProvider(SYNTHETIC_KEY, transport=Transport()))
+    assert jobs.calling(claimed[0], claimed[1])
+    value, target = handoff(state, tmp_path)
+    with pytest.raises(ValueError, match="Unsettled"):
+        allow_paid_worker(target, value, True)
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select state,net_actual from generation_attempts"
+        ).fetchone() == ("calling", None)
 
 
 def test_handoff_metadata_requires_matching_source_fences(state, tmp_path):
@@ -210,3 +236,46 @@ def test_manager_refuses_export_when_source_is_still_running(state, tmp_path):
     with pytest.raises(ValueError, match="Every source writer"):
         deployment.handoff_backup(tmp_path / "final.age", "age1synthetic")
     assert deployment.helper.call_count == 1
+
+
+def test_retirement_between_claim_check_and_transaction_prevents_reservation(
+    state, monkeypatch
+):
+    jobs = Jobs(Store(state / "companion"))
+    later = job(jobs)
+    original = jobs.check_restore
+    checks = 0
+
+    def retire_after_check(provider):
+        nonlocal checks
+        checks += 1
+        original(provider)
+        if checks == 1:
+            retire_source(state)
+
+    monkeypatch.setattr(jobs, "check_restore", retire_after_check)
+    with pytest.raises(JobConflict, match="paused"):
+        jobs.claim(OpenAIProvider(SYNTHETIC_KEY, transport=Transport()))
+    assert jobs.get(later["id"])["attempts"] == 0
+
+
+def test_retirement_during_call_transaction_abandons_only_unsubmitted_claim(
+    state, monkeypatch
+):
+    jobs = Jobs(Store(state / "companion"))
+    job(jobs)
+    claimed = jobs.claim(OpenAIProvider(SYNTHETIC_KEY, transport=Transport()))
+    original = jobs._owned
+
+    def retire_after_ownership(db, job_id, token):
+        attempt = original(db, job_id, token)
+        (state / "companion" / RETIRED).write_text("a" * 32)
+        return attempt
+
+    monkeypatch.setattr(jobs, "_owned", retire_after_ownership)
+    assert jobs.calling(claimed[0], claimed[1]) is False
+    assert jobs.get(claimed[0])["state"] == "queued"
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select state,net_actual from generation_attempts"
+        ).fetchone() == ("abandoned", 0)

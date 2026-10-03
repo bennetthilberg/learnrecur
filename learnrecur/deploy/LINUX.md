@@ -149,7 +149,7 @@ python3 -m learnrecur.deploy.manage \
   --recipient "$LEARNRECUR_BACKUP_RECIPIENT"
 ```
 
-The command writes retirement markers in both stores, stops and removes the source containers, verifies that they stopped, and exports an encrypted archive. It prints the handoff ID. It never restarts the source, including after an export failure. Retry a failed export with a new archive filename. Keep the source data, archive, matching image, and decryption identity until the replacement is checked.
+The command writes retirement markers in both stores, abandons known unsubmitted reservations, stops and removes the source containers, verifies that they stopped, and exports an encrypted archive. Abandoned jobs stay queued for the replacement. Attempts that might have contacted the provider keep their holds. It prints the handoff ID. It never restarts the source, including after an export failure. Retry a failed export with a new archive filename. Keep the source data, archive, matching image, and decryption identity until the replacement is checked.
 
 Retirement blocks the supported sync, companion, and worker launchers, imports, and new generation. Do not remove the retirement markers or start the native server directly. These checks protect the normal deployment path; they cannot fence a separate writable clone on another machine. Keep only one active backend.
 
