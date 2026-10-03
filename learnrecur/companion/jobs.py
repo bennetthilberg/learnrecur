@@ -123,6 +123,8 @@ class Jobs:
             )
 
     def enqueue(self, value):
+        if (self.store.path.parent / ".generation-source-retired").exists():
+            raise JobConflict("This generation source is retired.")
         if (
             not isinstance(value, dict)
             or set(value)
@@ -379,6 +381,28 @@ class Jobs:
         return row and row[0] == encode(skill)
 
     @staticmethod
+    def _abandon_reserved(db, job_id, attempt):
+        db.execute(
+            "update generation_attempts set state='abandoned',gross_actual=0,credit_actual=0,net_actual=0 where job_id=? and attempt=?",
+            (job_id, attempt),
+        )
+        db.execute(
+            "update generation_jobs set state='queued',lease_token=null,lease_until=null where id=?",
+            (job_id,),
+        )
+
+    def abandon_retired_claims(self):
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            if not (self.store.path.parent / ".generation-source-retired").exists():
+                raise JobConflict("Retire the source before abandoning its claims.")
+            rows = db.execute(
+                "select j.id,j.attempts from generation_jobs j join generation_attempts a on a.job_id=j.id and a.attempt=j.attempts where j.state='running' and a.state='reserved' and a.response_id is null"
+            ).fetchall()
+            for job_id, attempt in rows:
+                self._abandon_reserved(db, job_id, attempt)
+
+    @staticmethod
     def _recover(db, now):
         # A saved response resumes through GET. An unknown submitted call stops.
         for job_id, attempt in db.execute(
@@ -395,14 +419,7 @@ class Jobs:
                     (now, job_id),
                 )
             elif stage == "reserved":
-                db.execute(
-                    "update generation_attempts set state='abandoned',gross_actual=0,credit_actual=0,net_actual=0 where job_id=? and attempt=?",
-                    (job_id, attempt),
-                )
-                db.execute(
-                    "update generation_jobs set state='queued',lease_token=null,lease_until=null where id=?",
-                    (job_id,),
-                )
+                Jobs._abandon_reserved(db, job_id, attempt)
             else:
                 db.execute(
                     "update generation_jobs set state='needs_attention',error='Provider result is uncertain; reservation retained.',lease_token=null,lease_until=null where id=?",
@@ -415,6 +432,7 @@ class Jobs:
         month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")
         with self.store.connect() as db:
             db.execute("begin immediate")
+            self.check_restore(provider)
             self._recover(db, now)
             rows = db.execute(
                 "select id,context,attempts from generation_jobs where state in ('queued','retry_wait','waiting_budget') and next_run<=? order by next_run,id",
@@ -509,6 +527,9 @@ class Jobs:
         return row[3]
 
     def calling(self, job_id, token):
+        if (self.store.path.parent / ".generation-source-retired").exists():
+            self.abandon_retired_claims()
+            raise JobConflict("This generation source is retired.")
         with self.store.connect() as db:
             db.execute("begin immediate")
             attempt = self._owned(db, job_id, token)
@@ -525,6 +546,9 @@ class Jobs:
             ).fetchone()
             if state != "reserved":
                 raise JobConflict("This attempt already contacted the provider.")
+            if (self.store.path.parent / ".generation-source-retired").exists():
+                self._abandon_reserved(db, job_id, attempt)
+                return False
             stale = not self._current(db, context)
             limit, expiry = db.execute(
                 "select monthly_limit,credit_expires from generation_budget"
@@ -646,6 +670,7 @@ class Jobs:
         now = self.clock()
         with self.store.connect() as db:
             db.execute("begin immediate")
+            self.check_restore(provider)
             self._recover(db, now)
             rows = db.execute(
                 "select id,context,attempts from generation_jobs where state='provider_pending' and next_run<=? order by next_run,id",
@@ -689,7 +714,10 @@ class Jobs:
 
         job = self.get(job_id)
         restored_response = (
-            (self.store.path.parent / ".paid-restore-pending").exists()
+            any(
+                (self.store.path.parent / name).exists()
+                for name in (".paid-restore-pending", ".generation-source-retired")
+            )
             and job["state"] in {"running", "provider_pending"}
             and job["provider_response_id"] == value
         )
@@ -896,9 +924,13 @@ class Jobs:
 
     def check_restore(self, provider):
         folder = self.store.path.parent
-        if (folder / ".restore-pending").exists() or (
-            getattr(provider, "name", "") == "openai-responses-v1"
-            and (folder / ".paid-restore-pending").exists()
+        if (
+            (folder / ".generation-source-retired").exists()
+            or (folder / ".restore-pending").exists()
+            or (
+                getattr(provider, "name", "") == "openai-responses-v1"
+                and (folder / ".paid-restore-pending").exists()
+            )
         ):
             raise JobConflict(
                 "Restored generation is paused; reconcile history before new calls."

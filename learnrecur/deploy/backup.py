@@ -79,9 +79,14 @@ def check_database(path):
                 raise ValueError("A backed-up database failed its integrity check.")
 
 
-def create_archive(root: Path, output: Path, revision: str):
+def create_archive(root: Path, output: Path, revision: str, *, handoff=False):
     # The caller must stop every writer before entering this function.
     root = validate_root(root)
+    handoff_id = None
+    if handoff:
+        from learnrecur.deploy.recovery import retirement_id
+
+        handoff_id = retirement_id(root)
     if not revision or len(revision) > 100:
         raise ValueError("A matching build revision is required.")
     with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
@@ -120,6 +125,8 @@ def create_archive(root: Path, output: Path, revision: str):
             "created_at": datetime.now(timezone.utc).isoformat(),
             "files": files,
         }
+        if handoff_id:
+            manifest["handoff_id"] = handoff_id
         (stage / "manifest.json").write_text(json.dumps(manifest, sort_keys=True))
         with tarfile.open(output, "w:gz") as archive:
             for path in sorted(stage.rglob("*")):
@@ -196,6 +203,14 @@ def restore_archive(archive_path: Path, destination: Path, revision: str):
         validate_root(stage)
         for name in files:
             check_database(stage / name)
+        if "handoff_id" in manifest:
+            from learnrecur.deploy.recovery import recovery_receipt
+
+            recovery_receipt(
+                stage,
+                manifest["handoff_id"],
+                files["companion/skills.sqlite3"]["sha256"],
+            )
         (stage / "manifest.json").unlink()
         # Never resume generation automatically from an older job history.
         (stage / "companion/.restore-pending").write_text(
@@ -209,11 +224,15 @@ def restore_archive(archive_path: Path, destination: Path, revision: str):
         destination.mkdir(mode=0o700)
         for name in STORES:
             os.rename(stage / name, destination / name)
+        from learnrecur.deploy.recovery import RECEIPT
+
+        if (stage / RECEIPT).exists():
+            os.rename(stage / RECEIPT, destination / RECEIPT)
         (destination / MARKER).write_text(VERSION)
     return manifest
 
 
-def create(root, output, recipient, revision):
+def create(root, output, recipient, revision, *, handoff=False):
     root = validate_root(root)
     output = safe_path(output)
     if output.exists() or output.is_relative_to(root):
@@ -224,7 +243,7 @@ def create(root, output, recipient, revision):
     with tempfile.TemporaryDirectory(dir=output.parent) as temporary:
         plain = Path(temporary) / "backend.tar.gz"
         encrypted = Path(temporary) / "backend.age"
-        create_archive(root, plain, revision)
+        create_archive(root, plain, revision, handoff=handoff)
         subprocess.run(
             ["age", "-r", recipient, "-o", str(encrypted), str(plain)], check=True
         )
@@ -289,7 +308,14 @@ def inspect_generation(root):
         attempts = db.execute(
             "select a.job_id,a.attempt,j.state,a.state,a.response_id,a.net_reserved,a.net_actual from generation_attempts a join generation_jobs j on j.id=a.job_id order by a.job_id,a.attempt"
         ).fetchall()
+    from learnrecur.deploy.recovery import RECEIPT
+
+    receipt = safe_path(root / RECEIPT)
+    handoff_id = (
+        json.loads(receipt.read_text())["handoff_id"] if receipt.exists() else None
+    )
     return {
+        "handoff_id": handoff_id,
         "restore_paused": (root / "companion/.restore-pending").exists(),
         "paid_restore_paused": (root / "companion/.paid-restore-pending").exists(),
         "budget": dict(
@@ -344,10 +370,13 @@ def main():
         "allow-fixture-worker",
         "inspect-generation",
         "publish-ready",
+        "retire-source",
+        "create-handoff",
+        "allow-paid-worker",
     ):
         child = commands.add_parser(command)
         child.add_argument("--root", type=Path, required=True)
-        if command in ("create", "restore"):
+        if command in ("create", "create-handoff", "restore"):
             child.add_argument("--archive", type=Path, required=True)
             child.add_argument(
                 "--revision",
@@ -355,20 +384,39 @@ def main():
                 if Path("/build-revision").exists()
                 else None,
             )
-        if command == "create":
+        if command in ("create", "create-handoff"):
             child.add_argument("--recipient", required=True)
         if command == "restore":
             child.add_argument("--identity", type=Path, required=True)
+        if command == "allow-paid-worker":
+            child.add_argument("--handoff-id", required=True)
+            child.add_argument(
+                "--confirm-sole-active-host", action="store_true", required=True
+            )
     args = parser.parse_args()
     try:
-        if args.command == "create":
-            create(args.root, args.archive, args.recipient, args.revision)
+        if args.command in ("create", "create-handoff"):
+            create(
+                args.root,
+                args.archive,
+                args.recipient,
+                args.revision,
+                handoff=args.command == "create-handoff",
+            )
         elif args.command == "restore":
             restore(args.archive, args.root, args.identity, args.revision)
         elif args.command == "allow-fixture-worker":
             allow_fixture_worker(args.root)
         elif args.command == "publish-ready":
             publish_ready(args.root)
+        elif args.command == "retire-source":
+            from learnrecur.deploy.recovery import retire_source
+
+            print(retire_source(args.root))
+        elif args.command == "allow-paid-worker":
+            from learnrecur.deploy.recovery import allow_paid_worker
+
+            allow_paid_worker(args.root, args.handoff_id, args.confirm_sole_active_host)
         else:
             print(json.dumps(inspect_generation(args.root), indent=2))
     except (

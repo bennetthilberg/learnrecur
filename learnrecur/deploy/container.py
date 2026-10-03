@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+from learnrecur.deploy.recovery import require_active
 from learnrecur.deploy.run_sync_server import server_environment
 
 
@@ -25,6 +26,7 @@ def read_secret(name):
 def main():
     os.umask(0o077)
     mode = sys.argv[1] if len(sys.argv) == 2 else ""
+    require_active(Path("/state/sync" if mode == "sync" else "/state/companion"))
     provider = os.environ.get("LEARNRECUR_GENERATION_PROVIDER", "fixture")
     if provider not in {"fixture", "openai"}:
         raise ValueError("Choose fixture or openai as the generation provider.")

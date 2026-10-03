@@ -198,7 +198,11 @@ class Deployment:
             path.chmod(0o600)
 
     def start(self, worker=False):
+        from learnrecur.deploy.recovery import require_active
+
         validate_root(self.state)
+        for name in STORES:
+            require_active(self.state / name)
         self.verify_containers()
         for name in ("sync-account", "companion-token"):
             path = safe_path(self.credentials / name)
@@ -339,6 +343,37 @@ class Deployment:
             "/identity",
         )
 
+    def handoff_backup(self, archive, recipient):
+        validate_root(self.state)
+        self.verify_containers()
+        archive = safe_path(archive)
+        if (
+            archive.exists()
+            or archive.is_relative_to(self.state)
+            or archive.is_relative_to(self.credentials)
+        ):
+            raise ValueError(
+                "Choose a new handoff archive outside state and credentials."
+            )
+        archive.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        self.helper(
+            [(self.state, "/state", False)], "retire-source", "--root", "/state"
+        )
+        # Remove existing containers so an older entrypoint cannot auto-restart.
+        self.compose("down")
+        if self.running():
+            raise ValueError("Every source writer must stop before the final snapshot.")
+        self.helper(
+            [(self.state, "/state", True), (archive.parent, "/backups", False)],
+            "create-handoff",
+            "--root",
+            "/state",
+            "--archive",
+            "/backups/" + archive.name,
+            "--recipient",
+            recipient,
+        )
+
     def reconcile_openai(self, job_id, response_id):
         validate_root(self.state)
         self.verify_containers()
@@ -407,6 +442,8 @@ def main():
             "inspect-generation",
             "publish-ready",
             "reconcile-openai",
+            "handoff-backup",
+            "allow-paid-worker",
         ),
     )
     parser.add_argument("--archive", type=Path)
@@ -415,6 +452,8 @@ def main():
     parser.add_argument("--monthly-limit-microusd", type=int)
     parser.add_argument("--job-id")
     parser.add_argument("--response-id")
+    parser.add_argument("--handoff-id")
+    parser.add_argument("--confirm-sole-active-host", action="store_true")
     args = parser.parse_args()
     try:
         deployment = Deployment(args.state, args.secrets, args.image, args.project)
@@ -429,20 +468,38 @@ def main():
                 deployment.compose("stop")
             elif args.command == "backup" and args.archive and args.recipient:
                 deployment.backup(args.archive, args.recipient)
+            elif args.command == "handoff-backup" and args.archive and args.recipient:
+                deployment.handoff_backup(args.archive, args.recipient)
             elif args.command == "restore" and args.archive and args.identity:
                 deployment.restore(args.archive, args.identity)
-            elif args.command in ("allow-fixture-worker", "publish-ready"):
+            elif args.command in (
+                "allow-fixture-worker",
+                "publish-ready",
+                "allow-paid-worker",
+            ):
                 validate_root(deployment.state)
                 deployment.verify_containers()
                 if deployment.running():
                     raise ValueError(
                         "Stop the restored deployment before inspecting jobs."
                     )
+                options = []
+                if args.command == "allow-paid-worker":
+                    if not args.handoff_id or not args.confirm_sole_active_host:
+                        raise ValueError(
+                            "Supply the handoff ID and sole-active-host confirmation."
+                        )
+                    options = [
+                        "--handoff-id",
+                        args.handoff_id,
+                        "--confirm-sole-active-host",
+                    ]
                 deployment.helper(
                     [(deployment.state, "/state", False)],
                     args.command,
                     "--root",
                     "/state",
+                    *options,
                 )
             elif args.command == "configure-openai":
                 deployment.configure_openai(args.monthly_limit_microusd)
