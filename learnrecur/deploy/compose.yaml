@@ -38,7 +38,7 @@ services:
     profiles: [worker]
     volumes:
       - ${LEARNRECUR_STATE}/companion:/state/companion
-    # This first deployment uses fixtures. Paid generation remains disabled.
+    # OpenAI needs the explicit override; fixtures need no provider key.
 secrets:
   sync_account:
     file: ${LEARNRECUR_SECRETS:?Set a private secrets directory}/sync-account

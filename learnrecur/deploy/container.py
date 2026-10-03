@@ -25,6 +25,13 @@ def read_secret(name):
 def main():
     os.umask(0o077)
     mode = sys.argv[1] if len(sys.argv) == 2 else ""
+    provider = os.environ.get("LEARNRECUR_GENERATION_PROVIDER", "fixture")
+    if provider not in {"fixture", "openai"}:
+        raise ValueError("Choose fixture or openai as the generation provider.")
+    folder = Path("/state/companion")
+    paused = (folder / ".restore-pending").exists() or (
+        provider == "openai" and (folder / ".paid-restore-pending").exists()
+    )
     if mode == "sync":
         env = server_environment(
             Path("/state/sync"), 45331, read_secret("sync_account")
@@ -41,16 +48,31 @@ def main():
             read_secret("companion_token"),
             45321,
             host="0.0.0.0",
-            refill_provider=None
-            if Path("/state/companion/.restore-pending").exists()
-            else "fixture",
+            refill_provider=None if paused else provider,
         )
         server.serve_forever()
     elif mode == "worker":
-        if Path("/state/companion/.restore-pending").exists():
+        if paused:
             raise ValueError(
                 "Restored jobs need inspection before starting the worker."
             )
+        options = []
+        if provider == "openai":
+            try:
+                limit = int(os.environ["LEARNRECUR_GENERATION_LIMIT"])
+            except (KeyError, ValueError):
+                raise ValueError("Specify an authorized OpenAI allowance.") from None
+            if not 0 <= limit <= 5000000:
+                raise ValueError("Specify an authorized allowance of at most $5.")
+            options = [
+                "--provider",
+                "openai",
+                "--allow-paid-generation",
+                "--key-file",
+                "/run/learnrecur-openai/openai-api-key",
+                "--monthly-limit-microusd",
+                str(limit),
+            ]
         os.execv(
             sys.executable,
             [
@@ -59,6 +81,7 @@ def main():
                 "learnrecur.companion.jobs",
                 "--data-dir",
                 "/state/companion",
+                *options,
             ],
         )
     else:

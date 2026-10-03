@@ -15,6 +15,7 @@ import subprocess
 from contextlib import contextmanager
 from pathlib import Path
 
+from learnrecur.companion.credentials import load_key
 from learnrecur.deploy.backup import MARKER, STORES, VERSION, safe_path, validate_root
 
 COMPOSE = Path(__file__).with_name("compose.yaml")
@@ -46,20 +47,95 @@ class Deployment:
             "LEARNRECUR_UID": str(self.uid),
         }
 
+    def generation_settings(self):
+        path = safe_path(self.credentials / "generation.json")
+        if not path.exists():
+            return {"provider": "fixture"}
+        if (
+            not path.is_file()
+            or path.stat().st_mode & 0o077
+            or path.stat().st_uid != self.uid
+            or path.stat().st_size > 1024
+        ):
+            raise ValueError("Use a private generation configuration.")
+        value = json.loads(path.read_text())
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"provider", "monthly_limit_microusd"}
+            or value["provider"] != "openai"
+            or type(value["monthly_limit_microusd"]) is not int
+            or not 0 <= value["monthly_limit_microusd"] <= 5000000
+        ):
+            raise ValueError("Invalid generation configuration.")
+        return value
+
+    def openai_key(self):
+        return safe_path(self.credentials / "openai/openai-api-key")
+
+    def configure_openai(self, limit):
+        validate_root(self.state)
+        self.verify_containers()
+        if self.running():
+            raise ValueError("Stop the deployment before changing providers.")
+        if type(limit) is not int or not 0 <= limit <= 5000000:
+            raise ValueError("Specify an authorized allowance of at most $5.")
+        if any(
+            (self.state / "companion" / name).exists()
+            for name in (".restore-pending", ".paid-restore-pending")
+        ):
+            raise ValueError("Restored paid generation must stay paused.")
+        load_key(self.openai_key())
+        # Set the allowance before enabling refills, retaining all prior accounting.
+        self.compose(
+            "run",
+            "--rm",
+            "--no-deps",
+            "--entrypoint",
+            "python",
+            "worker",
+            "-c",
+            "from pathlib import Path; from learnrecur.companion.server import Store; from learnrecur.companion.jobs import Jobs; Jobs(Store(Path('/state/companion'))).configure_budget("
+            + str(limit)
+            + ")",
+        )
+        path = self.credentials / "generation.json"
+        temporary = self.credentials / ".generation-new.json"
+        fd = os.open(
+            temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
+        )
+        try:
+            with os.fdopen(fd, "w") as stream:
+                json.dump(
+                    {"provider": "openai", "monthly_limit_microusd": limit}, stream
+                )
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
     def compose(self, *arguments):
+        settings = self.generation_settings()
+        files = ["-f", str(COMPOSE)]
+        env = {**self.env, "LEARNRECUR_GENERATION_PROVIDER": "fixture"}
+        if settings["provider"] == "openai":
+            files += ["-f", str(COMPOSE.with_name("compose.openai.yaml"))]
+            env.update(
+                LEARNRECUR_GENERATION_PROVIDER="openai",
+                LEARNRECUR_GENERATION_LIMIT=str(settings["monthly_limit_microusd"]),
+            )
         return subprocess.run(
             [
                 "docker",
                 "compose",
-                "-f",
-                str(COMPOSE),
+                *files,
                 "-p",
                 self.project,
                 "--profile",
                 "worker",
                 *arguments,
             ],
-            env=self.env,
+            env=env,
             check=True,
             capture_output=True,
             text=True,
@@ -134,6 +210,10 @@ class Deployment:
                 raise ValueError("Use private credentials owned by the service user.")
         if worker and (self.state / "companion/.restore-pending").exists():
             raise ValueError("Inspect restored jobs before enabling the worker.")
+        if worker and self.generation_settings()["provider"] == "openai":
+            if (self.state / "companion/.paid-restore-pending").exists():
+                raise ValueError("Restored paid generation must stay paused.")
+            load_key(self.openai_key())
         self.compose(
             "up",
             "-d",
@@ -223,6 +303,52 @@ class Deployment:
             "/identity",
         )
 
+    def reconcile_openai(self, job_id, response_id):
+        validate_root(self.state)
+        self.verify_containers()
+        if self.running():
+            raise ValueError("Stop the deployment before reconciling a response.")
+        key = self.openai_key()
+        load_key(key)
+        # This command uses the existing response's GET path, never the worker loop.
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--read-only",
+                "--user",
+                f"{self.uid}:{self.uid}",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                "--tmpfs",
+                "/tmp:size=64m,mode=1777",
+                "--mount",
+                f"type=bind,src={self.state / 'companion'},dst=/state/companion",
+                "--mount",
+                f"type=bind,src={key.parent},dst=/run/learnrecur-openai,readonly",
+                "--entrypoint",
+                "python",
+                self.image,
+                "-m",
+                "learnrecur.companion.jobs",
+                "--data-dir",
+                "/state/companion",
+                "--provider",
+                "openai",
+                "--allow-paid-generation",
+                "--key-file",
+                "/run/learnrecur-openai/openai-api-key",
+                "--reconcile-job",
+                job_id,
+                "--response-id",
+                response_id,
+            ],
+            check=True,
+        )
+
 
 def main():
     os.umask(0o077)
@@ -241,11 +367,18 @@ def main():
             "backup",
             "restore",
             "allow-fixture-worker",
+            "configure-openai",
+            "inspect-generation",
+            "publish-ready",
+            "reconcile-openai",
         ),
     )
     parser.add_argument("--archive", type=Path)
     parser.add_argument("--recipient")
     parser.add_argument("--identity", type=Path)
+    parser.add_argument("--monthly-limit-microusd", type=int)
+    parser.add_argument("--job-id")
+    parser.add_argument("--response-id")
     args = parser.parse_args()
     try:
         deployment = Deployment(args.state, args.secrets, args.image, args.project)
@@ -262,7 +395,7 @@ def main():
                 deployment.backup(args.archive, args.recipient)
             elif args.command == "restore" and args.archive and args.identity:
                 deployment.restore(args.archive, args.identity)
-            elif args.command == "allow-fixture-worker":
+            elif args.command in ("allow-fixture-worker", "publish-ready"):
                 validate_root(deployment.state)
                 deployment.verify_containers()
                 if deployment.running():
@@ -271,10 +404,24 @@ def main():
                     )
                 deployment.helper(
                     [(deployment.state, "/state", False)],
-                    "allow-fixture-worker",
+                    args.command,
                     "--root",
                     "/state",
                 )
+            elif args.command == "configure-openai":
+                deployment.configure_openai(args.monthly_limit_microusd)
+            elif args.command == "inspect-generation":
+                validate_root(deployment.state)
+                deployment.helper(
+                    [(deployment.state, "/state", True)],
+                    "inspect-generation",
+                    "--root",
+                    "/state",
+                )
+            elif (
+                args.command == "reconcile-openai" and args.job_id and args.response_id
+            ):
+                deployment.reconcile_openai(args.job_id, args.response_id)
             else:
                 raise ValueError(
                     "Supply the archive and recipient or identity options."

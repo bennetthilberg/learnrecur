@@ -335,7 +335,7 @@ class Jobs:
             return {"status": job["state"], "job_id": job["id"]}
 
     def configure_budget(self, monthly_limit, credit_total=0, credit_expires=0):
-        # Set the local allowance before its first provider attempt.
+        # Tightening an allowance must not discard earlier spending or holds.
         if (
             any(
                 type(n) is not int or not 0 <= n <= 5000000
@@ -354,7 +354,14 @@ class Jobs:
             ).fetchone()
             if current == (monthly_limit, credit_total, credit_expires):
                 return
-            if db.execute("select count(*) from generation_attempts").fetchone()[0]:
+            tightening = (
+                monthly_limit <= current[0]
+                and (credit_total, credit_expires) == current[1:]
+            )
+            if (
+                not tightening
+                and db.execute("select count(*) from generation_attempts").fetchone()[0]
+            ):
                 raise JobConflict(
                     "Configure this proof's budget before its first attempt."
                 )
@@ -403,6 +410,7 @@ class Jobs:
                 )
 
     def claim(self, provider):
+        self.check_restore(provider)
         now = self.clock()
         month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")
         with self.store.connect() as db:
@@ -680,8 +688,13 @@ class Jobs:
         )
 
         job = self.get(job_id)
+        restored_response = (
+            (self.store.path.parent / ".paid-restore-pending").exists()
+            and job["state"] in {"running", "provider_pending"}
+            and job["provider_response_id"] == value
+        )
         if (
-            job["state"] != "needs_attention"
+            (job["state"] != "needs_attention" and not restored_response)
             or job["context"]["provider"] != NAME
             or not job["attempts"]
         ):
@@ -696,7 +709,7 @@ class Jobs:
             row = db.execute(
                 "select state,attempts from generation_jobs where id=?", (job_id,)
             ).fetchone()
-            if row != ("needs_attention", job["attempts"]):
+            if row != (job["state"], job["attempts"]):
                 raise JobConflict("The job changed during reconciliation.")
             db.execute(
                 "update generation_jobs set state='running',error=null,lease_token=?,lease_until=? where id=?",
@@ -823,6 +836,7 @@ class Jobs:
         if ready:
             self.publish(ready[0])
             return ready[0]
+        self.check_restore(provider)
         # A saved response resumes through reads; never call generate again for it.
         resumed = self._resume(provider)
         if resumed:
@@ -879,6 +893,16 @@ class Jobs:
         else:
             self.publish(job_id)
         return job_id
+
+    def check_restore(self, provider):
+        folder = self.store.path.parent
+        if (folder / ".restore-pending").exists() or (
+            getattr(provider, "name", "") == "openai-responses-v1"
+            and (folder / ".paid-restore-pending").exists()
+        ):
+            raise JobConflict(
+                "Restored generation is paused; reconcile history before new calls."
+            )
 
 
 class FixtureProvider:
