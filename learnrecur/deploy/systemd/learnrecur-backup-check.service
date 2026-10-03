@@ -1,0 +1,15 @@
+[Unit]
+Description=Check LearnRecur backup freshness
+
+[Service]
+Type=oneshot
+User=learnrecur
+Group=learnrecur
+WorkingDirectory=/srv/learnrecur/repo
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/srv/learnrecur/backup-venv/bin/python -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json status
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
