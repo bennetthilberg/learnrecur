@@ -178,18 +178,63 @@ class Jobs:
                 db, value, request_id, skill_id, examples, provider_name, encoded, now
             )
 
-    def create_skill(self, value, provider):
-        """Save a definition and its first generation job in one transaction."""
+    def definition(self, skill_id):
+        with self.store.connect() as db:
+            db.execute("begin")
+            row = db.execute(
+                "select payload from skills where id=?", (skill_id,)
+            ).fetchone()
+            if not row:
+                raise JobConflict("This skill is no longer available.")
+            skill = decode(row[0].encode())
+            examples = []
+            for (encoded,) in db.execute(
+                "select context from generation_jobs where state='completed' order by rowid desc"
+            ):
+                context = decode(encoded.encode())
+                if (
+                    context.get("new_skill")
+                    and context["skill"]["id"] == skill_id
+                    and context["skill"]["bank"]["revision"]
+                    == skill["bank"]["revision"]
+                ):
+                    examples = context["examples"]
+                    break
+            return {
+                "source_id": db.execute(
+                    "select value from metadata where key='source_id'"
+                ).fetchone()[0],
+                "skill_id": skill_id,
+                "base_revision": skill["bank"]["revision"],
+                "title": skill["title"],
+                "description": skill["description"],
+                "examples": examples,
+            }
+
+    def edit_skill(self, value, provider):
+        return self.create_skill(value, provider, editing=True)
+
+    def create_skill(self, value, provider, *, editing=False):
+        """Keep a definition pending until its generated bank can be published."""
+        fields = {"request_id", "source_id", "title", "description", "examples"}
+        if editing:
+            fields |= {"skill_id", "base_revision"}
         if (
             not isinstance(value, dict)
-            or set(value)
-            != {"request_id", "source_id", "title", "description", "examples"}
+            or set(value) != fields
             or not isinstance(value["request_id"], str)
             or not re.fullmatch(r"[a-f0-9]{32}", value["request_id"])
         ):
             raise SkillImportError(
                 "Supply a skill title, description, and request identity."
             )
+        if editing and (
+            not isinstance(value["skill_id"], str)
+            or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", value["skill_id"])
+            or type(value["base_revision"]) is not int
+            or not 1 <= value["base_revision"] < 100
+        ):
+            raise SkillImportError("Supply a skill identity and revision below 100.")
         _text(value["title"], 256)
         _text(value["description"])
         examples = value["examples"]
@@ -223,7 +268,9 @@ class Jobs:
             ).fetchone()
             if existing:
                 saved = decode(existing[2].encode())
-                if any(saved.get(key) != item for key, item in value.items()):
+                if ("base_revision" in saved) != editing or any(
+                    saved.get(key) != item for key, item in value.items()
+                ):
                     raise JobConflict(
                         "This request already has a different skill definition."
                     )
@@ -236,22 +283,58 @@ class Jobs:
             if any((self.store.path.parent / name).exists() for name in markers):
                 raise JobConflict("Generation is paused for recovery.")
             if (
-                db.execute(
-                    "select (select count(*) from skills)+(select count(*) from skill_drafts)"
+                not editing
+                and db.execute(
+                    "select (select count(*) from skills)+(select count(*) from skill_drafts where id not in (select id from skills))"
                 ).fetchone()[0]
                 >= 100
             ):
                 raise JobConflict("The companion can hold at most 100 skills.")
-            key = "skill-" + value["request_id"]
-            if db.execute("select 1 from skills where id=?", (key,)).fetchone():
+            key = value["skill_id"] if editing else "skill-" + value["request_id"]
+            current = db.execute(
+                "select payload from skills where id=?", (key,)
+            ).fetchone()
+            if editing:
+                if (
+                    not current
+                    or decode(current[0].encode())["bank"]["revision"]
+                    != value["base_revision"]
+                ):
+                    raise JobConflict(
+                        "The skill changed. Import its latest revision before editing."
+                    )
+                for encoded, state in db.execute(
+                    "select context,state from generation_jobs"
+                ):
+                    context = decode(encoded.encode())
+                    if (
+                        context.get("new_skill")
+                        and context["skill"]["id"] == key
+                        and state not in ("completed", "failed", "obsolete")
+                    ):
+                        raise JobConflict(
+                            "This skill has pending changes. Resume the saved request first."
+                        )
+                revision = value["base_revision"] + 1
+            else:
+                revision = 1
+            if not editing and current:
                 raise JobConflict("This skill identity is already in use.")
             skill = {
                 "id": key,
                 "title": value["title"],
                 "description": value["description"],
-                "bank": {"version": 1, "skill_id": key, "revision": 1, "exercises": []},
+                "bank": {
+                    "version": 1,
+                    "skill_id": key,
+                    "revision": revision,
+                    "exercises": [],
+                },
             }
-            db.execute("insert into skill_drafts values (?,?)", (key, encode(skill)))
+            db.execute(
+                "insert into skill_drafts values (?,?) on conflict(id) do update set payload=excluded.payload",
+                (key, encode(skill)),
+            )
             if self.store._too_large_with_drafts(db):
                 raise JobConflict(
                     "The companion has no room for another exercise bank."
@@ -259,7 +342,7 @@ class Jobs:
             request = {
                 **value,
                 "skill_id": key,
-                "revision": 1,
+                "revision": revision,
                 "count": 3,
                 "provider": provider,
             }
@@ -320,6 +403,8 @@ class Jobs:
         }
         if draft:
             context["new_skill"] = True
+            if "base_revision" in value:
+                context["base_revision"] = value["base_revision"]
         context["existing_prompts"] = [e["prompt"] for e in skill["bank"]["exercises"]]
         for (batch,) in db.execute(
             "select payload from exercise_batches where skill_id=? order by sequence",
@@ -332,6 +417,23 @@ class Jobs:
                 )
         if len(context["existing_prompts"]) + value["count"] > 100:
             raise JobConflict("The current exercise bank is full.")
+        if "base_revision" in context:
+            previous = decode(
+                db.execute("select payload from skills where id=?", (skill_id,))
+                .fetchone()[0]
+                .encode()
+            )
+            context["existing_prompts"].extend(
+                e["prompt"] for e in previous["bank"]["exercises"]
+            )
+            for (encoded_batch,) in db.execute(
+                "select payload from exercise_batches where skill_id=?", (skill_id,)
+            ):
+                batch = decode(encoded_batch.encode())
+                if batch["revision"] == context["base_revision"]:
+                    context["existing_prompts"].extend(
+                        e["prompt"] for e in batch["exercises"]
+                    )
         if provider_name == "openai":
             from learnrecur.companion.openai_provider import (
                 CONFIG,
@@ -397,6 +499,8 @@ class Jobs:
                 raise JobConflict(
                     "Import the current skill revision before requesting a refill."
                 )
+            if db.execute("select 1 from skill_drafts where id=?", (key,)).fetchone():
+                return {"status": "awaiting_import", "job_id": None}
             sequence = db.execute(
                 "select coalesce(max(sequence),0) from exercise_batches where skill_id=?",
                 (key,),
@@ -490,12 +594,29 @@ class Jobs:
     @staticmethod
     def _current(db, context):
         skill = context["skill"]
+        if (
+            not context.get("new_skill")
+            and db.execute(
+                "select 1 from skill_drafts where id=?", (skill["id"],)
+            ).fetchone()
+        ):
+            return False
         row = db.execute(
             "select payload from skill_drafts where id=?"
             if context.get("new_skill")
             else "select payload from skills where id=?",
             (skill["id"],),
         ).fetchone()
+        if "base_revision" in context:
+            published = db.execute(
+                "select payload from skills where id=?", (skill["id"],)
+            ).fetchone()
+            if (
+                not published
+                or decode(published[0].encode())["bank"]["revision"]
+                != context["base_revision"]
+            ):
+                return False
         return row and row[0] == encode(skill)
 
     @staticmethod
@@ -960,11 +1081,12 @@ class Jobs:
                     skill = copy.deepcopy(skill)
                     skill["bank"]["exercises"] = exercises
                     db.execute(
-                        "insert into skills values (?,?)", (skill["id"], encode(skill))
+                        "insert into skills values (?,?) on conflict(id) do update set payload=excluded.payload",
+                        (skill["id"], encode(skill)),
                     )
                     db.execute(
                         "insert into skill_revisions values (?,?,?)",
-                        (skill["id"], 1, encode(skill)),
+                        (skill["id"], skill["bank"]["revision"], encode(skill)),
                     )
                     self.store._assign_identity(db, skill["id"])
                     db.execute("delete from skill_drafts where id=?", (skill["id"],))
@@ -1087,15 +1209,12 @@ class FixtureProvider:
         return 0
 
     def generate(self, context):
-        fixture = decode(
-            (
-                Path(__file__).resolve().parents[1] / "fixtures/spanish-import.json"
-            ).read_bytes()
-        )["skills"][0]
-        matches = context["skill"] == fixture or (
-            re.fullmatch(r"skill-[a-f0-9]{32}", context["skill"]["id"])
-            and context["skill"]["description"] == fixture["description"]
-        )
+        folder = Path(__file__).resolve().parents[1] / "fixtures"
+        descriptions = {
+            decode((folder / name).read_bytes())["skills"][0]["description"]
+            for name in ("spanish-import.json", "spanish-revision.json")
+        }
+        matches = context["skill"]["description"] in descriptions
         if (
             context["provider"] != "fixture-spanish-v1"
             or context["count"] > 3

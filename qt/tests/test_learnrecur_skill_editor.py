@@ -1,5 +1,7 @@
 """Creation resumes one request and keeps exercise inspection optional."""
 
+import json
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -9,6 +11,8 @@ import pytest
 import anki.lang
 from anki.collection import Collection
 from anki.learnrecur_skill_import import SkillImportError
+from anki.learnrecur_skills import prepare_skill_answer, select_skill_review
+from anki.scheduler.v3 import CardAnswer
 from aqt import gui_hooks
 from aqt import learnrecur_skill_editor as ui
 from aqt.qt import QApplication, QLabel, Qt, QWidget
@@ -435,6 +439,275 @@ def test_example_form_has_required_fields_and_focus_navigation(app):
         assert all(
             field.accessibleName() == key.capitalize()
             for key, field in dialog.fields.items()
+        )
+    finally:
+        dialog.reject()
+
+
+def revise(dialog):
+    value = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "learnrecur/fixtures/spanish-revision.json"
+        ).read_text()
+    )["skills"][0]
+    dialog.description.setPlainText(value["description"])
+    dialog.examples = [
+        {"prompt": "Yo ___ ayer. (hablar)", "answer": "hablé", "explanation": "Use -é."}
+    ]
+    dialog.refresh_examples()
+
+
+def rate_skill(col):
+    col.decks.select(col.decks.id("LearnRecur skills"))
+    queued = col.sched.get_queued_cards().cards[0]
+    card = col.get_card(queued.card.id)
+    card.start_timer()
+    queued.states.current.custom_data = card.custom_data
+    answer = col.sched.build_answer(
+        card=card, states=queued.states, rating=CardAnswer.AGAIN
+    )
+    prepare_skill_answer(col, answer, select_skill_review(card))
+    col.sched.answer_card(answer)
+    return card.id
+
+
+def test_edit_uses_same_form_and_preserves_review_history_undo_and_offline_review(
+    app, server, monkeypatch, tmp_path
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    cid = rate_skill(col)
+    before_cards = col.db.all("select * from cards")
+    before_reviews = col.db.all("select * from revlog")
+    old_exercise = select_skill_review(col.get_card(cid)).exercise
+    target = ui.selected_skill(col, col.get_card(cid).nid)
+    mw = window(server, col=col)
+    dialog = ui.SkillEditor(mw, target)
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        assert dialog.windowTitle() == "Edit skill"
+        assert dialog.action.text() == "Save changes"
+        assert dialog.title.text() == server.store.snapshot()["skills"][0]["title"]
+        assert not dialog.action.isEnabled()
+        revise(dialog)
+        assert dialog.action.isEnabled()
+        dialog.perform_action()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        assert not dialog.title.isEnabled() and not dialog.action.isEnabled()
+        assert select_skill_review(col.get_card(cid)).exercise == old_exercise
+        run_fixture(server)
+        dialog.poll()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        mutation = mutations.pop(0)
+        result = mutation["op"](col)
+        assert (result.added, result.updated) == (0, 1)
+        mutation["success"](result)
+        assert dialog.windowTitle() == "Skill saved"
+        assert dialog.action.text() == "Done"
+        assert not dialog.preview_button.isHidden()
+        assert not dialog.pages.currentWidget().findChildren(ui.QPlainTextEdit)
+        assert col.card_count() == 1
+        assert col.db.all("select * from cards") == before_cards
+        assert col.db.all("select * from revlog") == before_reviews
+        assert select_skill_review(col.get_card(cid)).exercise != old_exercise
+        bank = json.loads(col.get_card(cid).note()["LearnRecurSkill"])
+        assert bank["revision"] == 2 and len(bank["retired_revisions"]) == 1
+        assert old_exercise.prompt not in [e["prompt"] for e in bank["exercises"]]
+        col.undo()
+        assert select_skill_review(col.get_card(cid)).exercise == old_exercise
+        col.redo()
+        col.close()
+        col.reopen()
+        assert json.loads(col.get_card(cid).note()["LearnRecurSkill"])["revision"] == 2
+        assert col.db.all("select * from cards") == before_cards
+        assert col.db.all("select * from revlog") == before_reviews
+        rate_skill(col)
+        assert len(col.db.all("select * from revlog")) == len(before_reviews) + 1
+    finally:
+        dialog.reject()
+        col.close()
+
+
+@pytest.mark.parametrize("commit_first", [False, True])
+def test_closed_edit_resumes_original_job_and_updates_one_card(
+    app, server, monkeypatch, tmp_path, commit_first
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    cid = rate_skill(col)
+    before = col.db.all("select * from cards"), col.db.all("select * from revlog")
+    mw = window(server, col=col)
+    dialog = ui.SkillEditor(mw, ui.selected_skill(col, col.get_card(cid).nid))
+    reopened = None
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.perform_action()
+        receive(queries.pop(0))
+        post = queries.pop(0)
+        job = post["op"](None)
+        if commit_first:
+            post["success"](job)
+            run_fixture(server)
+            dialog.poll()
+            receive(queries.pop(0))
+            receive(queries.pop(0))
+            mutation = mutations.pop(0)
+            result = mutation["op"](col)
+            dialog.reject()
+            mutation["success"](result)
+        else:
+            dialog.reject()
+            post["success"](job)
+            run_fixture(server)
+        saved = mw.pm.profile[ui.PENDING_KEY].copy()
+        reopened = ui.SkillEditor(mw)
+        app.processEvents()
+        assert reopened.windowTitle() == "Edit skill"
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        mutation = mutations.pop(0)
+        mutation["success"](mutation["op"](col))
+        assert reopened.added and ui.PENDING_KEY not in mw.pm.profile
+        assert reopened.pending == saved
+        assert (
+            reopened.job_id == job["id"]
+            and jobs(server).get(job["id"])["attempts"] == 1
+        )
+        assert col.card_count() == 1
+        assert (
+            col.db.all("select * from cards"),
+            col.db.all("select * from revlog"),
+        ) == before
+    finally:
+        dialog.reject()
+        if reopened:
+            reopened.reject()
+        col.close()
+
+
+def test_cancel_edit_does_not_publish_or_generate(app, server, monkeypatch, tmp_path):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    mw = window(server, col=col)
+    before = col.db.all("select * from notes"), server.store.snapshot()
+    dialog = ui.SkillEditor(mw, ui.selected_skill(col, col.find_notes("")[0]))
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.reject()
+        assert not queries and not mutations and ui.PENDING_KEY not in mw.pm.profile
+        assert (col.db.all("select * from notes"), server.store.snapshot()) == before
+        with server.store.connect() as db:
+            assert db.execute("select count(*) from generation_jobs").fetchone()[0] == 0
+    finally:
+        dialog.reject()
+        col.close()
+
+
+def test_missing_original_card_cannot_be_recreated_by_completed_edit(
+    app, server, monkeypatch, tmp_path
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    cid = col.find_cards("")[0]
+    mw = window(server, col=col)
+    dialog = ui.SkillEditor(mw, ui.selected_skill(col, col.get_card(cid).nid))
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.perform_action()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        run_fixture(server)
+        dialog.poll()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        col.remove_notes([col.get_card(cid).nid])
+        with pytest.raises(SkillImportError, match="missing"):
+            mutations.pop(0)["op"](col)
+        assert col.card_count() == 0
+        assert ui.PENDING_KEY in mw.pm.profile
+    finally:
+        dialog.reject()
+        col.close()
+
+
+def test_definition_load_failure_can_retry_and_preserves_saved_examples(
+    app, server, monkeypatch, tmp_path
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    target = ui.selected_skill(col, col.find_notes("")[0])
+    mw = window(server, col=col)
+    dialog = ui.SkillEditor(mw, target)
+    try:
+        app.processEvents()
+        queries.pop(0)["failure"](SkillImportError("Could not reach the companion."))
+        assert dialog.action.isEnabled()
+        dialog.perform_action()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.perform_action()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        run_fixture(server)
+        dialog.poll()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        mutation = mutations.pop(0)
+        mutation["success"](mutation["op"](col))
+        expected = dialog.examples.copy()
+        dialog.reject()
+        reopened = ui.SkillEditor(mw, ui.selected_skill(col, col.find_notes("")[0]))
+        try:
+            app.processEvents()
+            receive(queries.pop(0))
+            assert reopened.examples == expected
+            assert not reopened.example_list.selectedItems()
+            assert not reopened.action.isEnabled()
+        finally:
+            reopened.reject()
+    finally:
+        dialog.reject()
+        col.close()
+
+
+def test_pending_creation_is_resumed_even_when_opened_from_edit_menu(
+    app, server, monkeypatch
+):
+    queries, mutations = queues(monkeypatch)
+    saved = payload(server)
+    mw = window(server, profile={ui.PENDING_KEY: saved})
+    dialog = ui.SkillEditor(
+        mw,
+        {
+            "source_id": saved["source_id"],
+            "skill_id": "other-skill",
+            "base_revision": 1,
+        },
+    )
+    try:
+        assert not dialog.editing
+        assert dialog.windowTitle() == "Add skill"
+        app.processEvents()
+        receive(queries.pop(0))
+        assert dialog.pending == saved
+        assert (
+            jobs(server).get(dialog.job_id)["request"]["skill_id"]
+            == "skill-" + saved["request_id"]
         )
     finally:
         dialog.reject()
