@@ -170,9 +170,83 @@ def test_drafts_obey_capacity_and_published_identity_collisions(jobs):
     jobs.store.import_batch({"skills": [skill]})
     with pytest.raises(JobConflict, match="identity"):
         jobs.create_skill(payload, "fixture")
-    for _ in range(99):
-        jobs.create_skill(definition(jobs), "fixture")
+    for index in range(98):
+        key = f"synthetic-{index}"
+        jobs.store.import_batch(
+            {
+                "skills": [
+                    {**FIXTURE, "id": key, "bank": {**FIXTURE["bank"], "skill_id": key}}
+                ]
+            }
+        )
+    jobs.create_skill(definition(jobs), "fixture")
     with pytest.raises(JobConflict, match="100 skills"):
         jobs.create_skill(definition(jobs), "fixture")
     with pytest.raises(SkillImportError):
         jobs.store.import_batch({"skills": [FIXTURE]})
+
+
+def large_skill(count=19):
+    # Valid, escaped text makes the snapshot large without hitting the skill cap.
+    exercises = [
+        {
+            "id": f"exercise-{index}",
+            "prompt": f"{index}" + "\\" * 8000,
+            "answer": "\\" * 8192,
+            "explanation": "\\" * 8192,
+        }
+        for index in range(count)
+    ]
+    return {**FIXTURE, "bank": {**FIXTURE["bank"], "exercises": exercises}}
+
+
+def test_creation_rejects_full_snapshot_before_reserving_or_calling(jobs):
+    jobs.store.import_batch({"skills": [large_skill()]})
+    with pytest.raises(JobConflict, match="no room"):
+        jobs.create_skill(definition(jobs), "openai")
+    with jobs.store.connect() as db:
+        for table in ("skill_drafts", "generation_jobs", "generation_attempts"):
+            assert db.execute(f"select count(*) from {table}").fetchone()[0] == 0
+
+
+def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
+    # Leave enough space for exactly one worst-case initial bank.
+    jobs.store.import_batch({"skills": [large_skill(18)]})
+    payloads = [definition(jobs), definition(jobs)]
+
+    def create(payload):
+        try:
+            return jobs.create_skill(payload, "fixture")
+        except JobConflict:
+            return None
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        created = list(pool.map(create, payloads))
+    assert sum(job is not None for job in created) == 1
+    extra = large_skill(1)
+    extra["id"] = extra["bank"]["skill_id"] = "another-skill"
+    before = jobs.store.snapshot()
+    assert (
+        len(json.dumps({"skills": [*before["skills"], extra]}).encode()) < 1024 * 1024
+    )
+    with pytest.raises(SkillImportError, match="1 MiB"):
+        jobs.store.import_batch({"skills": [extra]})
+    assert jobs.store.snapshot() == before
+    job = next(job for job in created if job)
+
+    class LargestBank(FixtureProvider):
+        def generate(self, context):
+            result = super().generate(context)
+            result["exercises"] = [
+                {
+                    "prompt": str(index) + "\\" * 8191,
+                    "answer": "\\" * 8192,
+                    "explanation": "\\" * 8192,
+                }
+                for index in range(3)
+            ]
+            return result
+
+    jobs.run_once(LargestBank())
+    assert jobs.get(job["id"])["state"] == "completed"
+    assert len(jobs.store.snapshot()["skills"]) == 2

@@ -252,6 +252,10 @@ class Jobs:
                 "bank": {"version": 1, "skill_id": key, "revision": 1, "exercises": []},
             }
             db.execute("insert into skill_drafts values (?,?)", (key, encode(skill)))
+            if self.store._too_large_with_drafts(db):
+                raise JobConflict(
+                    "The companion has no room for another exercise bank."
+                )
             request = {
                 **value,
                 "skill_id": key,
@@ -618,10 +622,7 @@ class Jobs:
                         (job_id,),
                     )
                     continue
-                if (
-                    context.get("new_skill")
-                    and db.execute("select count(*) from skills").fetchone()[0] >= 100
-                ):
+                if context.get("new_skill") and self.store._too_large_with_drafts(db):
                     db.execute(
                         "update generation_jobs set state='failed',error='The companion is full.' where id=?",
                         (job_id,),
@@ -973,6 +974,10 @@ class Jobs:
                         (skill["id"], sequence, encode(batch)),
                     )
                 validate_snapshot(self.store._snapshot(db))
+                if self.store._too_large_with_drafts(db):
+                    raise SkillImportError(
+                        "The companion has no room for this exercise bank."
+                    )
             except (SkillImportError, TypeError, KeyError) as error:
                 db.execute("rollback to publish_batch")
                 db.execute("release publish_batch")

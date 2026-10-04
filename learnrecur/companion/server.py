@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hmac
 import os
 import re
@@ -173,6 +174,25 @@ class Store:
             or len(encode(snapshot).encode()) > MAX_BYTES
         )
 
+    def _too_large_with_drafts(self, db, snapshot=None):
+        snapshot = snapshot or self._snapshot(db)
+        for (payload,) in db.execute("select payload from skill_drafts"):
+            skill = decode(payload.encode())
+            # Reserve the largest valid initial bank, including JSON escaping.
+            skill["bank"]["exercises"] = [
+                {
+                    "id": f"job-{'0' * 32}-{index}",
+                    **{key: "\\" * 8192 for key in ("prompt", "answer", "explanation")},
+                }
+                for index in range(3)
+            ]
+            snapshot["skills"].append(skill)
+            snapshot["identities"][skill["id"]] = {
+                "native_id": 2**53 - 1,
+                "guid": "0" * 32,
+            }
+        return self._too_large(snapshot)
+
     def snapshot(self):
         with self.connect() as db:
             db.execute("begin")
@@ -221,12 +241,7 @@ class Store:
                 )
                 self._assign_identity(db, skill["id"])
             result = self._snapshot(db)
-            if (
-                self._too_large(result)
-                or len(result["skills"])
-                + db.execute("select count(*) from skill_drafts").fetchone()[0]
-                > MAX_SKILLS
-            ):
+            if self._too_large_with_drafts(db, copy.deepcopy(result)):
                 raise SkillImportError(
                     "The local companion can hold at most 100 skills and 1 MiB of skill data."
                 )

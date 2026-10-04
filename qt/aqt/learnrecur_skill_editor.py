@@ -71,6 +71,7 @@ ERRORS = {
     "Generation is not enabled on this server.",
     "Generation is paused for recovery.",
     "The companion can hold at most 100 skills.",
+    "The companion has no room for another exercise bank.",
     "The companion changed. Reconnect to the original server.",
     "This request already has a different skill definition.",
 }
