@@ -187,6 +187,10 @@ class Store:
         with self.connect() as db:
             db.execute("begin immediate")
             for skill in skills:
+                if db.execute(
+                    "select 1 from skill_drafts where id=?", (skill["id"],)
+                ).fetchone():
+                    raise Conflict("This skill is waiting for its first exercises.")
                 encoded = encode(skill)
                 existing = db.execute(
                     "select payload from skills where id = ?", (skill["id"],)
@@ -217,7 +221,12 @@ class Store:
                 )
                 self._assign_identity(db, skill["id"])
             result = self._snapshot(db)
-            if self._too_large(result):
+            if (
+                self._too_large(result)
+                or len(result["skills"])
+                + db.execute("select count(*) from skill_drafts").fetchone()[0]
+                > MAX_SKILLS
+            ):
                 raise SkillImportError(
                     "The local companion can hold at most 100 skills and 1 MiB of skill data."
                 )
@@ -301,7 +310,9 @@ class Handler(BaseHTTPRequestHandler):
         if (
             self.path != "/v1/skills"
             and not (
-                write and self.path in ("/v1/generation-jobs", "/v1/refill-requests")
+                write
+                and self.path
+                in ("/v1/generation-jobs", "/v1/refill-requests", "/v1/skill-drafts")
             )
             and not job_get
         ):
@@ -325,7 +336,11 @@ class Handler(BaseHTTPRequestHandler):
                 if len(data) != length:
                     raise SkillImportError("Incomplete skill batch.")
                 payload = decode(data)
-                if self.path == "/v1/refill-requests":
+                if self.path == "/v1/skill-drafts":
+                    result = Jobs(self.server.store).create_skill(
+                        payload, self.server.refill_provider
+                    )
+                elif self.path == "/v1/refill-requests":
                     result = Jobs(self.server.store).request_refill(
                         payload, self.server.refill_provider
                     )

@@ -42,6 +42,9 @@ class TerminalFailure(Exception):
 
 def initialize(db):
     db.execute(
+        "create table if not exists skill_drafts (id text primary key, payload text not null)"
+    )
+    db.execute(
         "create table if not exists exercise_batches (skill_id text not null, sequence integer not null, payload text not null, primary key(skill_id,sequence))"
     )
     db.execute(
@@ -175,8 +178,111 @@ class Jobs:
                 db, value, request_id, skill_id, examples, provider_name, encoded, now
             )
 
+    def create_skill(self, value, provider):
+        """Save a definition and its first generation job in one transaction."""
+        if (
+            not isinstance(value, dict)
+            or set(value)
+            != {"request_id", "source_id", "title", "description", "examples"}
+            or not isinstance(value["request_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{32}", value["request_id"])
+        ):
+            raise SkillImportError(
+                "Supply a skill title, description, and request identity."
+            )
+        _text(value["title"], 256)
+        _text(value["description"])
+        examples = value["examples"]
+        if not isinstance(examples, list) or len(examples) > 5:
+            raise SkillImportError("Supply at most five example exercises.")
+        for example in examples:
+            if not isinstance(example, dict) or set(example) != {
+                "prompt",
+                "answer",
+                "explanation",
+            }:
+                raise SkillImportError(
+                    "An example needs a prompt, answer, and explanation."
+                )
+            for text in example.values():
+                _text(text)
+        if len(encode(value).encode()) > 65536:
+            raise SkillImportError("Generation guidance is too large.")
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            source = db.execute(
+                "select value from metadata where key='source_id'"
+            ).fetchone()[0]
+            if value["source_id"] != source:
+                raise JobConflict(
+                    "The companion changed. Reconnect to the original server."
+                )
+            existing = db.execute(
+                "select * from generation_jobs where request_id=?",
+                (value["request_id"],),
+            ).fetchone()
+            if existing:
+                saved = decode(existing[2].encode())
+                if any(saved.get(key) != item for key, item in value.items()):
+                    raise JobConflict(
+                        "This request already has a different skill definition."
+                    )
+                return self._read(db, existing)
+            if provider not in ("fixture", "openai"):
+                raise JobConflict("Generation is not enabled on this server.")
+            markers = [".generation-source-retired", ".restore-pending"]
+            if provider == "openai":
+                markers.append(".paid-restore-pending")
+            if any((self.store.path.parent / name).exists() for name in markers):
+                raise JobConflict("Generation is paused for recovery.")
+            if (
+                db.execute(
+                    "select (select count(*) from skills)+(select count(*) from skill_drafts)"
+                ).fetchone()[0]
+                >= 100
+            ):
+                raise JobConflict("The companion can hold at most 100 skills.")
+            key = "skill-" + value["request_id"]
+            if db.execute("select 1 from skills where id=?", (key,)).fetchone():
+                raise JobConflict("This skill identity is already in use.")
+            skill = {
+                "id": key,
+                "title": value["title"],
+                "description": value["description"],
+                "bank": {"version": 1, "skill_id": key, "revision": 1, "exercises": []},
+            }
+            db.execute("insert into skill_drafts values (?,?)", (key, encode(skill)))
+            request = {
+                **value,
+                "skill_id": key,
+                "revision": 1,
+                "count": 3,
+                "provider": provider,
+            }
+            return self._enqueue(
+                db,
+                request,
+                value["request_id"],
+                key,
+                examples,
+                provider,
+                encode(request),
+                self.clock(),
+                draft=True,
+            )
+
     def _enqueue(
-        self, db, value, request_id, skill_id, examples, provider_name, encoded, now
+        self,
+        db,
+        value,
+        request_id,
+        skill_id,
+        examples,
+        provider_name,
+        encoded,
+        now,
+        *,
+        draft=False,
     ):
         existing = db.execute(
             "select * from generation_jobs where request_id=?", (request_id,)
@@ -190,7 +296,10 @@ class Jobs:
         if db.execute("select count(*) from generation_jobs").fetchone()[0] >= 100:
             raise JobConflict("The local proof can retain at most 100 generation jobs.")
         row = db.execute(
-            "select payload from skills where id=?", (skill_id,)
+            "select payload from skill_drafts where id=?"
+            if draft
+            else "select payload from skills where id=?",
+            (skill_id,),
         ).fetchone()
         if not row:
             raise JobConflict("Import the skill before requesting exercises.")
@@ -205,6 +314,8 @@ class Jobs:
             "provider": "fixture-spanish-v1",
             "instructions_version": 1,
         }
+        if draft:
+            context["new_skill"] = True
         context["existing_prompts"] = [e["prompt"] for e in skill["bank"]["exercises"]]
         for (batch,) in db.execute(
             "select payload from exercise_batches where skill_id=? order by sequence",
@@ -376,7 +487,10 @@ class Jobs:
     def _current(db, context):
         skill = context["skill"]
         row = db.execute(
-            "select payload from skills where id=?", (skill["id"],)
+            "select payload from skill_drafts where id=?"
+            if context.get("new_skill")
+            else "select payload from skills where id=?",
+            (skill["id"],),
         ).fetchone()
         return row and row[0] == encode(skill)
 
@@ -501,6 +615,15 @@ class Jobs:
                 if active + context["count"] > 100:
                     db.execute(
                         "update generation_jobs set state='failed',error='The current exercise bank is full.' where id=?",
+                        (job_id,),
+                    )
+                    continue
+                if (
+                    context.get("new_skill")
+                    and db.execute("select count(*) from skills").fetchone()[0] >= 100
+                ):
+                    db.execute(
+                        "update generation_jobs set state='failed',error='The companion is full.' where id=?",
                         (job_id,),
                     )
                     continue
@@ -832,10 +955,23 @@ class Jobs:
                     "sequence": sequence,
                     "exercises": exercises,
                 }
-                db.execute(
-                    "insert into exercise_batches values (?,?,?)",
-                    (skill["id"], sequence, encode(batch)),
-                )
+                if context.get("new_skill"):
+                    skill = copy.deepcopy(skill)
+                    skill["bank"]["exercises"] = exercises
+                    db.execute(
+                        "insert into skills values (?,?)", (skill["id"], encode(skill))
+                    )
+                    db.execute(
+                        "insert into skill_revisions values (?,?,?)",
+                        (skill["id"], 1, encode(skill)),
+                    )
+                    self.store._assign_identity(db, skill["id"])
+                    db.execute("delete from skill_drafts where id=?", (skill["id"],))
+                else:
+                    db.execute(
+                        "insert into exercise_batches values (?,?,?)",
+                        (skill["id"], sequence, encode(batch)),
+                    )
                 validate_snapshot(self.store._snapshot(db))
             except (SkillImportError, TypeError, KeyError) as error:
                 db.execute("rollback to publish_batch")
@@ -946,16 +1082,19 @@ class FixtureProvider:
         return 0
 
     def generate(self, context):
+        fixture = decode(
+            (
+                Path(__file__).resolve().parents[1] / "fixtures/spanish-import.json"
+            ).read_bytes()
+        )["skills"][0]
+        matches = context["skill"] == fixture or (
+            re.fullmatch(r"skill-[a-f0-9]{32}", context["skill"]["id"])
+            and context["skill"]["description"] == fixture["description"]
+        )
         if (
             context["provider"] != "fixture-spanish-v1"
-            or context["skill"]["id"] != "spanish-ar-preterite-yo"
             or context["count"] > 3
-            or context["skill"]
-            != decode(
-                (
-                    Path(__file__).resolve().parents[1] / "fixtures/spanish-import.json"
-                ).read_bytes()
-            )["skills"][0]
+            or not matches
         ):
             raise TerminalFailure()
         texts = [
