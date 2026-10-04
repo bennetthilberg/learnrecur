@@ -1451,7 +1451,11 @@ title="{}" {}>{}</button>""".format(
 
         # Tools
         from aqt.learnrecur_import import import_skills
+        from aqt.learnrecur_skill_editor import add_skill
 
+        self.add_skill_action = QAction("Add skill…", self)
+        qconnect(self.add_skill_action.triggered, lambda: add_skill(self))
+        m.menuTools.addAction(self.add_skill_action)
         self.import_skills_action = QAction("Import skills…", self)
         qconnect(self.import_skills_action.triggered, lambda: import_skills(self))
         m.menuTools.addAction(self.import_skills_action)

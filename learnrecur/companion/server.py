@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hmac
 import os
 import re
@@ -173,6 +174,25 @@ class Store:
             or len(encode(snapshot).encode()) > MAX_BYTES
         )
 
+    def _too_large_with_drafts(self, db, snapshot=None):
+        snapshot = snapshot or self._snapshot(db)
+        for (payload,) in db.execute("select payload from skill_drafts"):
+            skill = decode(payload.encode())
+            # Reserve the largest valid initial bank, including JSON escaping.
+            skill["bank"]["exercises"] = [
+                {
+                    "id": f"job-{'0' * 32}-{index}",
+                    **{key: "\\" * 8192 for key in ("prompt", "answer", "explanation")},
+                }
+                for index in range(3)
+            ]
+            snapshot["skills"].append(skill)
+            snapshot["identities"][skill["id"]] = {
+                "native_id": 2**53 - 1,
+                "guid": "0" * 32,
+            }
+        return self._too_large(snapshot)
+
     def snapshot(self):
         with self.connect() as db:
             db.execute("begin")
@@ -187,6 +207,10 @@ class Store:
         with self.connect() as db:
             db.execute("begin immediate")
             for skill in skills:
+                if db.execute(
+                    "select 1 from skill_drafts where id=?", (skill["id"],)
+                ).fetchone():
+                    raise Conflict("This skill is waiting for its first exercises.")
                 encoded = encode(skill)
                 existing = db.execute(
                     "select payload from skills where id = ?", (skill["id"],)
@@ -217,7 +241,7 @@ class Store:
                 )
                 self._assign_identity(db, skill["id"])
             result = self._snapshot(db)
-            if self._too_large(result):
+            if self._too_large_with_drafts(db, copy.deepcopy(result)):
                 raise SkillImportError(
                     "The local companion can hold at most 100 skills and 1 MiB of skill data."
                 )
@@ -301,7 +325,9 @@ class Handler(BaseHTTPRequestHandler):
         if (
             self.path != "/v1/skills"
             and not (
-                write and self.path in ("/v1/generation-jobs", "/v1/refill-requests")
+                write
+                and self.path
+                in ("/v1/generation-jobs", "/v1/refill-requests", "/v1/skill-drafts")
             )
             and not job_get
         ):
@@ -325,7 +351,11 @@ class Handler(BaseHTTPRequestHandler):
                 if len(data) != length:
                     raise SkillImportError("Incomplete skill batch.")
                 payload = decode(data)
-                if self.path == "/v1/refill-requests":
+                if self.path == "/v1/skill-drafts":
+                    result = Jobs(self.server.store).create_skill(
+                        payload, self.server.refill_provider
+                    )
+                elif self.path == "/v1/refill-requests":
                     result = Jobs(self.server.store).request_refill(
                         payload, self.server.refill_provider
                     )

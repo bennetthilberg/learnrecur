@@ -4,7 +4,9 @@ LearnRecur is a Mac-first fork of Anki that helps learners keep skills fresh wit
 
 ## Status
 
-The repository is based on Anki 26.09.3, with its history and source layout preserved. The Mac app builds and runs with its own identity and storage. A synthetic review survives a restart. Skill cards and the companion service haven't been built yet.
+The repository is based on Anki 26.09.3, with its history and source layout preserved. The Mac app uses its own identity and storage. Skill cards support cached exercises, native review and undo, imports, and description revisions. The companion runs durable generation jobs and delivers completed banks. The sync server, companion, and worker run on Linux, with encrypted backups stored separately.
+
+The native [skill creation dialog](learnrecur/SKILL-EDITOR.md) generates exercises and saves a skill card, with an optional preview afterward. Editing existing skills in the app comes later. [ROADMAP.md](ROADMAP.md) records verification and remaining work.
 
 Read [AGENTS.md](AGENTS.md) before working on the code. Use synthetic data. LearnRecur must never discover, load, copy, or migrate local Anki data, in development or production.
 
@@ -12,8 +14,8 @@ Read [AGENTS.md](AGENTS.md) before working on the code. Use synthetic data. Lear
 
 - `qt/`, `ts/`, `pylib/`, `rslib/`, and `proto/`: upstream desktop and library code.
 - `rslib/sync/`: standalone sync-server executable; shared sync code is in `rslib/src/sync/`.
-- `learnrecur/companion/`: space for the skill API and generation worker.
-- `learnrecur/deploy/`: space for hosting, backups, and moving between hosts.
+- `learnrecur/companion/`: skill API and generation worker.
+- `learnrecur/deploy/`: hosting, backups, and moving between hosts.
 
 These components share one Git repository. Anki's submodules for translations and installer templates are still in place. [UPSTREAM.md](learnrecur/UPSTREAM.md) records the exact base commit, remotes, workflow status, and update steps.
 
