@@ -199,11 +199,19 @@ def creation_snapshot(snapshot, definition):
         )
     key = definition.get("skill_id", "skill-" + definition["request_id"])
     skill = next((skill for skill in skills if skill["id"] == key), None)
+    generated = next(
+        (
+            version
+            for version in [*snapshot.get("previous_revisions", {}).get(key, []), skill]
+            if version
+            and version["bank"]["revision"] == definition.get("base_revision", 0) + 1
+        ),
+        None,
+    )
     if (
-        not skill
-        or skill["title"] != definition["title"]
-        or skill["description"] != definition["description"]
-        or skill["bank"]["revision"] != definition.get("base_revision", 0) + 1
+        not generated
+        or generated["title"] != definition["title"]
+        or generated["description"] != definition["description"]
         or "identities" not in snapshot
     ):
         raise SkillImportError("The generated skill is missing or changed.")
@@ -265,23 +273,26 @@ def validate_edit_target(col, snapshot, definition, *, completed=False):
             "The original skill card is missing. Restore it before saving changes."
         )
     target = selected_skill(col, identity["native_id"])
-    if (
-        target["source_id"] != definition["source_id"]
-        or target["skill_id"] != key
-        or target["base_revision"]
-        not in (
-            (definition["base_revision"], definition["base_revision"] + 1)
-            if completed
-            else (definition["base_revision"],)
-        )
-        or col.get_note(identity["native_id"]).guid != identity["guid"]
+    skill = next((s for s in snapshot["skills"] if s["id"] == key), None)
+    if not skill or (
+        skill["bank"]["revision"] < definition["base_revision"] + 1
+        if completed
+        else skill["bank"]["revision"] != definition["base_revision"]
     ):
         raise SkillImportError(
             "The skill changed. Import its latest revision before editing."
         )
-    skill = next((s for s in snapshot["skills"] if s["id"] == key), None)
-    if not skill or skill["bank"]["revision"] != definition["base_revision"] + int(
-        completed
+    if (
+        target["source_id"] != definition["source_id"]
+        or target["skill_id"] != key
+        or not (
+            definition["base_revision"]
+            <= target["base_revision"]
+            <= skill["bank"]["revision"]
+            if completed
+            else target["base_revision"] == definition["base_revision"]
+        )
+        or col.get_note(identity["native_id"]).guid != identity["guid"]
     ):
         raise SkillImportError(
             "The skill changed. Import its latest revision before editing."

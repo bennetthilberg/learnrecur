@@ -711,3 +711,65 @@ def test_pending_creation_is_resumed_even_when_opened_from_edit_menu(
         )
     finally:
         dialog.reject()
+
+
+@pytest.mark.parametrize("already_imported", [False, True])
+def test_completed_edit_recovers_after_another_client_publishes_new_revision(
+    app, server, monkeypatch, tmp_path, already_imported
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    cid = rate_skill(col)
+    before = col.db.all("select * from cards"), col.db.all("select * from revlog")
+    mw = window(server, col=col)
+    dialog = ui.SkillEditor(mw, ui.selected_skill(col, col.get_card(cid).nid))
+    reopened = None
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.perform_action()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        original_job = dialog.job_id
+        saved = dialog.pending.copy()
+        dialog.reject()
+        run_fixture(server)
+        manager = jobs(server)
+        next_definition = {
+            **manager.definition(saved["skill_id"]),
+            "request_id": uuid4().hex,
+            "title": "Newer title from another client",
+        }
+        manager.edit_skill(next_definition, "fixture")
+        run_fixture(server)
+        latest = server.store.snapshot()
+        assert latest["skills"][0]["bank"]["revision"] == 3
+        if already_imported:
+            ui.import_snapshot(col, latest)
+        reopened = ui.SkillEditor(mw)
+        app.processEvents()
+        receive(queries.pop(0))
+        receive(queries.pop(0))
+        mutation = mutations.pop(0)
+        mutation["success"](mutation["op"](col))
+        assert reopened.added and ui.PENDING_KEY not in mw.pm.profile
+        assert reopened.job_id == original_job
+        assert col.card_count() == 1
+        note = col.get_card(cid).note()
+        assert note["Title"] == next_definition["title"]
+        assert json.loads(note["LearnRecurSkill"])["revision"] == 3
+        assert (
+            col.db.all("select * from cards"),
+            col.db.all("select * from revlog"),
+        ) == before
+        with server.store.connect() as db:
+            assert db.execute(
+                "select state,attempts from generation_jobs"
+            ).fetchall() == [("completed", 1), ("completed", 1)]
+    finally:
+        dialog.reject()
+        if reopened:
+            reopened.reject()
+        col.close()
