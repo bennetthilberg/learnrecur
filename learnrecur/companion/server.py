@@ -94,6 +94,9 @@ class Store:
             from learnrecur.companion.jobs import initialize
 
             initialize(db)
+            from learnrecur.companion.reports import initialize as initialize_reports
+
+            initialize_reports(db)
             try:
                 validate_snapshot(self._snapshot(db))
             except SkillImportError as error:
@@ -344,6 +347,7 @@ class Handler(BaseHTTPRequestHandler):
                 in (
                     "/v1/generation-jobs",
                     "/v1/refill-requests",
+                    "/v1/exercise-reports",
                     "/v1/skill-drafts",
                     "/v1/skill-edits",
                 )
@@ -377,6 +381,12 @@ class Handler(BaseHTTPRequestHandler):
                     )
                 elif self.path == "/v1/skill-edits":
                     result = Jobs(self.server.store).edit_skill(
+                        payload, self.server.refill_provider
+                    )
+                elif self.path == "/v1/exercise-reports":
+                    from learnrecur.companion.reports import Reports
+
+                    result = Reports(self.server.store).receive(
                         payload, self.server.refill_provider
                     )
                 elif self.path == "/v1/refill-requests":

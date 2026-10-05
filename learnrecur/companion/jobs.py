@@ -10,6 +10,7 @@ import copy
 import hashlib
 import re
 import time
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -458,7 +459,7 @@ class Jobs:
             ).fetchone(),
         )
 
-    def request_refill(self, value, provider):
+    def request_refill(self, value, provider, *, _db=None):
         """Queue once per imported bank checkpoint, under the same write lock."""
         if (
             not isinstance(value, dict)
@@ -484,8 +485,9 @@ class Jobs:
             k: value[k] for k in ("source_id", "skill_id", "revision", "bank_sequence")
         }
         request_id = "refill-" + hashlib.sha256(encode(checkpoint).encode()).hexdigest()
-        with self.store.connect() as db:
-            db.execute("begin immediate")
+        with self.store.connect() if _db is None else nullcontext(_db) as db:
+            if _db is None:
+                db.execute("begin immediate")
             source = db.execute(
                 "select value from metadata where key='source_id'"
             ).fetchone()[0]
@@ -529,12 +531,21 @@ class Jobs:
                     and saved["bank"]["revision"] == value["revision"]
                 ):
                     return {"status": state, "job_id": job_id}
-            examples = [
-                {
-                    k: skill["bank"]["exercises"][0][k]
-                    for k in ("prompt", "answer", "explanation")
-                }
-            ]
+            reported = {
+                row[0]
+                for row in db.execute(
+                    "select exercise_id from exercise_reports where skill_id=? and revision=? and active=1",
+                    (key, value["revision"]),
+                )
+            }
+            example = next(
+                (e for e in skill["bank"]["exercises"] if e["id"] not in reported), None
+            )
+            examples = (
+                [{k: example[k] for k in ("prompt", "answer", "explanation")}]
+                if example
+                else []
+            )
             request = {
                 "request_id": request_id,
                 "skill_id": key,

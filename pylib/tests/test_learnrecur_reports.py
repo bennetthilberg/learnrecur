@@ -267,6 +267,9 @@ os._exit(71)
         col.reopen()
     assert state(col) == before
     assert len(reports(col)) == int(after_commit)
+    assert col.db.scalar("select count(*) from learnrecur_report_outbox") == int(
+        after_commit
+    )
     assert select_skill_review(col.get_card(card.id)).exercise.id == (
         "trabajar" if after_commit else "hablar"
     )
@@ -276,6 +279,7 @@ def test_complete_collection_backup_restores_reports(col, revisions, tmp_path):
     card = imported(col, revisions)
     report(col, card)
     saved = reports(col)
+    outbox = col.db.all("select * from learnrecur_report_outbox")
     package = tmp_path / "synthetic.colpkg"
     target = tmp_path / "restored.anki2"
     col.export_collection_package(str(package), include_media=True, legacy=False)
@@ -291,6 +295,7 @@ def test_complete_collection_backup_restores_reports(col, revisions, tmp_path):
     restored = Collection(str(target))
     try:
         assert reports(restored) == saved
+        assert restored.db.all("select * from learnrecur_report_outbox") == outbox
         assert select_skill_review(restored.get_card(card.id)).exercise.id == "trabajar"
         assert restored.db.scalar("select count(*) from revlog") == 0
     finally:

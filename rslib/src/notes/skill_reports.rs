@@ -113,6 +113,8 @@ impl Collection {
 
     pub(crate) fn add_skill_report_undoable(&mut self, report: SkillExerciseReport) -> Result<()> {
         self.storage.add_skill_report(&report)?;
+        self.storage.queue_skill_report(&report, true)?;
+        self.retain_report_modified_time()?;
         self.save_undo(UndoableNoteChange::SkillReportAdded(Box::new(report)));
         Ok(())
     }
@@ -122,7 +124,19 @@ impl Collection {
         report: SkillExerciseReport,
     ) -> Result<()> {
         self.storage.remove_skill_report(&report)?;
+        self.storage.queue_skill_report(&report, false)?;
+        self.retain_report_modified_time()?;
         self.save_undo(UndoableNoteChange::SkillReportRemoved(Box::new(report)));
+        Ok(())
+    }
+
+    fn retain_report_modified_time(&mut self) -> Result<()> {
+        let stamps = self.storage.get_collection_timestamps()?;
+        self.state
+            .undo
+            .retain_cache_modified_time(TimestampMillis::now().max(TimestampMillis(
+                stamps.collection_change.max(stamps.last_sync).0 + 1,
+            )));
         Ok(())
     }
 }
