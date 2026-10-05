@@ -167,7 +167,7 @@ class Reports:
                         provider,
                         _db=db,
                     )
-                except JobConflict:
+                except (JobConflict, SkillImportError):
                     db.execute("rollback to report_replacement")
                     result = {"status": "blocked", "job_id": None}
                 db.execute("release report_replacement")

@@ -205,3 +205,28 @@ def test_replacement_capacity_failure_still_saves_report(store, monkeypatch):
         {**report, "version": 2, "active": False}, "fixture"
     )
     assert not result["active"]
+
+
+def test_oversized_provider_guidance_preserves_report_and_withdrawal(server, batch):
+    oversized = copy.deepcopy(batch)
+    skill = oversized["skills"][0]
+    skill["description"] = "d" * 8000
+    for i, exercise in enumerate(skill["bank"]["exercises"]):
+        exercise["prompt"] = str(i) + "p" * 7900
+    server.store.import_batch(oversized)
+    server.refill_provider = "openai"
+    report = value(server.store)
+    status, receipt = request(server, report, path="/v1/exercise-reports")
+    assert status == 200 and receipt["status"] == "blocked" and receipt["active"]
+    assert receipt["job_id"] is None
+    assert request(server, report, path="/v1/exercise-reports") == (status, receipt)
+    with server.store.connect() as db:
+        assert db.execute("select active from exercise_reports").fetchone()[0] == 1
+        assert db.execute("select count(*) from generation_jobs").fetchone()[0] == 0
+        assert db.execute("select count(*) from generation_attempts").fetchone()[0] == 0
+    status, withdrawn = request(
+        server, {**report, "version": 2, "active": False}, path="/v1/exercise-reports"
+    )
+    assert status == 200 and not withdrawn["active"]
+    with server.store.connect() as db:
+        assert db.execute("select active from exercise_reports").fetchone()[0] == 0

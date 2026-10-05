@@ -35,7 +35,7 @@ The server checks the identity and exercise against its published revision. It s
 
 With generation enabled, an active report on the current revision requests a three-exercise refill through [the existing refill jobs](companion/REFILLS.md). Report retries, other reports at that checkpoint, and low-bank requests share that job. A new job avoids actively reported exercises when choosing its example guidance. Existing jobs retain their frozen guidance. Historical reports are saved without generating for an old revision.
 
-A withdrawal does not cancel work already queued or submitted. Replaying or redoing that report keeps its assigned job rather than creating another. Disabled generation, budget waits, uncertain charges, and capacity limits leave the report saved. A report waiting for a newer published batch can retry after the client imports it. Existing worker budgets and recovery guards apply unchanged.
+A withdrawal does not cancel work already queued or submitted. Replaying or redoing that report keeps its assigned job rather than creating another. Disabled generation, budget waits, uncertain charges, oversized provider guidance, and capacity limits leave the report saved. A report waiting for a newer published batch can retry after the client imports it. Existing worker budgets and recovery guards apply unchanged.
 
 Completed batches use [automatic delivery](companion/DELIVERY.md) outside review. The question on screen and its paired answer stay fixed while generation and report delivery run.
 
