@@ -186,11 +186,20 @@ class Store:
                 }
                 for index in range(3)
             ]
-            snapshot["skills"].append(skill)
-            snapshot["identities"][skill["id"]] = {
-                "native_id": 2**53 - 1,
-                "guid": "0" * 32,
-            }
+            published = next(
+                (s for s in snapshot["skills"] if s["id"] == skill["id"]), None
+            )
+            if published:
+                snapshot.setdefault("previous_revisions", {}).setdefault(
+                    skill["id"], []
+                ).append(published)
+                snapshot["skills"][snapshot["skills"].index(published)] = skill
+            else:
+                snapshot["skills"].append(skill)
+                snapshot["identities"][skill["id"]] = {
+                    "native_id": 2**53 - 1,
+                    "guid": "0" * 32,
+                }
         return self._too_large(snapshot)
 
     def snapshot(self):
@@ -210,7 +219,7 @@ class Store:
                 if db.execute(
                     "select 1 from skill_drafts where id=?", (skill["id"],)
                 ).fetchone():
-                    raise Conflict("This skill is waiting for its first exercises.")
+                    raise Conflict("This skill is waiting for its generated exercises.")
                 encoded = encode(skill)
                 existing = db.execute(
                     "select payload from skills where id = ?", (skill["id"],)
@@ -322,14 +331,25 @@ class Handler(BaseHTTPRequestHandler):
             if not write
             else None
         )
+        definition_get = (
+            re.fullmatch(r"/v1/skill-definitions/([a-zA-Z0-9_-]{1,128})", self.path)
+            if not write
+            else None
+        )
         if (
             self.path != "/v1/skills"
             and not (
                 write
                 and self.path
-                in ("/v1/generation-jobs", "/v1/refill-requests", "/v1/skill-drafts")
+                in (
+                    "/v1/generation-jobs",
+                    "/v1/refill-requests",
+                    "/v1/skill-drafts",
+                    "/v1/skill-edits",
+                )
             )
             and not job_get
+            and not definition_get
         ):
             self._reply(404, {"error": "Unknown endpoint."})
             return
@@ -355,6 +375,10 @@ class Handler(BaseHTTPRequestHandler):
                     result = Jobs(self.server.store).create_skill(
                         payload, self.server.refill_provider
                     )
+                elif self.path == "/v1/skill-edits":
+                    result = Jobs(self.server.store).edit_skill(
+                        payload, self.server.refill_provider
+                    )
                 elif self.path == "/v1/refill-requests":
                     result = Jobs(self.server.store).request_refill(
                         payload, self.server.refill_provider
@@ -363,12 +387,12 @@ class Handler(BaseHTTPRequestHandler):
                     result = Jobs(self.server.store).enqueue(payload)
                 else:
                     result = self.server.store.import_batch(payload)
+            elif job_get:
+                result = Jobs(self.server.store).get(job_get[1])
+            elif definition_get:
+                result = Jobs(self.server.store).definition(definition_get[1])
             else:
-                result = (
-                    Jobs(self.server.store).get(job_get[1])
-                    if job_get
-                    else self.server.store.snapshot()
-                )
+                result = self.server.store.snapshot()
             self._reply(200, result)
         except (Conflict, JobConflict) as error:
             self._reply(409, {"error": str(error)})

@@ -1,4 +1,4 @@
-# Create a skill
+# Create and edit skills
 
 Choose **Tools > Add skill…**. Enter a title and a description of the rule or procedure to test. You can add up to five example exercises, each with a prompt, answer, and explanation. These guide generation; they do not become review exercises.
 
@@ -8,7 +8,9 @@ Select **Add skill**. The companion saves the definition and queues a job for th
 
 Closing before Add skill discards an unsent form. Closing after submission leaves the request saved. Reopen Add skill to resume the same job and finish saving its card, without another generation call. Closing after completion leaves the saved skill intact. **Add another skill** resets the form after the current card has been saved. Budget waits and errors stop the animation and show recovery controls. A known failed job offers **Edit** so the user can deliberately submit a new request. An uncertain provider response must be recovered before this flow offers a new request.
 
-This slice creates skills. Editing an existing description in the app comes later; revisions currently use Import skills.
+To edit a saved skill, return to the deck list, open Browse, select its card, and choose **Notes > Edit skill…**. The same form loads its title, description, and saved examples. **Save changes** generates a replacement bank. The current definition and exercises stay available until the new bank is ready. Saving keeps the original card, schedule, and review history. Unused exercises from the old revision retire. The completion window offers optional **Preview exercises…** and **Done**.
+
+Close before Save changes to discard an unsent edit. After submission, reopen Add skill or Edit skill to resume the saved request. A failed job can be replaced deliberately; an uncertain response must be recovered first. A deleted original card blocks saving instead of creating a replacement. Editing requires the current imported revision and its original identity. Changes made directly to linked note fields must be reconciled before editing.
 
 ## Creation and recovery
 
@@ -28,6 +30,14 @@ The desktop saves the request in its LearnRecur profile before sending it. The s
 
 The initial Add skill click authorizes generation and local card creation together. Only that request's skill is imported. Retrying after an interrupted native commit finds the existing card. If the main app is reviewing when generation finishes, creation waits for an explicit Finish adding action at the deck list rather than interrupting review. Profile and connection guards discard late callbacks after the dialog closes or its context changes.
 
+## Edit contract
+
+`GET /v1/skill-definitions/<skill_id>` returns `source_id`, `skill_id`, `base_revision`, `title`, `description`, and `examples`. Examples come from the creation or edit job that published the current revision, not from automatic refill requests. Imported skills without saved examples return an empty list.
+
+`POST /v1/skill-edits` accepts the creation fields plus `skill_id` and `base_revision`. It uses the same authentication, bounds, provider configuration, cost accounting, and recovery fences. The base revision must be current and below 100. One pending edit is allowed per skill; repeating its request ID returns the same job. A competing request fails. The pending replacement reserves snapshot space, including the old revision's history, before generation starts.
+
+Publication writes the new definition and bank atomically at `base_revision + 1`. The companion identity stays the same. Old refills stop before contacting a provider when possible; results already in flight cannot be published into the replacement revision. The desktop validates the original card again immediately before applying the revision through the existing import code. Native undo and redo cover that local update. If another client has already published a newer revision, recovery verifies the completed request in the revision history and imports the latest bank. It also succeeds if sync already brought that revision into the local collection, and clears the saved request without another generation call.
+
 ## Local checks
 
 The October 3–4, 2026 checks used the packaged Mac app with isolated synthetic storage in `out/learnrecur/skill-editor-preview-20261003/`. Form entry, example editing, hover help, stable input focus, disabled loading controls, automatic creation of one card, optional preview, Add another skill, reveal, Again, and native undo passed. The completion window is compact, groups its actions together, and restores the editor size when adding another skill. The companion supplied fixed Spanish exercises. No real model call or paid generation ran. Mocked OpenAI tests cover initial generation and usage accounting; they do not establish model answer quality.
@@ -37,6 +47,10 @@ The fixture provider accepts the original Spanish fixture and new skills with th
 > Form the first-person singular preterite of regular Spanish -ar verbs. Exclude spelling changes, irregular verbs, other persons, and other tenses.
 
 Its small fixed pool is for local checks. Other descriptions require the configured OpenAI worker and authorized spending. No key belongs in the desktop profile.
+
+The October 4 edit checks used the packaged Mac app and separate synthetic storage. Browse opened the shared editor. Cancel left no job, and closing during generation resumed the same request. Saving preserved the native card and prior review rows exactly. The compact completion window kept preview optional. After restart with the companion stopped, the new bank passed reveal, Again, variation, undo, and redo. Title and description fields now use one rounded focus border; Qt's extra focus frame no longer paints a clipped second outline. All 25 editor tests, 252 Qt tests, 303 library tests, and 304 companion/deployment tests passed. A fresh Linux image passed native sync, encrypted restoration, media, identity, offline review, and queued fixture-job recovery. No paid calls or Azure changes ran. Deploy the edit endpoints before trying this flow against the hosted companion.
+
+The fixture worker also accepts the exact revised description in [spanish-revision.json](fixtures/spanish-revision.json). Both fixture descriptions are included in the runtime image.
 
 Run the focused checks after building the Python library and Qt client:
 

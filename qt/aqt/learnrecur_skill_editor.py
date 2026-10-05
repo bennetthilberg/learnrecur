@@ -1,7 +1,7 @@
 # Copyright: LearnRecur contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-"""Create a skill through the companion, with optional exercise inspection."""
+"""Create and revise skills, with optional exercise inspection."""
 
 from __future__ import annotations
 
@@ -12,8 +12,10 @@ import requests
 
 import aqt
 from anki.learnrecur_skill_import import (
+    FIELDS,
     MAX_BYTES,
     SkillImportError,
+    _cache_update_fields,
     _text,
     decode,
     encode,
@@ -74,18 +76,32 @@ ERRORS = {
     "The companion has no room for another exercise bank.",
     "The companion changed. Reconnect to the original server.",
     "This request already has a different skill definition.",
+    "The skill changed. Import its latest revision before editing.",
+    "This skill has pending changes. Resume the saved request first.",
+    "This skill is no longer available.",
 }
 
 
 def validate_definition(value):
-    if not isinstance(value, dict) or set(value) != {
+    fields = {
         "request_id",
         "source_id",
         "title",
         "description",
         "examples",
-    }:
+    }
+    if not isinstance(value, dict) or set(value) not in (
+        fields,
+        fields | {"skill_id", "base_revision"},
+    ):
         raise SkillImportError("Invalid saved skill request.")
+    if "skill_id" in value and (
+        not isinstance(value["skill_id"], str)
+        or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", value["skill_id"])
+        or type(value["base_revision"]) is not int
+        or not 1 <= value["base_revision"] < 100
+    ):
+        raise SkillImportError("Use a skill revision below 100.")
     if not isinstance(value["request_id"], str) or not re.fullmatch(
         r"[a-f0-9]{32}", value["request_id"]
     ):
@@ -113,16 +129,15 @@ def validate_definition(value):
     return value
 
 
-def request_job(connection, payload, job_id=None):
+def companion_request(connection, route, payload=None):
     url, token = connection
-    route = "/v1/generation-jobs/" + job_id if job_id else "/v1/skill-drafts"
     try:
         with requests.Session() as session:
             session.trust_env = False
             with session.request(
-                "GET" if job_id else "POST",
+                "POST" if payload is not None else "GET",
                 url + route,
-                json=None if job_id else payload,
+                json=payload,
                 headers={"Authorization": "Bearer " + token},
                 timeout=(3, 5),
                 allow_redirects=False,
@@ -137,7 +152,7 @@ def request_job(connection, payload, job_id=None):
                     raise SkillImportError("The companion token was rejected.")
                 if response.status_code == 404:
                     raise SkillImportError(
-                        "Update the companion before creating skills."
+                        "Update the companion before using the skill editor."
                     )
                 value = decode(bytes(data))
                 if response.status_code != 200:
@@ -147,23 +162,33 @@ def request_job(connection, payload, job_id=None):
                         if isinstance(error, str) and error in ERRORS
                         else "The companion could not accept the request. Retry later."
                     )
-        if (
-            not isinstance(value, dict)
-            or not isinstance(value.get("id"), str)
-            or not re.fullmatch(r"[a-f0-9]{32}", value["id"])
-            or job_id
-            and value["id"] != job_id
-            or not isinstance(value.get("state"), str)
-            or value["state"] not in STATES
-            or not isinstance(value.get("request"), dict)
-            or any(value["request"].get(key) != item for key, item in payload.items())
-        ):
-            raise SkillImportError("The companion returned another skill request.")
         return value
     except requests.RequestException:
         raise SkillImportError(
             "Could not reach the companion. Retry to check the request."
         ) from None
+
+
+def request_job(connection, payload, job_id=None):
+    route = (
+        "/v1/generation-jobs/" + job_id
+        if job_id
+        else ("/v1/skill-edits" if "skill_id" in payload else "/v1/skill-drafts")
+    )
+    value = companion_request(connection, route, None if job_id else payload)
+    if (
+        not isinstance(value, dict)
+        or not isinstance(value.get("id"), str)
+        or not re.fullmatch(r"[a-f0-9]{32}", value["id"])
+        or job_id
+        and value["id"] != job_id
+        or not isinstance(value.get("state"), str)
+        or value["state"] not in STATES
+        or not isinstance(value.get("request"), dict)
+        or any(value["request"].get(key) != item for key, item in payload.items())
+    ):
+        raise SkillImportError("The companion returned another skill request.")
+    return value
 
 
 def creation_snapshot(snapshot, definition):
@@ -172,13 +197,21 @@ def creation_snapshot(snapshot, definition):
         raise SkillImportError(
             "The companion changed. Reconnect to the original server."
         )
-    key = "skill-" + definition["request_id"]
+    key = definition.get("skill_id", "skill-" + definition["request_id"])
     skill = next((skill for skill in skills if skill["id"] == key), None)
+    generated = next(
+        (
+            version
+            for version in [*snapshot.get("previous_revisions", {}).get(key, []), skill]
+            if version
+            and version["bank"]["revision"] == definition.get("base_revision", 0) + 1
+        ),
+        None,
+    )
     if (
-        not skill
-        or skill["title"] != definition["title"]
-        or skill["description"] != definition["description"]
-        or skill["bank"]["revision"] != 1
+        not generated
+        or generated["title"] != definition["title"]
+        or generated["description"] != definition["description"]
         or "identities" not in snapshot
     ):
         raise SkillImportError("The generated skill is missing or changed.")
@@ -194,8 +227,106 @@ def creation_snapshot(snapshot, definition):
     return result
 
 
+def selected_skill(col, nid):
+    from anki.learnrecur_skill_links import assert_unique_link, link_key
+    from anki.learnrecur_skills import MODEL_KIND, MODEL_MARKER, SkillReviewError
+
+    note = col.get_note(nid)
+    cards = note.cards()
+    if (
+        note.note_type().get(MODEL_MARKER) != MODEL_KIND
+        or len(cards) != 1
+        or any(field not in note for field in FIELDS)
+    ):
+        raise SkillImportError("Select one imported skill.")
+    try:
+        key = link_key(note)
+        assert_unique_link(cards[0])
+    except SkillReviewError as error:
+        raise SkillImportError(str(error)) from None
+    if not key or not col.db.scalar(
+        "select exists(select 1 from learnrecur_skill_identities where nid=? and cid=? and guid=?)",
+        note.id,
+        cards[0].id,
+        note.guid,
+    ):
+        raise SkillImportError("This skill has no trusted import identity.")
+    bank = decode(note["LearnRecurSkill"].encode())
+    if not isinstance(bank, dict) or type(bank.get("revision")) is not int:
+        raise SkillImportError("Invalid cached exercise bank.")
+    return {"source_id": key[0], "skill_id": key[1], "base_revision": bank["revision"]}
+
+
+def validate_edit_target(col, snapshot, definition, *, completed=False):
+    if snapshot["source_id"] != definition["source_id"]:
+        raise SkillImportError(
+            "The companion changed. Reconnect to the original server."
+        )
+    key = definition["skill_id"]
+    identity = snapshot["identities"].get(key)
+    if not identity:
+        raise SkillImportError("This skill is no longer available.")
+    if not col.db.scalar(
+        "select exists(select 1 from notes where id=?)", identity["native_id"]
+    ):
+        raise SkillImportError(
+            "The original skill card is missing. Restore it before saving changes."
+        )
+    target = selected_skill(col, identity["native_id"])
+    skill = next((s for s in snapshot["skills"] if s["id"] == key), None)
+    if not skill or (
+        skill["bank"]["revision"] < definition["base_revision"] + 1
+        if completed
+        else skill["bank"]["revision"] != definition["base_revision"]
+    ):
+        raise SkillImportError(
+            "The skill changed. Import its latest revision before editing."
+        )
+    if (
+        target["source_id"] != definition["source_id"]
+        or target["skill_id"] != key
+        or not (
+            definition["base_revision"]
+            <= target["base_revision"]
+            <= skill["bank"]["revision"]
+            if completed
+            else target["base_revision"] == definition["base_revision"]
+        )
+        or col.get_note(identity["native_id"]).guid != identity["guid"]
+    ):
+        raise SkillImportError(
+            "The skill changed. Import its latest revision before editing."
+        )
+    _cache_update_fields(
+        target["source_id"],
+        key,
+        col.get_note(identity["native_id"]),
+        skill,
+        snapshot.get("previous_revisions", {}).get(key, []),
+        snapshot.get("bank_updates", {}).get(key, []),
+        snapshot["identities"],
+    )
+
+
+def fetch_definition(connection, target):
+    value = companion_request(connection, "/v1/skill-definitions/" + target["skill_id"])
+    definition = (
+        validate_definition({**value, "request_id": "0" * 32})
+        if isinstance(value, dict)
+        else None
+    )
+    if not definition or any(
+        definition.get(key) != item for key, item in target.items()
+    ):
+        raise SkillImportError(
+            "The skill changed. Import its latest revision before editing."
+        )
+    return value, fetch_snapshot(connection)
+
+
 def text_field(name, height, *, readonly=False):
     field = QPlainTextEdit()
+    field.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
     field.setAccessibleName(name)
     field.setTabChangesFocus(True)
     field.setReadOnly(readonly)
@@ -227,6 +358,7 @@ def style_editor(widget):
             border: 2px solid {color(colors.BORDER_FOCUS)};
             padding: 0px;
         }}
+        QFocusFrame {{ border: none; background: transparent; }}
         QToolButton[fieldHeader="true"] {{
             border: 1px solid transparent; background: transparent;
             padding: 4px 2px 4px 20px; font-size: 16pt;
@@ -447,7 +579,7 @@ class ExercisePreview(QDialog):
 
 
 class SkillEditor(QDialog):
-    def __init__(self, mw):
+    def __init__(self, mw, editing=None):
         super().__init__(None, Qt.WindowType.Window)
         self.mw = mw
         self.collection = mw.col
@@ -458,10 +590,23 @@ class SkillEditor(QDialog):
         self.frozen = False
         self.added = False
         self.pending = self.profile.get(PENDING_KEY)
+        if self.pending is not None:
+            validate_definition(self.pending)
+        self.editing = editing
+        if self.pending is not None:
+            self.editing = (
+                {
+                    key: self.pending[key]
+                    for key in ("source_id", "skill_id", "base_revision")
+                }
+                if "skill_id" in self.pending
+                else None
+            )
+        self.original = None
         self.job_id = None
         self.snapshot = None
         self.examples = []
-        self.setWindowTitle("Add skill")
+        self.setWindowTitle("Edit skill" if self.editing else "Add skill")
         font = self.font()
         font.setPointSizeF(max(font.pointSizeF(), 15))
         self.setFont(font)
@@ -479,6 +624,7 @@ class SkillEditor(QDialog):
         form = QVBoxLayout()
         form.setSpacing(16)
         self.title = QLineEdit()
+        self.title.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
         self.title.setAccessibleName("Title")
         font = self.title.font()
         font.setPointSizeF(max(font.pointSizeF(), 18))
@@ -509,6 +655,7 @@ class SkillEditor(QDialog):
         examples_layout.setContentsMargins(0, 0, 0, 0)
         examples_layout.setSpacing(12)
         self.example_list = QListWidget()
+        self.example_list.setAttribute(Qt.WidgetAttribute.WA_MacShowFocusRect, False)
         self.example_list.setAccessibleName("Examples")
         self.example_list.setFixedHeight(100)
         self.example_list.setSpacing(4)
@@ -566,7 +713,6 @@ class SkillEditor(QDialog):
         self.resize(840, 660)
         self.setMinimumSize(640, 500)
         if self.pending is not None:
-            validate_definition(self.pending)
             self.title.setText(self.pending["title"])
             self.description.setPlainText(self.pending["description"])
             self.examples = list(self.pending["examples"])
@@ -574,12 +720,38 @@ class SkillEditor(QDialog):
             self.freeze(True)
             self.processing("Generating…")
             QTimer.singleShot(0, self.submit)
+        elif self.editing:
+            self.freeze(True)
+            QTimer.singleShot(0, self.load_definition)
         else:
             self.refresh_examples()
         self.changed()
         self.title.setFocus()
         gui_hooks.profile_will_close.append(self.reject)
         gui_hooks.theme_did_change.append(self.retheme)
+
+    def load_definition(self):
+        def loaded(value):
+            definition, snapshot = value
+            try:
+                validate_edit_target(self.collection, snapshot, definition)
+            except SkillImportError as error:
+                self.message(str(error))
+                self.action.setEnabled(False)
+                return
+            self.original = definition
+            self.title.setText(definition["title"])
+            self.description.setPlainText(definition["description"])
+            self.examples = list(definition["examples"])
+            self.refresh_examples()
+            self.processing()
+            self.action.setText("Save changes")
+            self.freeze(False)
+            self.title.setFocus()
+
+        self.message("")
+        self.processing("Loading…")
+        self.query(lambda: fetch_definition(self.connection, self.editing), loaded)
 
     def create_footer(self):
         self.buttons = QWidget(self)
@@ -603,7 +775,7 @@ class SkillEditor(QDialog):
         footer.addWidget(self.preview_button)
         footer.addStretch()
         self.footer_gap = footer.itemAt(footer.count() - 1)
-        self.action = QPushButton("Add skill")
+        self.action = QPushButton("Save changes" if self.editing else "Add skill")
         footer.addWidget(self.action)
         self.action.setDefault(True)
         self.action.clicked.connect(self.perform_action)
@@ -641,6 +813,18 @@ class SkillEditor(QDialog):
             self.action.setEnabled(
                 bool(
                     self.title.text().strip() and self.description.toPlainText().strip()
+                )
+                and (
+                    not self.editing
+                    or self.original is not None
+                    and any(
+                        self.original[key] != value
+                        for key, value in {
+                            "title": self.title.text().strip(),
+                            "description": self.description.toPlainText().strip(),
+                            "examples": self.examples,
+                        }.items()
+                    )
                 )
             )
 
@@ -729,7 +913,9 @@ class SkillEditor(QDialog):
             if self.active():
                 self.timer.stop()
                 self.processing()
-                if self.pending is None:
+                if self.pending is None and (
+                    not self.editing or self.original is not None
+                ):
                     self.freeze(False)
                 self.message(
                     str(error)
@@ -739,6 +925,8 @@ class SkillEditor(QDialog):
                 self.action.setText("Retry")
                 self.action.setEnabled(True)
                 self.changed()
+                if self.editing and self.original is None:
+                    self.action.setEnabled(True)
 
         QueryOp(parent=self.mw, op=lambda _: op(), success=received).failure(
             failed
@@ -748,11 +936,16 @@ class SkillEditor(QDialog):
         if not self.active() or self.busy:
             return
         if self.added:
-            self.new_skill()
+            if self.editing:
+                self.reject()
+            else:
+                self.new_skill()
         elif self.snapshot is not None:
             self.add_skill()
         elif self.pending is not None:
             self.poll() if self.job_id else self.submit()
+        elif self.editing and self.original is None:
+            self.load_definition()
         else:
             try:
                 definition = validate_definition(
@@ -762,6 +955,7 @@ class SkillEditor(QDialog):
                         "title": self.title.text().strip(),
                         "description": self.description.toPlainText().strip(),
                         "examples": list(self.examples),
+                        **(self.editing or {}),
                     }
                 )
             except SkillImportError as error:
@@ -772,6 +966,14 @@ class SkillEditor(QDialog):
             self.processing("Generating…")
 
             def connected(snapshot):
+                if self.editing:
+                    try:
+                        validate_edit_target(self.collection, snapshot, definition)
+                    except SkillImportError as error:
+                        self.processing()
+                        self.message(str(error))
+                        self.action.setEnabled(False)
+                        return
                 self.pending = {**definition, "source_id": snapshot["source_id"]}
                 self.profile[PENDING_KEY] = self.pending
                 self.mw.pm.save()
@@ -845,14 +1047,17 @@ class SkillEditor(QDialog):
         font.setPointSizeF(18)
         title.setFont(font)
         layout.addWidget(title)
-        layout.addWidget(QLabel("Added to LearnRecur skills."))
+        layout.addWidget(
+            QLabel("Changes saved." if self.editing else "Added to LearnRecur skills.")
+        )
         layout.addStretch()
         self.pages.addWidget(page)
         self.pages.setCurrentIndex(1)
-        self.setWindowTitle("Skill added")
+        self.setWindowTitle("Skill saved" if self.editing else "Skill added")
         self.new_button.hide()
         self.preview_button.show()
-        self.action.setText("Add another skill")
+        self.action.setText("Done" if self.editing else "Add another skill")
+        self.close_button.setVisible(not self.editing)
         self.action.setEnabled(True)
         self.footer.removeItem(self.footer_gap)
         self.footer.insertItem(0, self.footer_gap)
@@ -889,9 +1094,9 @@ class SkillEditor(QDialog):
             self.footer.insertItem(3, self.footer_gap)
             self.setMinimumSize(640, 500)
             self.setGeometry(self.entry_geometry)
-        self.setWindowTitle("Add skill")
+        self.setWindowTitle("Edit skill" if self.editing else "Add skill")
         self.processing()
-        self.action.setText("Add skill")
+        self.action.setText("Save changes" if self.editing else "Add skill")
         self.message("")
         if not keep_fields:
             self.title.clear()
@@ -905,8 +1110,8 @@ class SkillEditor(QDialog):
     def add_skill(self):
         if self.mw.state not in ("deckBrowser", "overview"):
             self.processing()
-            self.message("Return to the deck list to add the skill.")
-            self.action.setText("Finish adding")
+            self.message("Return to the deck list to save the skill.")
+            self.action.setText("Finish saving" if self.editing else "Finish adding")
             self.action.setEnabled(True)
             return
         snapshot = self.snapshot
@@ -921,6 +1126,8 @@ class SkillEditor(QDialog):
                 or self.mw.state not in ("deckBrowser", "overview")
             ):
                 raise SkillImportError("The profile changed. Open Add skill again.")
+            if self.editing:
+                validate_edit_target(col, snapshot, self.pending, completed=True)
             return import_snapshot(col, snapshot)
 
         def added(_):
@@ -974,3 +1181,41 @@ def add_skill(mw):
     mw._learnrecur_skill_editor = dialog
     mw.garbage_collect_on_dialog_finish(dialog)
     dialog.show()
+
+
+def edit_skill(browser):
+    browser.editor.call_after_note_saved(lambda: _edit_saved_skill(browser))
+
+
+def _edit_saved_skill(browser):
+    mw = browser.mw
+    if not mw.col or mw.state not in ("deckBrowser", "overview"):
+        showWarning("Return to the deck list before editing a skill.", parent=browser)
+        return
+    existing = getattr(mw, "_learnrecur_skill_editor", None)
+    if existing is not None and not existing.closed:
+        existing.raise_()
+        existing.activateWindow()
+        return
+    try:
+        notes = browser.selected_notes()
+        if len(notes) != 1:
+            raise SkillImportError("Select one imported skill.")
+        dialog = SkillEditor(mw, selected_skill(mw.col, notes[0]))
+    except SkillImportError as error:
+        showWarning(str(error), parent=browser)
+        return
+    mw._learnrecur_skill_editor = dialog
+    mw.garbage_collect_on_dialog_finish(dialog)
+    dialog.show()
+
+
+def can_edit_skill(browser):
+    try:
+        notes = browser.selected_notes()
+        if len(notes) != 1:
+            return False
+        selected_skill(browser.mw.col, notes[0])
+        return True
+    except (SkillImportError, KeyError):
+        return False

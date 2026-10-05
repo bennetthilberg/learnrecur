@@ -14,6 +14,7 @@
 !tools/minilints/**
 !learnrecur/companion/*.py
 !learnrecur/fixtures/spanish-import.json
+!learnrecur/fixtures/spanish-revision.json
 !learnrecur/deploy/*.py
 !learnrecur/deploy/compose.yaml
 **/.git

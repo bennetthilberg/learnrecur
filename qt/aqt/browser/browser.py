@@ -397,6 +397,15 @@ class Browser(QMainWindow):
         qconnect(self.pgDownCut.activated, self.onLastCard)
 
         # add-on hook
+        from aqt.learnrecur_skill_editor import can_edit_skill, edit_skill
+
+        self.edit_skill_action = QAction("Edit skill…", self)
+        qconnect(self.edit_skill_action.triggered, lambda: edit_skill(self))
+        f.menu_Notes.addAction(self.edit_skill_action)
+        qconnect(
+            f.menu_Notes.aboutToShow,
+            lambda: self.edit_skill_action.setEnabled(can_edit_skill(self)),
+        )
         gui_hooks.browser_menus_did_init(self)
         self.mw.maybeHideAccelerators(self)
 
