@@ -38,7 +38,7 @@ Authenticated `POST /v1/refill-requests` accepts exactly these fields:
 }
 ```
 
-`remaining` counts active exercises not yet used in a successful native rating. It must be 0–2. The server checks the source, current description revision, and imported batch sequence. The client cannot select a provider or increase the batch size. The job freezes the current skill and uses its first supplied exercise as an example; manual generation requests still accept optional examples.
+`remaining` counts active exercises not yet used in a successful native rating. It must be 0–2. The server checks the source, current description revision, and imported batch sequence. The client cannot select a provider or increase the batch size. The job freezes the current skill and uses the first supplied exercise without an active companion report as an example. If all supplied exercises are reported, it uses no example. Existing jobs keep their frozen guidance; manual generation requests still accept optional examples.
 
 The source, skill, revision, and sequence form a stable request ID. Checking and creating the job share one database write transaction. Concurrent clients, reconnects, and restarts therefore return the same job for that checkpoint. The response contains `status` and `job_id`, without exercise text. A client behind the latest published sequence receives `awaiting_import`; it must import that batch before another automatic refill can be created.
 
@@ -56,7 +56,7 @@ Older cards with only a counter conservatively treat the first `n` active exerci
 
 ## Limits
 
-Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. It adds no skill editor, reporting UI, hosting, budget UI, or paid trial. The store still caps jobs and batches at 100, exercises at 100 per revision, and snapshots at 1 MiB. A full bank stops generation rather than deleting older exercises. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
+Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. [Report delivery](../REPORTS.md) also shares these checkpoints. This request path adds no hosting, budget UI, or paid trial. The store still caps jobs and batches at 100, exercises at 100 per revision, and snapshots at 1 MiB. A full bank stops generation rather than deleting older exercises. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
 
 
 ## Verification

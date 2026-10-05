@@ -548,14 +548,20 @@ async fn full_download_preserves_local_exercise_reports() -> Result<()> {
             ..report
         };
         col2.storage.add_skill_report(&local)?;
+        col2.storage.queue_skill_report(&local, true)?;
+        let outbox = col2.storage.report_outbox()?;
         ctx.full_download(col2).await;
         let col2 = ctx.col2();
         let reports = col2.storage.all_skill_reports()?;
         assert_eq!(reports.len(), 1);
         assert_eq!(reports[0].exercise_id, "local-report");
+        assert_eq!(col2.storage.report_outbox()?[0].0, outbox[0].0);
+        assert_eq!(col2.storage.report_outbox()?[0].3, outbox[0].3);
         col2.storage.remove_skill_report(&local)?;
+        col2.storage.queue_skill_report(&local, false)?;
         ctx.full_download(col2).await;
         assert!(ctx.col2().storage.all_skill_reports()?.is_empty());
+        assert!(!ctx.col2().storage.report_outbox()?[0].2);
         Ok(())
     })
     .await

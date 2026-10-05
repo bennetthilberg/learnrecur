@@ -791,6 +791,9 @@ class AnkiQt(QMainWindow):
             from aqt.learnrecur_delivery import check_delivery
 
             check_delivery(self)
+            from aqt.learnrecur_report_delivery import check_reports
+
+            check_reports(self)
 
     def _deckBrowserState(self, oldState: MainWindowState) -> None:
         self.deckBrowser.show()
@@ -882,6 +885,11 @@ class AnkiQt(QMainWindow):
 
         if changes.notetype:
             self.col.models._clear_cache()
+
+        if changes.note_text:
+            from aqt.learnrecur_report_delivery import check_reports
+
+            check_reports(self, force=True)
 
     def on_focus_did_change(
         self, new_focus: QWidget | None, _old: QWidget | None

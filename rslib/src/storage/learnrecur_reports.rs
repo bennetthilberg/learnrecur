@@ -22,8 +22,110 @@ impl SqliteStorage {
                 guid text not null, skill_id text not null, revision integer not null,
                 exercise_id text not null, payload text not null,
                 primary key (guid, skill_id, revision, exercise_id)
+            );
+            create table if not exists learnrecur_report_outbox (
+                report_id text primary key, guid text not null, skill_id text not null,
+                revision integer not null, exercise_id text not null, payload text not null,
+                active integer not null, version integer not null, acknowledged integer not null,
+                unique(guid,skill_id,revision,exercise_id)
             )",
         )?;
+        // Upgrade existing reports once. Cancellations remain as delivery tombstones.
+        for report in self.all_skill_reports()? {
+            if !self.db.query_row(
+                "select exists(select 1 from learnrecur_report_outbox where guid=? and skill_id=? and revision=? and exercise_id=?)",
+                params![report.guid, report.skill_id, report.revision, report.exercise_id],
+                |row| row.get::<_, bool>(0),
+            )? {
+                self.queue_skill_report(&report, true)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn queue_skill_report(
+        &self,
+        report: &SkillExerciseReport,
+        active: bool,
+    ) -> Result<()> {
+        self.db.execute(
+            "insert into learnrecur_report_outbox values(?,?,?,?,?,?,?,1,0)
+            on conflict(guid,skill_id,revision,exercise_id) do update set
+            payload=excluded.payload,active=excluded.active,version=version+1",
+            params![
+                format!("{:032x}", rand::random::<u128>()),
+                report.guid,
+                report.skill_id,
+                report.revision,
+                report.exercise_id,
+                report.payload,
+                active
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn acknowledge_skill_report(
+        &self,
+        input: anki_proto::notes::AcknowledgeSkillReportRequest,
+    ) -> Result<()> {
+        require!(
+            input.version > 0
+                && input.server_version >= input.version
+                && input.server_version < 9_007_199_254_740_991,
+            "invalid report receipt"
+        );
+        // One atomic statement; receipt metadata must not clear native undo or queues.
+        // A restored older client can advance past the server's version and retry.
+        self.db.execute(
+            "update learnrecur_report_outbox set acknowledged=case
+                when version=? and active=? then version else 0 end,
+                version=case when version=? and active=? then version else ?+1 end
+            where report_id=? and version=?",
+            params![
+                input.server_version,
+                input.active,
+                input.server_version,
+                input.active,
+                input.server_version,
+                input.report_id,
+                input.version
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub(crate) fn report_outbox(
+        &self,
+    ) -> Result<Vec<(String, SkillExerciseReport, bool, i64, i64)>> {
+        self.db.prepare("select report_id,guid,skill_id,revision,exercise_id,payload,active,version,acknowledged from learnrecur_report_outbox")?
+            .query_and_then([], |row| Ok((row.get(0)?, SkillExerciseReport {
+                guid:row.get(1)?, skill_id:row.get(2)?,revision:row.get(3)?,exercise_id:row.get(4)?,payload:row.get(5)?
+            },row.get(6)?,row.get(7)?,row.get(8)?)))?.collect()
+    }
+
+    pub(crate) fn replace_report_outbox(
+        &self,
+        rows: &[(String, SkillExerciseReport, bool, i64, i64)],
+    ) -> Result<()> {
+        self.db
+            .execute("delete from learnrecur_report_outbox", [])?;
+        for (id, report, active, version, acknowledged) in rows {
+            self.db.execute(
+                "insert into learnrecur_report_outbox values(?,?,?,?,?,?,?,?,?)",
+                params![
+                    id,
+                    report.guid,
+                    report.skill_id,
+                    report.revision,
+                    report.exercise_id,
+                    report.payload,
+                    active,
+                    version,
+                    acknowledged
+                ],
+            )?;
+        }
         Ok(())
     }
 

@@ -14,9 +14,11 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from anki.collection import Collection
+from anki.learnrecur_reports import acknowledge_reports, pending_reports
 from anki.learnrecur_skill_import import DECK_NAME, import_snapshot
 from anki.learnrecur_skills import (
     prepare_skill_answer,
+    report_skill_review,
     select_skill_review,
     skill_refill_request,
 )
@@ -224,6 +226,33 @@ def verify_paid_handoff(
     return c
 
 
+def report_and_withdraw(col, card_id, source, url, token, job_id):
+    before = rows(col)
+    original = select_skill_review(col.get_card(card_id))
+    report_skill_review(col, original, "incorrect")
+    assert rows(col) == before
+    outgoing = pending_reports(col, source)
+    receipts = [request(url, token, "/v1/exercise-reports", v) for v in outgoing]
+    assert receipts[0]["job_id"] == job_id
+    acknowledge_reports(col, outgoing, receipts)
+    col.undo()
+    canceled = pending_reports(col, source)
+    assert not canceled[0]["active"]
+    cancellation = request(url, token, "/v1/exercise-reports", canceled[0])
+    acknowledge_reports(col, canceled, [cancellation])
+    assert rows(col) == before
+    assert select_skill_review(col.get_card(card_id)) == original
+    return canceled, cancellation
+
+
+def start_source(deployment):
+    deployment.start()
+    token = (deployment.credentials / "companion-token").read_text().strip()
+    ready_services(endpoint(deployment), companion(deployment), token)
+    verify_private_listeners(deployment)
+    return token
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
@@ -260,10 +289,7 @@ def main():
     clients = []
     try:
         source.initialize()
-        source.start()
-        token = (source.credentials / "companion-token").read_text().strip()
-        ready_services(endpoint(source), companion(source), token)
-        verify_private_listeners(source)
+        token = start_source(source)
         user, password = (
             (source.credentials / "sync-account").read_text().strip().split(":", 1)
         )
@@ -315,6 +341,14 @@ def main():
         assert queued["status"] == "queued" and queued["job_id"] != first["job_id"]
         pending = request(
             companion(source), token, "/v1/generation-jobs/" + queued["job_id"]
+        )
+        canceled, cancellation = report_and_withdraw(
+            a,
+            skill_card,
+            snapshot["source_id"],
+            companion(source),
+            token,
+            queued["job_id"],
         )
         expected_answer = select_skill_review(a.get_card(skill_card)).exercise.answer
         auth = a.sync_login(user, password, endpoint(source) + "/")
@@ -387,6 +421,11 @@ def main():
         restored.start()
         ready_services(endpoint(restored), companion(restored), token)
         assert request(companion(restored), token) == snapshot
+        # Restore preserves the withdrawn report, receipt version, and shared job.
+        assert (
+            request(companion(restored), token, "/v1/exercise-reports", canceled[0])
+            == cancellation
+        )
         assert request(
             companion(restored), token, "/v1/refill-requests", checkpoint
         ) == {"status": "disabled", "job_id": None}

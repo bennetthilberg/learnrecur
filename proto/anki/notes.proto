@@ -9,6 +9,7 @@ package anki.notes;
 
 import "anki/notetypes.proto";
 import "anki/collection.proto";
+import "anki/generic.proto";
 import "anki/decks.proto";
 import "anki/cards.proto";
 
@@ -31,6 +32,7 @@ service NotesService {
   rpc GetSingleNotetypeOfNotes(notes.NoteIds) returns (notetypes.NotetypeId);
   rpc AddSkillNotes(AddSkillNotesRequest) returns (AddNotesResponse);
   rpc ReportSkillExercise(ReportSkillExerciseRequest) returns (collection.OpChanges);
+  rpc AcknowledgeSkillReport(AcknowledgeSkillReportRequest) returns (generic.Empty);
 }
 
 // Implicitly includes any of the above methods that are not listed in the
@@ -147,4 +149,11 @@ message ReportSkillExerciseRequest {
   string expected_bank = 2;
   string exercise_id = 3;
   string reason = 4;
+}
+
+message AcknowledgeSkillReportRequest {
+  string report_id = 1;
+  int64 version = 2;
+  int64 server_version = 3;
+  bool active = 4;
 }

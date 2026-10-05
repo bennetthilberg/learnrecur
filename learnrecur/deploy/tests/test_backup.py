@@ -77,6 +77,12 @@ def test_both_stores_identities_usage_budgets_and_pending_jobs_survive(state, tm
 
     completed = enqueue("completed")
     jobs.run_once(FixtureProvider())
+    from learnrecur.companion.reports import Reports
+    from learnrecur.companion.tests.test_reports import value
+
+    report = value(store)
+    Reports(store).receive(report, None)
+    Reports(store).receive({**report, "version": 2, "active": False}, None)
     enqueue("queued")
     uncertain = enqueue("uncertain", "openai")
     with store.connect() as db:
