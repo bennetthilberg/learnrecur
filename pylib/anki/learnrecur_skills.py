@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 from anki.cards import Card, CardId
 from anki.collection import Collection
+from anki.collection_pb2 import OpChanges
 from anki.scheduler.v3 import CardAnswer
 from anki.template import TemplateRenderOutput
 
@@ -51,7 +52,7 @@ def _text(value: object) -> str:
     return value
 
 
-def _bank(card: Card) -> tuple[str, str, list[Exercise]] | None:
+def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
     note = card.note()
     model = card.note_type()
     if model.get(MODEL_MARKER) != MODEL_KIND:
@@ -94,15 +95,24 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise]] | None:
                 raise ValueError()
             if status == "active":
                 exercises.append(exercise)
-        digest = hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()[
-            :16
-        ]
+        reported = set(
+            card.col.db.list(
+                "select exercise_id from learnrecur_exercise_reports "
+                "where guid=? and skill_id=? and revision=?",
+                note.guid,
+                raw["skill_id"],
+                raw["revision"],
+            )
+        )
+        digest = hashlib.sha256(
+            json.dumps([raw, sorted(reported)], sort_keys=True).encode()
+        ).hexdigest()[:16]
         from anki.learnrecur_batches import cursor_bank
 
         cursor_hash = hashlib.sha256(
             json.dumps(cursor_bank(raw), sort_keys=True).encode()
         ).hexdigest()[:16]
-        return digest, cursor_hash, exercises
+        return digest, cursor_hash, exercises, reported
     except (KeyError, TypeError, ValueError, RecursionError) as error:
         raise SkillReviewError("This skill has an invalid exercise bank.") from error
 
@@ -147,11 +157,13 @@ def _used(card: Card, bank_hash: str, position: int, exercises: list[Exercise]) 
 def select_skill_review(card: Card) -> SkillReview | None:
     if (bank := _bank(card)) is None:
         return None
-    bank_hash, cursor_hash, exercises = bank
+    bank_hash, cursor_hash, exercises, reported = bank
+    position = _position(card, cursor_hash)
+    # Infer legacy usage before filtering reports; reporting does not consume a turn.
+    used = _used(card, cursor_hash, position, exercises)
+    exercises = [exercise for exercise in exercises if exercise.id not in reported]
     if not exercises:
         raise SkillReviewError("This skill has no available exercises.")
-    position = _position(card, cursor_hash)
-    used = _used(card, cursor_hash, position, exercises)
     exercise = next(
         (exercise for exercise in exercises if not used & (1 << exercise.ordinal)),
         exercises[position % len(exercises)],
@@ -174,9 +186,13 @@ def skill_refill_request(card: Card) -> dict | None:
         card.note().guid,
     ):
         return None  # A deck package cannot authorize background generation.
-    _, cursor_hash, exercises = bank
+    _, cursor_hash, exercises, reported = bank
     used = _used(card, cursor_hash, _position(card, cursor_hash), exercises)
-    remaining = sum(not used & (1 << exercise.ordinal) for exercise in exercises)
+    remaining = sum(
+        not used & (1 << exercise.ordinal)
+        for exercise in exercises
+        if exercise.id not in reported
+    )
     if remaining > 2:
         return None
     raw = json.loads(card.note()[BANK_FIELD])
@@ -197,6 +213,20 @@ def validate_skill_review(card: Card, review: SkillReview) -> None:
         raise SkillReviewError(
             "This skill changed. Review the current exercise before rating it."
         )
+
+
+def report_skill_review(col: Collection, review: SkillReview, reason: str) -> OpChanges:
+    """Exclude the displayed exercise without rating or consuming it."""
+    if reason not in ("incorrect", "unclear", "out_of_scope", "other"):
+        raise SkillReviewError("Choose a reason for reporting this exercise.")
+    card = col.get_card(review.card_id)
+    validate_skill_review(card, review)
+    return col._backend.report_skill_exercise(
+        card_id=card.id,
+        expected_bank=card.note()[BANK_FIELD],
+        exercise_id=review.exercise.id,
+        reason=reason,
+    )
 
 
 def render_skill_review(card: Card, review: SkillReview) -> None:

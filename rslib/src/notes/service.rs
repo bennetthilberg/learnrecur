@@ -67,6 +67,14 @@ impl crate::services::NotesService for Collection {
         })
     }
 
+    fn report_skill_exercise(
+        &mut self,
+        input: anki_proto::notes::ReportSkillExerciseRequest,
+    ) -> error::Result<anki_proto::collection::OpChanges> {
+        self.report_skill_exercise(input)
+            .map(|result| result.changes.into())
+    }
+
     fn defaults_for_adding(
         &mut self,
         input: anki_proto::notes::DefaultsForAddingRequest,

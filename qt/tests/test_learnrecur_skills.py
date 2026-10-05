@@ -12,7 +12,9 @@ import anki.lang
 from anki.collection import Collection
 from anki.learnrecur_skills import BANK_FIELD, SkillReviewError, select_skill_review
 from anki.scheduler.v3 import CardAnswer
+from aqt import learnrecur_report as report_ui
 from aqt.operations import scheduling
+from aqt.qt import QApplication, QDialog, QWidget
 from aqt.reviewer import Reviewer
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -154,3 +156,145 @@ def test_skill_error_stops_auto_advance_timer(reviewer):
     timer.deleteLater.assert_called_once()
     assert reviewer._show_answer_timer is None
     reviewer.mw.progress.timer.assert_not_called()
+
+
+@pytest.fixture
+def app():
+    return QApplication.instance() or QApplication([])
+
+
+def report_operation(monkeypatch, *, accepted=True, reason="incorrect"):
+    operations = []
+    dialog = MagicMock()
+    dialog.exec.return_value = (
+        QDialog.DialogCode.Accepted if accepted else QDialog.DialogCode.Rejected
+    )
+    dialog.reason.currentData.return_value = reason
+    monkeypatch.setattr(report_ui, "ReportExerciseDialog", lambda _: dialog)
+
+    def operation(**kwargs):
+        operations.append(kwargs)
+        mock = MagicMock()
+        mock.success.side_effect = lambda callback: (
+            kwargs.update(success=callback) or mock
+        )
+        mock.failure.side_effect = lambda callback: (
+            kwargs.update(failure=callback) or mock
+        )
+        return mock
+
+    monkeypatch.setattr(report_ui, "CollectionOp", operation)
+    return operations
+
+
+def test_report_dialog_requires_reason_and_has_native_cancel(app):
+    parent = QWidget()
+    dialog = report_ui.ReportExerciseDialog(parent)
+    assert dialog.reason.accessibleName() == "Reason"
+    assert not dialog.report.isEnabled()
+    dialog.reason.setCurrentIndex(1)
+    assert dialog.report.isEnabled()
+    assert dialog.reason.currentData() == "incorrect"
+    dialog.reason.setCurrentIndex(0)
+    assert not dialog.report.isEnabled()
+    dialog.close()
+    parent.close()
+
+
+@pytest.mark.parametrize("side", ["question", "answer"])
+def test_report_cancel_preserves_exercise_and_resumes_auto_advance(
+    reviewer, monkeypatch, side
+):
+    operations = report_operation(monkeypatch, accepted=False)
+    reviewer._showQuestion()
+    reviewer.state = side
+    pinned = reviewer._skill_review
+    reviewer._clear_auto_advance_timers = MagicMock()
+    reviewer._auto_advance_to_answer_if_enabled.reset_mock()
+    report_ui.report_and_skip(reviewer)
+    assert reviewer._skill_review == pinned and reviewer.state == side
+    assert not operations
+    reviewer._clear_auto_advance_timers.assert_called_once()
+    if side == "question":
+        reviewer._auto_advance_to_answer_if_enabled.assert_called_once()
+    else:
+        reviewer._auto_advance_to_question_if_enabled.assert_called_once()
+
+
+def test_report_on_answer_switches_to_hidden_replacement_and_undo_redraws(
+    reviewer, monkeypatch
+):
+    operations = report_operation(monkeypatch)
+    reviewer._showQuestion()
+    reviewer._showAnswer()
+    reviewer._clear_auto_advance_timers = MagicMock()
+    report_ui.report_and_skip(reviewer)
+    assert reviewer.state == "transition"
+    reviewer._answerCard(3)  # A queued click cannot rate while the report is saving.
+    op = operations[0]
+    changes = op["op"](reviewer.mw.col)
+    op["success"](changes)
+    assert reviewer.state == "question"
+    assert reviewer._skill_review.exercise.id == "trabajar"
+    assert "oficina" in reviewer.card.question()
+    assert reviewer.mw.col.get_card(reviewer.card.id).reps == 0
+    reviewer._showAnswer()
+    assert "trabajé" in reviewer.card.answer()
+    reviewer.mw.col.undo()
+    reviewer._redraw_current_card()
+    assert reviewer.state == "question"
+    assert reviewer._skill_review.exercise.id == "hablar"
+    reviewer.mw.col.redo()
+    reviewer._redraw_current_card()
+    assert reviewer.state == "question"
+    assert reviewer._skill_review.exercise.id == "trabajar"
+
+
+def test_reporting_last_exercise_blocks_rating_and_has_native_exit(
+    reviewer, monkeypatch
+):
+    operations = report_operation(monkeypatch)
+    reviewer._clear_auto_advance_timers = MagicMock()
+    reviewer._showQuestion()
+    for _ in range(3):
+        report_ui.report_and_skip(reviewer)
+        op = operations[-1]
+        op["success"](op["op"](reviewer.mw.col))
+    assert reviewer._skill_error
+    assert "Back to deck" in reviewer.bottom.web.eval.call_args.args[0]
+    reviewer._showAnswer()
+    reviewer._answerCard(3)
+    assert reviewer.mw.col.get_card(reviewer.card.id).reps == 0
+    assert reviewer.mw.col.db.scalar("select count(*) from revlog") == 0
+    reviewer.mw.col.undo()
+    reviewer._redraw_current_card()
+    assert not reviewer._skill_error
+    assert reviewer._skill_review.exercise.id == "comprar"
+
+
+def test_report_callback_cannot_redraw_another_collection(reviewer, monkeypatch):
+    operations = report_operation(monkeypatch)
+    reviewer._showQuestion()
+    reviewer._clear_auto_advance_timers = MagicMock()
+    report_ui.report_and_skip(reviewer)
+    collection = reviewer.mw.col
+    reviewer.mw.col = object()
+    operations[0]["success"](None)
+    assert reviewer.state == "transition"
+    with pytest.raises(ValueError, match="collection changed"):
+        operations[0]["op"](reviewer.mw.col)
+    assert collection.db.scalar("select count(*) from learnrecur_exercise_reports") == 0
+
+
+def test_report_is_only_in_skill_more_menu(reviewer):
+    reviewer.auto_advance_enabled = False
+    reviewer.mw.flags = SimpleNamespace(all=lambda: [])
+    reviewer._showQuestion()
+    assert reviewer._contextMenu()[0][0] == "Report and skip…"
+    reviewer.card = reviewer.mw.col.get_card(
+        reviewer.mw.col.find_cards('deck:"Ordinary sample"')[0]
+    )
+    reviewer._skill_review = None
+    assert not any(
+        row and row[0] == "Report and skip…" for row in reviewer._contextMenu()
+    )

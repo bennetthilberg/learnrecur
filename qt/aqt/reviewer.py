@@ -248,6 +248,17 @@ class Reviewer:
 
     def _redraw_current_card(self) -> None:
         self.card.load()
+        if self._skill_review or self._skill_error:
+            try:
+                selected = select_skill_review(self.card)
+            except SkillReviewError:
+                selected = None
+            if selected != self._skill_review or self._skill_error:
+                # Undoing a report may restore a different question. Hide its answer.
+                self._skill_review = None
+                self.card.start_timer()
+                self._showQuestion()
+                return
         if self.state == "answer":
             self._showAnswer()
         else:
@@ -1102,6 +1113,13 @@ timerStopped = false;
                 dict(checked=self.auto_advance_enabled),
             ],
         ]
+        if self._skill_review and not self._skill_error:
+            from aqt.learnrecur_report import report_and_skip
+
+            opts[0:0] = [
+                ["Report and skip…", "", lambda: report_and_skip(self)],
+                None,
+            ]
         return opts
 
     def showContextMenu(self) -> None:
