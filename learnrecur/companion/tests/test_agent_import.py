@@ -4,6 +4,7 @@ import copy
 import importlib.util
 import json
 import os
+import stat
 import subprocess
 import sys
 import threading
@@ -221,6 +222,43 @@ def test_local_write_failure_after_server_commit_is_safe_to_resume(
     monkeypatch.setattr(plans, "save", save)
     restarted = plans.load(plan_id)
     HELPER.refresh(plans, HELPER.Companion(), plan_id, restarted, submit=True)
+    assert counts(server) == (1, 0)
+
+
+def test_new_state_hierarchy_and_request_ids_are_synced_before_submission(
+    server, tmp_path, monkeypatch
+):
+    root = tmp_path.resolve()
+    folder = root / "new-hierarchy/share/learnrecur/imports"
+    synced = set()
+    fsync = os.fsync
+
+    def record_sync(fd):
+        info = os.fstat(fd)
+        if stat.S_ISDIR(info.st_mode):
+            synced.add((info.st_dev, info.st_ino))
+        fsync(fd)
+
+    monkeypatch.setattr(HELPER.os, "fsync", record_sync)
+    plans = HELPER.Plans(folder)
+    client = HELPER.Companion()
+    plan_id, plan = HELPER.prepare(plans, client, {"skills": [definition()]})
+    request = client.request
+
+    def check_before_submission(path, payload=None):
+        if payload is not None:
+            for parent in (root, *reversed(folder.relative_to(root).parents)):
+                # Include each new directory's parent, and the directory holding the plan.
+                absolute = parent if parent.is_absolute() else root / parent
+                info = absolute.stat()
+                assert (info.st_dev, info.st_ino) in synced
+            info = folder.stat()
+            assert (info.st_dev, info.st_ino) in synced
+            assert plans.load(plan_id)["skills"][0]["request"] == payload
+        return request(path, payload)
+
+    monkeypatch.setattr(client, "request", check_before_submission)
+    HELPER.refresh(plans, client, plan_id, plan, submit=True)
     assert counts(server) == (1, 0)
 
 

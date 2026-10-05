@@ -192,6 +192,14 @@ def private_file(fd):
         raise ImportError("Import state must use private, owned files without links.")
 
 
+def sync_directory(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
 class Plans:
     def __init__(self, folder):
         self.folder = Path(os.path.abspath(Path(folder).expanduser()))
@@ -212,6 +220,7 @@ class Plans:
                     raise ImportError("Import state directories must not use links.")
             else:
                 path.mkdir(mode=0o700)
+                sync_directory(path.parent)
         info = self.folder.stat()
         if info.st_uid != os.getuid() or info.st_mode & 0o077:
             raise ImportError(
@@ -249,11 +258,7 @@ class Plans:
                 file.flush()
                 os.fsync(file.fileno())
             os.replace(temporary, destination)
-            fd = os.open(self.folder, os.O_RDONLY)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+            sync_directory(self.folder)
         finally:
             temporary.unlink(missing_ok=True)
 
