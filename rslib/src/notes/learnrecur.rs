@@ -47,7 +47,7 @@ impl Collection {
         let result = self.transact(Op::SkipUndo, |col| {
             for request in input.notes {
                 let expected: Note = request.expected.or_invalid("missing verified skill")?.into();
-                let note = col.storage.get_note(expected.id)?.or_not_found(expected.id)?;
+                let mut note = col.storage.get_note(expected.id)?.or_not_found(expected.id)?;
                 require!(
                     note.guid == expected.guid
                         && note.notetype_id == expected.notetype_id
@@ -77,8 +77,13 @@ impl Collection {
                     "select nid from learnrecur_skill_links where source_id=? and skill_id=? limit 2",
                 )?.query_map([source, skill], |row| row.get(0))?.collect::<std::result::Result<_, _>>()?;
                 require!(nids == [note.id.0], "duplicate restored skill links");
-                col.storage.record_skill_identity(&SkillIdentity { nid: note.id, cid, guid: note.guid })?;
+                col.storage.record_skill_identity(&SkillIdentity { nid: note.id, cid, guid: note.guid.clone() })?;
+                // Identities travel with notes in normal sync. Queue the note
+                // without changing its content or modification time.
+                note.usn = col.usn()?;
+                col.storage.update_note(&note)?;
             }
+            col.storage.set_modified_time(modified)?;
             Ok(())
         });
         if result.is_ok() {

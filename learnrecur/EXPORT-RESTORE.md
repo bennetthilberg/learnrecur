@@ -15,7 +15,9 @@ A deck package (`.apkg`) is still useful for transferring ordinary decks to Anki
 
 File import removes trusted companion identities. A package cannot authorize background generation or report delivery by claiming to own a card. Reconnect fetches an authenticated snapshot and compares each matching restored card's note ID, card ID, GUID, skill content, revisions, and batch history. Older caches can reconnect if their content is an exact published ancestor. Content newer than the companion's snapshot cannot establish ownership.
 
-Reconnect creates no cards and changes no note content, schedules, reviews, usage, or reports. Duplicate links, changed content, remapped IDs, and deleted identities are refused. The native transaction checks the notes again before committing all identities together. Retrying is safe, and review undo and redo remain available. After reconnection, the normal delivery controllers can send queued reports and append completed batches. New descriptions still require the existing revision flow.
+Reconnect creates no cards and changes no note content, schedules, reviews, usage, or reports. Duplicate links, changed content, remapped IDs, and deleted identities are refused. The native transaction checks the notes again before committing all identities together. Retrying is safe, and review undo and redo remain available. It marks the verified notes for normal sync so other clients receive their companion links. Newer server notes retain their content and tags while those links are exchanged.
+
+After reconnection, the normal delivery controllers can send queued reports and append completed batches. New descriptions still require the existing revision flow.
 
 Only skills matching the configured companion are connected. A collection with skills from several companions needs a separate reconnect for each source. Connection credentials stay outside the package and must be configured separately.
 
@@ -29,7 +31,7 @@ Collection packages contain readable study data and are not encrypted by this ex
 
 The automated round trip covers a mixed synthetic collection with Basic, typed-answer, Cloze, and HTML/image cards; a revised skill with two appended batches; exercise usage; review history; active exclusions; and a withdrawn report waiting for delivery. Both package formats match the original notes, cards, reviews, templates, media, and report rows. Before reconnect, the restored identity table is empty and reports cannot be sent. Offline rating, reconnect, retry, undo, redo, and reopen preserve the expected state.
 
-Other tests cover older published caches, mismatched content or identity, duplicate links, changed templates, future revisions, deleted identities, a profile or connection change during fetch, native rollback after a queued deletion, and process death before or after reconnect commits.
+Other tests cover older published caches, mismatched content or identity, duplicate links, changed templates, future revisions, deleted identities, a profile or connection change during fetch, native rollback after a queued deletion, and process death before or after reconnect commits. Two clients and the matching standalone server also verify that reconnected identities reach already-synced clients, including after rating undo and redo or a newer server-side tag edit.
 
 The packaged Mac app passed native export, Save, import into an empty profile, offline reveal and rating, undo, redo, and restart on October 5, 2026. Five notes, six cards, three initial reviews, two exclusions, three queued report states, and the image hash matched. Reconnect retained the later offline review and delivered all three report states to a separate synthetic companion, including the withdrawal. All delivery receipts persisted.
 
@@ -39,5 +41,6 @@ Run the focused checks from the repository root:
 
 ```sh
 ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest pylib/tests/test_learnrecur_restore.py -q
+ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/deploy/tests/test_local_sync.py -q
 ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:qt:out/pylib:out/qt:qt/tools out/pyenv/bin/python -m pytest qt/tests/test_learnrecur_import.py -q
 ```
