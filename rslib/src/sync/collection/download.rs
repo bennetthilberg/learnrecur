@@ -28,6 +28,7 @@ impl Collection {
         let col_path = self.col_path.clone();
         let _col_folder = col_path.parent().or_invalid("couldn't get col_folder")?;
         let progress = self.new_progress_handler();
+        let reports = self.storage.all_skill_reports()?;
         self.close(None)?;
         let out_data = server
             .download_with_progress(EmptyInput::request(), progress)
@@ -39,6 +40,9 @@ impl Collection {
         let col = CollectionBuilder::new(temp_file.path())
             .set_check_integrity(true)
             .build()?;
+        // Reports are local until companion delivery exists. A full download
+        // must neither erase local exclusions nor restore another client's reports.
+        col.storage.replace_skill_reports(&reports)?;
         col.storage.db.execute_batch("update col set ls=mod")?;
         col.close(None)?;
         atomic_rename(temp_file, &col_path, true)?;

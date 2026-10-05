@@ -525,6 +525,42 @@ async fn meta_redirect_is_handled() -> Result<()> {
     .await
 }
 
+#[tokio::test]
+async fn full_download_preserves_local_exercise_reports() -> Result<()> {
+    use crate::storage::SkillExerciseReport;
+
+    with_active_server(|client| async move {
+        let ctx = SyncTestContext::new(client);
+        let mut col1 = ctx.col1();
+        col1_setup(&mut col1);
+        let report = SkillExerciseReport {
+            guid: "synthetic-guid".into(),
+            skill_id: "synthetic-skill".into(),
+            revision: 1,
+            exercise_id: "server-report".into(),
+            payload: "{}".into(),
+        };
+        col1.storage.add_skill_report(&report)?;
+        ctx.full_upload(col1).await;
+        let col2 = ctx.col2();
+        let local = SkillExerciseReport {
+            exercise_id: "local-report".into(),
+            ..report
+        };
+        col2.storage.add_skill_report(&local)?;
+        ctx.full_download(col2).await;
+        let col2 = ctx.col2();
+        let reports = col2.storage.all_skill_reports()?;
+        assert_eq!(reports.len(), 1);
+        assert_eq!(reports[0].exercise_id, "local-report");
+        col2.storage.remove_skill_report(&local)?;
+        ctx.full_download(col2).await;
+        assert!(ctx.col2().storage.all_skill_reports()?.is_empty());
+        Ok(())
+    })
+    .await
+}
+
 pub(in crate::sync) struct SyncTestContext {
     pub folder: TempDir,
     pub client: HttpSyncClient,

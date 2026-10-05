@@ -33,10 +33,12 @@ jobs:
         run: |
           PYTHONPATH=pylib:qt:out/pylib:out/qt:qt/tools out/pyenv/bin/python -m pytest qt/tests/test_learnrecur.py -q
           ./ninja check:pytest:pylib check:pytest:aqt
+          cargo test -p anki --lib sync::collection::tests -- --test-threads=1
           out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/aqt/main.py qt/aqt/profiles.py qt/aqt/sync.py qt/aqt/update.py qt/tools/build_installer.py qt/tests/test_learnrecur.py qt/tests/test_installer.py
           out/pyenv/bin/ruff check pylib/tests/learnrecur_deck_fixture.py pylib/tests/test_learnrecur_packages.py qt/tools/build_learnrecur_icon.py
           out/pyenv/bin/ruff check qt/tools/prepare_anki_compatibility_app.py qt/tests/test_anki_compatibility_app.py
           out/pyenv/bin/ruff check pylib/anki/learnrecur_skills.py pylib/tests/learnrecur_skill_fixture.py pylib/tests/test_learnrecur_skills.py qt/aqt/reviewer.py qt/aqt/operations/scheduling.py qt/tests/test_learnrecur_skills.py
+          out/pyenv/bin/ruff check pylib/tests/test_learnrecur_reports.py qt/aqt/learnrecur_report.py
           ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/companion/tests -q
           out/pyenv/bin/ruff check pylib/anki/learnrecur_batches.py pylib/tests/test_learnrecur_batches.py pylib/anki/learnrecur_skill_import.py pylib/tests/test_learnrecur_skill_import.py pylib/tests/test_learnrecur_revisions.py qt/aqt/learnrecur_import.py qt/aqt/learnrecur_refill.py qt/aqt/learnrecur_delivery.py qt/tests/test_learnrecur_delivery.py qt/tests/test_learnrecur_import.py qt/tests/test_learnrecur_refill.py learnrecur/companion
           out/pyenv/bin/ruff check qt/aqt/learnrecur_skill_editor.py qt/aqt/browser/browser.py qt/tests/test_learnrecur_skill_editor.py

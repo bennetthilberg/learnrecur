@@ -4,6 +4,7 @@
 use super::NoteTags;
 use crate::collection::undo::UndoableCollectionChange;
 use crate::prelude::*;
+use crate::storage::SkillExerciseReport;
 use crate::undo::UndoableChange;
 
 #[derive(Debug)]
@@ -14,6 +15,8 @@ pub(crate) enum UndoableNoteChange {
     GraveAdded(Box<(NoteId, Usn)>),
     GraveRemoved(Box<(NoteId, Usn)>),
     TagsUpdated(Box<NoteTags>),
+    SkillReportAdded(Box<SkillExerciseReport>),
+    SkillReportRemoved(Box<SkillExerciseReport>),
 }
 
 impl Collection {
@@ -28,6 +31,12 @@ impl Collection {
                 self.update_note_undoable(&note, &current)
             }
             UndoableNoteChange::Removed(note) => self.restore_deleted_note(*note),
+            UndoableNoteChange::SkillReportAdded(report) => {
+                self.remove_skill_report_undoable(*report)
+            }
+            UndoableNoteChange::SkillReportRemoved(report) => {
+                self.add_skill_report_undoable(*report)
+            }
             UndoableNoteChange::GraveAdded(e) => self.remove_note_grave(e.0, e.1),
             UndoableNoteChange::GraveRemoved(e) => self.add_note_grave(e.0, e.1),
             UndoableNoteChange::TagsUpdated(note_tags) => {

@@ -3,6 +3,7 @@
 
 mod learnrecur;
 pub(crate) mod service;
+mod skill_reports;
 pub(crate) mod undo;
 
 use std::borrow::Cow;

@@ -30,6 +30,7 @@ service NotesService {
   rpc CardsOfNote(NoteId) returns (cards.CardIds);
   rpc GetSingleNotetypeOfNotes(notes.NoteIds) returns (notetypes.NotetypeId);
   rpc AddSkillNotes(AddSkillNotesRequest) returns (AddNotesResponse);
+  rpc ReportSkillExercise(ReportSkillExerciseRequest) returns (collection.OpChanges);
 }
 
 // Implicitly includes any of the above methods that are not listed in the
@@ -139,4 +140,11 @@ message UpdateSkillNoteRequest {
   Note note = 1;
   Note expected = 2;
   int64 card_id = 3;
+}
+
+message ReportSkillExerciseRequest {
+  int64 card_id = 1;
+  string expected_bank = 2;
+  string exercise_id = 3;
+  string reason = 4;
 }
