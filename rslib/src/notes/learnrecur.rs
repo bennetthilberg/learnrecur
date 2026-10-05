@@ -20,6 +20,74 @@ const SKILL_FIELDS: [&str; 7] = [
 ];
 
 impl Collection {
+    pub(crate) fn reconnect_skill_notes(
+        &mut self,
+        input: anki_proto::notes::ReconnectSkillNotesRequest,
+    ) -> Result<()> {
+        require!(
+            (1..=100).contains(&input.notes.len()),
+            "invalid reconnect size"
+        );
+        let stamps = self.storage.get_collection_timestamps()?;
+        let modified = TimestampMillis::now().max(TimestampMillis(
+            stamps
+                .collection_change
+                .max(stamps.last_sync)
+                .max(
+                    self.state
+                        .last_backup_modified
+                        .unwrap_or(TimestampMillis(0)),
+                )
+                .0
+                + 1,
+        ));
+        // Connecting changes metadata, not cards. Preserve review undo and redo.
+        let mut undo = std::mem::take(&mut self.state.undo);
+        self.state.undo.retain_cache_modified_time(modified);
+        let result = self.transact(Op::SkipUndo, |col| {
+            for request in input.notes {
+                let expected: Note = request.expected.or_invalid("missing verified skill")?.into();
+                let note = col.storage.get_note(expected.id)?.or_not_found(expected.id)?;
+                require!(
+                    note.guid == expected.guid
+                        && note.notetype_id == expected.notetype_id
+                        && note.fields() == expected.fields()
+                        && note.tags == expected.tags,
+                    "skill changed before reconnect; try again"
+                );
+                let cid = CardId(request.card_id);
+                let nt = col.get_notetype(note.notetype_id)?.or_invalid("missing note type")?;
+                let other: serde_json::Value = serde_json::from_slice(&nt.config.other)?;
+                let cards = col.storage.all_cards_of_note(note.id)?;
+                require!(
+                    other["learnrecur"] == "skill-v1"
+                        && nt.config.kind() == NotetypeKind::Normal
+                        && nt.templates.len() == 1
+                        && nt.fields.len() == SKILL_FIELDS.len()
+                        && cards.len() == 1 && cards[0].id == cid
+                        && cards[0].template_idx == 0 && cid.0 == note.id.0
+                        && !col.storage.skill_identity_was_deleted(note.id, cid)?,
+                    "restored skill identity changed"
+                );
+                let (_, fields) = col.skill_revision_state(&note)?;
+                let link: serde_json::Value = serde_json::from_str(&fields[6])?;
+                let source = link["source_id"].as_str().or_invalid("missing source")?;
+                let skill = link["skill_id"].as_str().or_invalid("missing skill")?;
+                let nids: Vec<i64> = col.storage.db.prepare_cached(
+                    "select nid from learnrecur_skill_links where source_id=? and skill_id=? limit 2",
+                )?.query_map([source, skill], |row| row.get(0))?.collect::<std::result::Result<_, _>>()?;
+                require!(nids == [note.id.0], "duplicate restored skill links");
+                col.storage.record_skill_identity(&SkillIdentity { nid: note.id, cid, guid: note.guid })?;
+            }
+            Ok(())
+        });
+        if result.is_ok() {
+            undo.retain_cache_modified_time(modified);
+        }
+        self.state.undo = undo;
+        result.map(|_| ())
+    }
+
     pub(crate) fn add_skill_notes(
         &mut self,
         input: AddSkillNotesRequest,

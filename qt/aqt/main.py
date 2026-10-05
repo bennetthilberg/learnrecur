@@ -1458,7 +1458,7 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.actionRedo.triggered, self.redo)
 
         # Tools
-        from aqt.learnrecur_import import import_skills
+        from aqt.learnrecur_import import import_skills, reconnect_restored_skills
         from aqt.learnrecur_skill_editor import add_skill
 
         self.add_skill_action = QAction("Add skill…", self)
@@ -1467,6 +1467,12 @@ title="{}" {}>{}</button>""".format(
         self.import_skills_action = QAction("Import skills…", self)
         qconnect(self.import_skills_action.triggered, lambda: import_skills(self))
         m.menuTools.addAction(self.import_skills_action)
+        self.reconnect_skills_action = QAction("Reconnect restored skills…", self)
+        qconnect(
+            self.reconnect_skills_action.triggered,
+            lambda: reconnect_restored_skills(self),
+        )
+        m.menuTools.addAction(self.reconnect_skills_action)
         qconnect(m.actionFullDatabaseCheck.triggered, self.onCheckDB)
         qconnect(m.actionCheckMediaDatabase.triggered, self.on_check_media_db)
         qconnect(m.actionStudyDeck.triggered, self.onStudyDeck)

@@ -33,6 +33,7 @@ service NotesService {
   rpc AddSkillNotes(AddSkillNotesRequest) returns (AddNotesResponse);
   rpc ReportSkillExercise(ReportSkillExerciseRequest) returns (collection.OpChanges);
   rpc AcknowledgeSkillReport(AcknowledgeSkillReportRequest) returns (generic.Empty);
+  rpc ReconnectSkillNotes(ReconnectSkillNotesRequest) returns (generic.Empty);
 }
 
 // Implicitly includes any of the above methods that are not listed in the
@@ -156,4 +157,14 @@ message AcknowledgeSkillReportRequest {
   int64 version = 2;
   int64 server_version = 3;
   bool active = 4;
+}
+
+// Expected notes were checked against an authenticated companion snapshot.
+message ReconnectSkillNotesRequest {
+  repeated ReconnectSkillNoteRequest notes = 1;
+}
+
+message ReconnectSkillNoteRequest {
+  Note expected = 1;
+  int64 card_id = 2;
 }
