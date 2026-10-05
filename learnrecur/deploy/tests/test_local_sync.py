@@ -928,6 +928,8 @@ def test_refill_sync_refuses_rewriting_existing_exercises(server, snapshot, tmp_
             batches=damaged["bank_updates"][key],
         )
         b.update_note(note)
+        # Keep the simulated edit ahead of the just-completed sync clock.
+        b.db.execute("update col set mod=mod+1")
         before = (note.fields, records(b))
         with pytest.raises(Exception):
             b.sync_collection(auth, False)
@@ -1000,3 +1002,60 @@ def test_automatic_bank_still_syncs_after_undoing_last_rating(
                 == 6
             )
             assert records(col) == []
+
+
+@pytest.mark.parametrize("newer_server_note", [False, True])
+def test_reconnected_identity_reaches_already_synced_clients(
+    server, snapshot, tmp_path, newer_server_note
+):
+    from anki.learnrecur_restore import reconnect_skills
+
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        # Full package restores remove ownership. Model a nonempty server and
+        # two clients that have already synced those untrusted cached cards.
+        a.db.execute("delete from learnrecur_skill_identities")
+        auth = bootstrap(a, b, server)
+        cid = a.find_cards("")[0]
+        expected_cards = a.db.all("select * from cards")
+        expected_content = a.get_note(cid).fields
+        expected_mtime = a.get_note(cid).mod
+        if newer_server_note:
+            note = b.get_note(cid)
+            note.tags = ["server-tag"]
+            b.update_note(note)
+            b.db.execute("update notes set mod=mod+60 where id=?", cid)
+            b.db.execute("update col set mod=mod+1")
+            sync(b, auth)
+            # Another sync moves B past the server note's old sequence.
+            ordinary = b.new_note(b.models.by_name("Basic"))
+            ordinary["Front"] = "Advance the server sequence"
+            b.add_note(ordinary, 1)
+            b.db.execute("update col set mod=mod+1")
+            sync(b, auth)
+        rate(a)
+        before_mod = a.mod
+        assert reconnect_skills(a, snapshot).connected == 1
+        assert a.mod > before_mod
+        committed = a.mod
+        a.undo()
+        a.redo()
+        a.undo()
+        assert a.mod >= committed
+        assert a.get_note(cid).usn == -1
+        assert a.get_note(cid).mod == expected_mtime
+        assert a.get_note(cid).fields == expected_content
+        assert a.db.all("select * from cards") == expected_cards
+        sync(a, auth)
+        sync(b, auth)
+        assert b.db.all("select * from learnrecur_skill_identities") == a.db.all(
+            "select * from learnrecur_skill_identities"
+        )
+        assert b.get_note(cid).fields == expected_content
+        if newer_server_note:
+            assert b.get_note(cid).tags == ["server-tag"]
+        before = b.get_card(cid).reps
+        rate(b)
+        import_snapshot(b, snapshot)  # Trusted import retries still work.
+        b.undo()
+        assert b.get_card(cid).reps == before

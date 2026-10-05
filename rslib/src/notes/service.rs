@@ -18,6 +18,13 @@ pub(crate) fn to_i64s(ids: Vec<NoteId>) -> Vec<i64> {
 }
 
 impl crate::services::NotesService for Collection {
+    fn reconnect_skill_notes(
+        &mut self,
+        input: anki_proto::notes::ReconnectSkillNotesRequest,
+    ) -> error::Result<()> {
+        self.reconnect_skill_notes(input)
+    }
+
     fn acknowledge_skill_report(
         &mut self,
         input: anki_proto::notes::AcknowledgeSkillReportRequest,

@@ -139,3 +139,60 @@ def test_old_companion_cannot_create_unsynchronized_identities(server, monkeypat
     monkeypatch.setattr(server.store, "snapshot", lambda: snapshot)
     with pytest.raises(SkillImportError, match="Update the local companion"):
         ui.fetch_snapshot()
+
+
+@pytest.mark.parametrize(
+    "change", ["none", "profile", "review", "connection", "invalid_connection"]
+)
+def test_reconnect_rechecks_profile_state_and_authenticated_connection(
+    monkeypatch, change
+):
+    from anki import learnrecur_restore
+
+    reconnect = MagicMock()
+    monkeypatch.setattr(learnrecur_restore, "reconnect_skills", reconnect)
+    mw = SimpleNamespace(state="deckBrowser", col=object())
+    connection = ("http://127.0.0.1:45321", TOKEN)
+    queries, mutations = [], []
+    monkeypatch.setattr(ui, "companion_connection", lambda: connection)
+    monkeypatch.setattr(ui, "QueryOp", lambda **kw: queries.append(kw) or MagicMock())
+    monkeypatch.setattr(
+        ui, "CollectionOp", lambda **kw: mutations.append(kw) or MagicMock()
+    )
+    monkeypatch.setattr(ui, "showWarning", MagicMock())
+    ui.reconnect_restored_skills(mw)
+    queries[0]["success"]({})
+    assert len(mutations) == 1
+    if change == "profile":
+        mw.col = object()
+    elif change == "review":
+        mw.state = "review"
+    elif change == "connection":
+        connection = ("http://127.0.0.1:45322", TOKEN)
+    elif change == "invalid_connection":
+
+        def invalid():
+            raise SkillImportError("Invalid connection")
+
+        monkeypatch.setattr(ui, "companion_connection", invalid)
+    if change != "none":
+        with pytest.raises(SkillImportError, match="changed"):
+            mutations[0]["op"](mw.col)
+    else:
+        mutations[0]["op"](mw.col)
+        reconnect.assert_called_once_with(mw.col, {})
+
+
+def test_reconnect_discards_snapshot_if_profile_changes_during_fetch(monkeypatch):
+    mw = SimpleNamespace(state="deckBrowser", col=object())
+    queries = []
+    monkeypatch.setattr(
+        ui, "companion_connection", lambda: ("http://127.0.0.1:45321", TOKEN)
+    )
+    monkeypatch.setattr(ui, "QueryOp", lambda **kw: queries.append(kw) or MagicMock())
+    mutation = MagicMock()
+    monkeypatch.setattr(ui, "CollectionOp", mutation)
+    ui.reconnect_restored_skills(mw)
+    mw.col = object()
+    queries[0]["success"]({})
+    mutation.assert_not_called()

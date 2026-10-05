@@ -181,6 +181,19 @@ impl Collection {
                 );
             }
         }
+        let mut identities_to_send = vec![];
+        if !self.server {
+            for note in &chunk.notes {
+                if self.storage.skill_identity_for_note(note.id)?.is_some()
+                    && !chunk
+                        .skill_identities
+                        .iter()
+                        .any(|identity| identity.nid == note.id)
+                {
+                    identities_to_send.push(note.id);
+                }
+            }
+        }
         for identity in &chunk.skill_identities {
             require!(
                 chunk
@@ -189,11 +202,27 @@ impl Collection {
                     .any(|note| note.id == identity.nid && note.guid == identity.guid),
                 "sync skill identity has no matching note"
             );
+            if self.server
+                && self
+                    .storage
+                    .skill_identity_for_note(identity.nid)?
+                    .is_none()
+            {
+                identities_to_send.push(identity.nid);
+            }
             self.storage.record_skill_identity(identity)?;
         }
         self.merge_revlog(chunk.revlog)?;
         self.merge_cards(chunk.cards, pending_usn)?;
-        self.merge_notes(chunk.notes, pending_usn)
+        self.merge_notes(chunk.notes, pending_usn)?;
+        // Keep identities pending when a newer note wins the merge, both for
+        // client uploads and server delivery. Preserve its content and timestamp.
+        for nid in identities_to_send {
+            let mut note = self.storage.get_note(nid)?.or_not_found(nid)?;
+            note.usn = self.usn()?;
+            self.storage.update_note(&note)?;
+        }
+        Ok(())
     }
 
     fn merge_revlog(&self, entries: Vec<RevlogEntry>) -> Result<()> {

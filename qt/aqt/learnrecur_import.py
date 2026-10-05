@@ -136,3 +136,65 @@ def import_skills(mw: AnkiQt) -> None:
     QueryOp(parent=mw, op=lambda _: fetch_snapshot(), success=received).failure(
         lambda error: showWarning(str(error), parent=mw)
     ).with_progress().run_in_background()
+
+
+def reconnect_restored_skills(mw: AnkiQt) -> None:
+    from anki.learnrecur_restore import reconnect_skills
+
+    if mw.state not in ("deckBrowser", "overview") or not mw.col:
+        showWarning("Return to the deck list before reconnecting skills.", parent=mw)
+        return
+    collection = mw.col
+    try:
+        connection = companion_connection()
+    except SkillImportError as error:
+        showWarning(str(error), parent=mw)
+        return
+
+    def current() -> bool:
+        try:
+            return (
+                mw.col is collection
+                and mw.state in ("deckBrowser", "overview")
+                and companion_connection() == connection
+            )
+        except SkillImportError:
+            return False
+
+    def received(snapshot: object) -> None:
+        if not current():
+            return
+
+        def apply(col):
+            if col is not collection or not current():
+                raise SkillImportError(
+                    "The profile or connection changed. Reconnect again."
+                )
+            return reconnect_skills(col, snapshot)
+
+        def finished(result):
+            if not current():
+                return
+            if result.connected:
+                noun = "skill" if result.connected == 1 else "skills"
+                message = f"Reconnected {result.connected} {noun}."
+            elif result.existing:
+                message = "Skills are already connected."
+            else:
+                message = "No restored skills match this companion."
+            tooltip(message, parent=mw)
+            from aqt.learnrecur_delivery import check_delivery
+            from aqt.learnrecur_report_delivery import check_reports
+
+            check_delivery(mw)
+            check_reports(mw, force=True)
+
+        CollectionOp(parent=mw, op=apply).success(finished).failure(
+            lambda error: showWarning(str(error), parent=mw)
+        ).run_in_background()
+
+    QueryOp(
+        parent=mw, op=lambda _: fetch_snapshot(connection), success=received
+    ).failure(
+        lambda error: showWarning(str(error), parent=mw)
+    ).without_collection().with_progress().run_in_background()
