@@ -6,7 +6,7 @@ This slice uses `gpt-6-luna` on the default processing tier, with `xhigh` reason
 
 The job saves the full instructions, model settings, and price assumptions. Text requests are limited to 32 KiB. Jobs retain the existing 1–3 exercise limit. [The model page](https://developers.openai.com/api/docs/models/gpt-6-luna), [structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs), and [API pricing](https://developers.openai.com/api/docs/pricing) describe the provider contract.
 
-The native review card shows only the prompt before revealing the answer. Generation instructions require each prompt to state the task and supply any necessary forms, choices, units, or other information. A conjugation prompt must identify the verb, tense, and subject; a pronoun-selection prompt must give its choices. These instructions should be brief and keep the answer hidden.
+The native review card shows only the prompt before revealing the answer. Generation instructions require each prompt to state the task and supply any necessary forms, choices, units, or other information. For a skill that applies a given tense, identify that tense, the verb, and the subject. When choosing the tense or operation is the target skill, state that decision and supply the needed context or allowed options without making the choice for the learner. Keep instructions brief and avoid hints that solve the skill.
 
 New OpenAI jobs save instruction version 2, including creation, editing, refills, and report replacements. Queued jobs and retries keep their saved instructions and version, even after a worker upgrade. Existing cached exercises are unchanged. This guidance still needs manual quality checks; it is not a semantic validator.
 
