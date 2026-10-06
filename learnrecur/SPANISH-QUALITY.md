@@ -1,6 +1,6 @@
 # Spanish generation trial
 
-On October 5, 2026, three approved skills from chapters 14 and 15 of *Complete Spanish Step-by-Step, Premium Second Edition* passed a local generation and Mac review trial. All 12 generated exercises passed manual inspection. Import retries, offline review, report-and-skip, undo, restart, and automatic refill delivery also passed. One guidance gap remains: refills use a generated example instead of the original book examples.
+On October 5, 2026, three approved skills from chapters 14 and 15 of *Complete Spanish Step-by-Step, Premium Second Edition* passed a local generation and Mac review trial. All 12 generated exercises passed manual inspection. Import retries, offline review, report-and-skip, undo, restart, and automatic refill delivery also passed. The trial found a refill-guidance bug, fixed in the follow-up described below.
 
 ## Material and scope
 
@@ -38,6 +38,8 @@ On reconnect, the report was acknowledged and queued one refill. Entering the de
 
 This is a small manual sample of three conjugation rules. It does not establish quality for whole chapters, harder grammar, math, or long-term use. There was no independent instructor review, hosted trial, or new collection-sync or backup-restoration test. Earlier synthetic checks cover those other paths.
 
-Initial generation received the six source examples. The refill retained the approved description but used one eligible cached exercise as its example. Original examples remain in the saved creation request; automatic refills do not use them. The next small slice should carry source examples into refills, with a fallback for skills that have none and checks for revisions, reports, and retry behavior. This would keep later generation anchored to the learner's material.
+Initial generation received the six source examples. The trial's refill retained the approved description but used one eligible cached exercise as its example. The original examples were saved in the creation request, but automatic refills did not read them.
+
+The follow-up fix makes new refills use all saved examples for the current revision. Skills without supplied examples keep the cached-exercise fallback. Edited revisions use their own guidance, and queued jobs retain their frozen context. [The refill checks](companion/REFILLS.md#verification) cover the provider request, revisions, reports, retries, and the native Mac flow. A read-only check selected both approved book examples for each trial skill. This did not rerun the paid trial or change its data; verification used synthetic generation at zero cost.
 
 Private plans, provenance, provider receipts, quality judgments, and native state comparisons remain with the disposable trial. No textbook text, generated bank, credentials, collection, or private logs are committed. The trial app, companion, and worker are stopped. No Azure changes or personal Anki data were used. A daily-use trial and a second protected backup-key copy remain outstanding.
