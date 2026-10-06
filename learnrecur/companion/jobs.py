@@ -441,6 +441,7 @@ class Jobs:
             from learnrecur.companion.openai_provider import (
                 CONFIG,
                 GUIDANCE,
+                GUIDANCE_VERSION,
                 NAME,
                 request_body,
             )
@@ -448,6 +449,7 @@ class Jobs:
             context["provider"] = NAME
             context["provider_config"] = copy.deepcopy(CONFIG)
             context["instructions"] = GUIDANCE + " " + INSTRUCTIONS
+            context["instructions_version"] = GUIDANCE_VERSION
             request_body(context)
         job_id = uuid4().hex
         db.execute(

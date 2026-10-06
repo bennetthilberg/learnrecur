@@ -2,9 +2,13 @@
 
 The worker can generate exercises through OpenAI's Responses API. OpenAI jobs are explicit: add `"provider": "openai"` to a generation request and start the OpenAI worker. The default worker and requests still use free fixtures. Desktop review uses the cached bank and never needs the key.
 
-This slice uses `gpt-6-luna` on the default processing tier, with `xhigh` reasoning effort and at most 16,384 output tokens, including reasoning. The request contains the skill's title and description, requested count, optional examples, and existing prompts to avoid. It asks for plain-text prompts, answers, and brief explanations through a strict JSON schema. A valid schema does not establish exercise quality; inspect the first batch before importing it.
+This slice uses `gpt-6-luna` on the default processing tier, with `xhigh` reasoning effort and at most 16,384 output tokens, including reasoning. The request contains the skill's title and description, requested count, optional examples, and existing prompts to avoid. It asks for plain-text prompts, answers, and brief explanations through a strict JSON schema. During development, inspect each prompt on its own, then check its answer and explanation. A valid schema does not establish exercise quality.
 
 The job saves the full instructions, model settings, and price assumptions. Text requests are limited to 32 KiB. Jobs retain the existing 1–3 exercise limit. [The model page](https://developers.openai.com/api/docs/models/gpt-6-luna), [structured-output guide](https://developers.openai.com/api/docs/guides/structured-outputs), and [API pricing](https://developers.openai.com/api/docs/pricing) describe the provider contract.
+
+The native review card shows only the prompt before revealing the answer. Generation instructions require each prompt to state the task and supply any necessary forms, choices, units, or other information. A conjugation prompt must identify the verb, tense, and subject; a pronoun-selection prompt must give its choices. These instructions should be brief and keep the answer hidden.
+
+New OpenAI jobs save instruction version 2, including creation, editing, refills, and report replacements. Queued jobs and retries keep their saved instructions and version, even after a worker upgrade. Existing cached exercises are unchanged. This guidance still needs manual quality checks; it is not a semantic validator.
 
 ## Save the test key
 
