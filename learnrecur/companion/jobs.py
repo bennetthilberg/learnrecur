@@ -179,6 +179,20 @@ class Jobs:
                 db, value, request_id, skill_id, examples, provider_name, encoded, now
             )
 
+    @staticmethod
+    def _saved_examples(db, skill):
+        for (encoded,) in db.execute(
+            "select context from generation_jobs where state='completed' order by rowid desc"
+        ):
+            context = decode(encoded.encode())
+            if (
+                context.get("new_skill")
+                and context["skill"]["id"] == skill["id"]
+                and context["skill"]["bank"]["revision"] == skill["bank"]["revision"]
+            ):
+                return context["examples"]
+        return []
+
     def definition(self, skill_id):
         with self.store.connect() as db:
             db.execute("begin")
@@ -188,19 +202,7 @@ class Jobs:
             if not row:
                 raise JobConflict("This skill is no longer available.")
             skill = decode(row[0].encode())
-            examples = []
-            for (encoded,) in db.execute(
-                "select context from generation_jobs where state='completed' order by rowid desc"
-            ):
-                context = decode(encoded.encode())
-                if (
-                    context.get("new_skill")
-                    and context["skill"]["id"] == skill_id
-                    and context["skill"]["bank"]["revision"]
-                    == skill["bank"]["revision"]
-                ):
-                    examples = context["examples"]
-                    break
+            examples = self._saved_examples(db, skill)
             return {
                 "source_id": db.execute(
                     "select value from metadata where key='source_id'"
@@ -531,21 +533,24 @@ class Jobs:
                     and saved["bank"]["revision"] == value["revision"]
                 ):
                     return {"status": state, "job_id": job_id}
-            reported = {
-                row[0]
-                for row in db.execute(
-                    "select exercise_id from exercise_reports where skill_id=? and revision=? and active=1",
-                    (key, value["revision"]),
+            examples = self._saved_examples(db, skill)
+            if not examples:
+                reported = {
+                    row[0]
+                    for row in db.execute(
+                        "select exercise_id from exercise_reports where skill_id=? and revision=? and active=1",
+                        (key, value["revision"]),
+                    )
+                }
+                example = next(
+                    (e for e in skill["bank"]["exercises"] if e["id"] not in reported),
+                    None,
                 )
-            }
-            example = next(
-                (e for e in skill["bank"]["exercises"] if e["id"] not in reported), None
-            )
-            examples = (
-                [{k: example[k] for k in ("prompt", "answer", "explanation")}]
-                if example
-                else []
-            )
+                examples = (
+                    [{k: example[k] for k in ("prompt", "answer", "explanation")}]
+                    if example
+                    else []
+                )
             request = {
                 "request_id": request_id,
                 "skill_id": key,
