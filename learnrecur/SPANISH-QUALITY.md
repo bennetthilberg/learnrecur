@@ -1,6 +1,8 @@
-# Spanish generation trial
+# Spanish generation trials
 
 On October 5, 2026, three approved skills from chapters 14 and 15 of *Complete Spanish Step-by-Step, Premium Second Edition* passed a local generation and Mac review trial. All 12 generated exercises passed manual inspection. Import retries, offline review, report-and-skip, undo, restart, and automatic refill delivery also passed. The trial found a refill-guidance bug, fixed in the follow-up described below.
+
+An [editor trial on October 6](#editor-trial-on-october-6) checked three more skills from chapters 10 and 11. All 12 new exercises passed inspection. The actual provider requests, including the automatic refill, contained the saved book examples. Together, the trials cover six narrow skills and 24 generated exercises; they do not establish daily-use readiness.
 
 ## Material and scope
 
@@ -34,7 +36,7 @@ Quitting and reopening offline preserved three cards, four review entries, the r
 
 On reconnect, the report was acknowledged and queued one refill. Entering the deck overview downloaded its completed batch automatically. The affected bank grew from three to six exercises; the other banks stayed at three. Exact card and review rows, original exercise content, and the active report were preserved. A final offline restart retained all 12 cached exercises and the same learner state.
 
-## Limits and next step
+## Limits and follow-up
 
 This is a small manual sample of three conjugation rules. It does not establish quality for whole chapters, harder grammar, math, or long-term use. There was no independent instructor review, hosted trial, or new collection-sync or backup-restoration test. Earlier synthetic checks cover those other paths.
 
@@ -43,3 +45,33 @@ Initial generation received the six source examples. The trial's refill retained
 The follow-up fix makes new refills use all saved examples for the current revision. Skills without supplied examples keep the cached-exercise fallback. Edited revisions use their own guidance, and queued jobs retain their frozen context. [The refill checks](companion/REFILLS.md#verification) cover the provider request, revisions, reports, retries, and the native Mac flow. A read-only check selected both approved book examples for each trial skill. This did not rerun the paid trial or change its data; verification used synthetic generation at zero cost.
 
 Private plans, provenance, provider receipts, quality judgments, and native state comparisons remain with the disposable trial. No textbook text, generated bank, credentials, collection, or private logs are committed. The trial app, companion, and worker are stopped. No Azure changes or personal Anki data were used. A daily-use trial and a second protected backup-key copy remain outstanding.
+
+## Editor trial on October 6
+
+The user authorized another local trial with agent-selected material and a $1 ceiling. This trial used **Tools > Add skill…** in the packaged Mac app, with a fresh LearnRecur profile and authenticated local companion. Each definition received two book exercises as guidance.
+
+| Skill | Source examples | Rule and answer-key pages |
+| --- | --- | --- |
+| Choose gusta or gustan | Exercise 10.2, items 4 and 11 | Rules 153–157; key 571 |
+| Choose a direct object pronoun for a thing | Exercise 11.5, items 1 and 8 | Rules 182–186; key 573 |
+| Attach a supplied direct object pronoun to an infinitive | Exercise 11.5, items 2 and 7 | Rules 183 and 187; key 573 |
+
+These are printed page numbers in the same 2020 edition. The original exercises and keys were checked visually. Adaptations supplied the indirect object pronoun for gustar, limited pronoun selection to inanimate objects, or supplied both forms for infinitive attachment. Each prompt tested one rule. Example explanations were written from the chapter rules. No authored fallback examples were needed.
+
+### Generation and quality
+
+Three initial jobs and one automatic gustar refill each generated three exercises with `gpt-6-luna` and `xhigh` reasoning. All four completed on their first attempt, with exactly four provider submissions. The saved examples were compared with both the job context and the actual outbound request for every submission. The refill received both book examples, rather than a generated exemplar.
+
+All nine initial exercises and three refill exercises passed manual checks for correct answers, one clear answer, scope, comparable difficulty, variation, and brief explanations. Gustar covered singular nouns, plural nouns, and infinitives. Pronoun selection used explicit gender and number cues. Infinitive attachment supplied the verb and pronoun, so it did not require another choice or conjugation. Generated prompts differed from the source examples and previous prompts. Three items per initial bank do not cover every pronoun form or context.
+
+The jobs reported 1,736 input tokens and 1,339 output tokens. Their usage estimates totaled **845 microusd ($0.000845)**, with no unsettled reservations. No credits or discounts were assumed. Reservations stayed within the $1 ceiling, and the worker stopped after the fourth submission. The [published model rates](https://developers.openai.com/api/docs/models/gpt-6-luna) were checked on October 6. This is a usage-based estimate, not a provider invoice.
+
+### Native Mac checks
+
+The editor disabled its inputs during generation and added exactly three cards, keeping preview optional. Rating the first skill Again queued one refill with its saved examples. Undo restored its original card state. A correct exercise was deliberately reported with **Other** to check the workflow; this was not a quality failure. The report shared the existing refill job and showed an eligible cached replacement with its answer hidden. Reporting and report undo/redo preserved the exact card, note, and review rows. Reveal matched the replacement while generation completed.
+
+Returning to the deck list downloaded the refill automatically. That bank grew from three to six exercises; the other banks stayed at three. The exact card and review rows remained unchanged. With the companion stopped, all three skills passed cached reveal and rating. Rating undo/redo restored the exact card and review entry, and subsequent reviews selected different exercises, including a new refill item.
+
+The final offline restart preserved all three cards, five review entries, 12 cached exercises, identities, reports, and delivery records exactly. The new refill exercise still revealed its matching answer. Offline here means the local companion was stopped and no worker was running; general Internet access was not blocked. The app exited normally. Existing Qt accessibility warnings appeared during automation; this trial does not resolve the [known accessibility issue](MAC-ACCESSIBILITY.md).
+
+No implementation fix was needed. Private source extracts, definitions, requests, receipts, quality judgments, and state comparisons remain outside Git. All trial processes are stopped. No personal Anki data or Azure services were used. Real-provider editing, independent instructor review, longer use, bank retention, and upstream-update effort remain untested by this trial. Arrange the second protected backup-key copy before a daily-use trial.

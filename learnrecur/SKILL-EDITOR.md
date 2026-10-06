@@ -42,6 +42,8 @@ Publication writes the new definition and bank atomically at `base_revision + 1`
 
 The October 3–4, 2026 checks used the packaged Mac app with isolated synthetic storage in `out/learnrecur/skill-editor-preview-20261003/`. Form entry, example editing, hover help, stable input focus, disabled loading controls, automatic creation of one card, optional preview, Add another skill, reveal, Again, and native undo passed. The completion window is compact, groups its actions together, and restores the editor size when adding another skill. The companion supplied fixed Spanish exercises. No real model call or paid generation ran. Mocked OpenAI tests cover initial generation and usage accounting; they do not establish model answer quality.
 
+On October 6, the editor created three skills using the real provider and six book examples in separate trial storage. All 12 generated exercises, including one automatic refill, passed manual inspection. Loading controls, automatic card creation, optional preview, cached review, report-and-skip, undo/redo, refill delivery, and offline restart passed. [The trial notes](SPANISH-QUALITY.md#editor-trial-on-october-6) record the source, request checks, spending, and limits. This checked creation; real-provider editing remains untested.
+
 The fixture provider accepts the original Spanish fixture and new skills with this exact description:
 
 > Form the first-person singular preterite of regular Spanish -ar verbs. Exclude spelling changes, irregular verbs, other persons, and other tenses.
