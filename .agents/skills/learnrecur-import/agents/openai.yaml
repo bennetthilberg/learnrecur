@@ -1,0 +1,4 @@
+interface:
+  display_name: "LearnRecur import"
+  short_description: "Turn study material into LearnRecur skill cards"
+  default_prompt: "Use $learnrecur-import to draft narrow skills from the study material I provide and preview their definitions before generation."
