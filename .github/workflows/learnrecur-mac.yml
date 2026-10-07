@@ -37,7 +37,7 @@ jobs:
           out/pyenv/bin/ruff check qt/aqt/learnrecur.py qt/aqt/main.py qt/aqt/profiles.py qt/aqt/sync.py qt/aqt/update.py qt/tools/build_installer.py qt/tests/test_learnrecur.py qt/tests/test_installer.py
           out/pyenv/bin/ruff check pylib/tests/learnrecur_deck_fixture.py pylib/tests/test_learnrecur_packages.py qt/tools/build_learnrecur_icon.py
           out/pyenv/bin/ruff check qt/tools/prepare_anki_compatibility_app.py qt/tests/test_anki_compatibility_app.py
-          out/pyenv/bin/ruff check pylib/anki/learnrecur_skills.py pylib/tests/learnrecur_skill_fixture.py pylib/tests/test_learnrecur_skills.py qt/aqt/reviewer.py qt/aqt/operations/scheduling.py qt/tests/test_learnrecur_skills.py
+          out/pyenv/bin/ruff check pylib/anki/learnrecur_skills.py pylib/tests/learnrecur_skill_fixture.py pylib/tests/test_learnrecur_skills.py qt/aqt/reviewer.py qt/aqt/operations/__init__.py qt/aqt/operations/scheduling.py qt/tests/test_learnrecur_skills.py qt/tests/test_learnrecur_review_navigation.py
           out/pyenv/bin/ruff check pylib/anki/learnrecur_reports.py pylib/tests/test_learnrecur_reports.py pylib/tests/test_learnrecur_report_delivery.py qt/aqt/learnrecur_report.py qt/aqt/learnrecur_report_delivery.py qt/tests/test_learnrecur_report_delivery.py
           ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/companion/tests -q
           out/pyenv/bin/ruff check .agents/skills/learnrecur-import/scripts/import_skills.py
