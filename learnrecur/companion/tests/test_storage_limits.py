@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -91,6 +92,46 @@ def test_environment_settings_are_persisted_and_empty_values_keep_them(
     with pytest.raises(ValueError):
         jobs.store.configure_environment_limits(max_jobs=3500)
     assert limits(jobs.store).max_jobs == 3000
+
+
+@pytest.mark.parametrize("value", ["3", "junk"])
+def test_container_worker_applies_limits_before_starting_jobs(
+    jobs, payload, monkeypatch, value
+):
+    from learnrecur.deploy import container
+
+    job = jobs.enqueue(payload)
+    monkeypatch.setenv("LEARNRECUR_MAX_EXERCISES", value)
+    monkeypatch.delenv("LEARNRECUR_GENERATION_PROVIDER", raising=False)
+    monkeypatch.setattr(container.sys, "argv", ["container", "worker"])
+    monkeypatch.setattr(
+        container,
+        "Path",
+        lambda path: (
+            jobs.store.path.parent if path == "/state/companion" else Path(path)
+        ),
+    )
+    transfer = Mock(side_effect=StopIteration)
+    monkeypatch.setattr(container.os, "execv", transfer)
+    previous_umask = container.os.umask(0o077)
+    try:
+        if value == "junk":
+            with pytest.raises(ValueError, match="integer"):
+                container.main()
+            transfer.assert_not_called()
+            assert jobs.get(job["id"])["state"] == "queued"
+        else:
+            with pytest.raises(StopIteration):
+                container.main()
+            assert limits(jobs.store).max_exercises == 3
+            provider = FixtureProvider()
+            provider.generate = Mock(wraps=provider.generate)
+            assert jobs.run_once(provider) is None
+            assert jobs.get(job["id"])["state"] == "waiting_capacity"
+            provider.generate.assert_not_called()
+        assert counts(jobs.store) == (1, 0, 0)
+    finally:
+        container.os.umask(previous_umask)
 
 
 def test_lowered_limits_allow_restart_read_and_idempotent_import(jobs):

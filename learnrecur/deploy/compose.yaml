@@ -28,7 +28,7 @@ services:
   companion:
     <<: *service
     command: [companion]
-    environment:
+    environment: &storage_limits
       LEARNRECUR_MAX_EXERCISES: ${LEARNRECUR_MAX_EXERCISES:-}
       LEARNRECUR_MAX_JOBS: ${LEARNRECUR_MAX_JOBS:-}
       LEARNRECUR_MAX_SNAPSHOT_BYTES: ${LEARNRECUR_MAX_SNAPSHOT_BYTES:-}
@@ -42,6 +42,7 @@ services:
     <<: *service
     command: [worker]
     profiles: [worker]
+    environment: *storage_limits
     volumes:
       - ${LEARNRECUR_STATE}/companion:/state/companion
     # OpenAI needs the explicit override; fixtures need no provider key.

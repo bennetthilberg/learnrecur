@@ -25,7 +25,7 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.server
 
 Omitted settings keep their saved values. Each value must be a positive integer within the supported range. An invalid update changes nothing. Raising storage limits does not change the generation budget or authorize paid calls.
 
-For Compose deployments, set `LEARNRECUR_MAX_EXERCISES`, `LEARNRECUR_MAX_JOBS`, `LEARNRECUR_MAX_SNAPSHOT_BYTES`, `LEARNRECUR_MAX_SKILLS`, and `LEARNRECUR_MAX_BATCHES` in the environment used to run the deployment commands. Recreate the companion container to apply them. Empty or omitted variables keep the saved values. The standalone server accepts the same variables; command-line flags override them. Backups include the saved settings.
+For Compose deployments, set `LEARNRECUR_MAX_EXERCISES`, `LEARNRECUR_MAX_JOBS`, `LEARNRECUR_MAX_SNAPSHOT_BYTES`, `LEARNRECUR_MAX_SKILLS`, and `LEARNRECUR_MAX_BATCHES` in the environment used to run the deployment commands. Recreate the companion and worker containers to apply them. Both apply the same settings before starting work, so startup order cannot bypass a lower quota. Empty or omitted variables keep the saved values. The standalone server accepts the same variables; command-line flags override them. Backups include the saved settings.
 
 ## When a limit is reached
 

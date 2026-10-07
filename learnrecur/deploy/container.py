@@ -60,6 +60,9 @@ def main():
             raise ValueError(
                 "Restored jobs need inspection before starting the worker."
             )
+        from learnrecur.companion.server import Store
+
+        Store(folder).configure_environment_limits()
         options = []
         if provider == "openai":
             try:
