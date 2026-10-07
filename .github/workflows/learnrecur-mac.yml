@@ -43,6 +43,7 @@ jobs:
           out/pyenv/bin/ruff check .agents/skills/learnrecur-import/scripts/import_skills.py
           out/pyenv/bin/ruff check pylib/anki/learnrecur_batches.py pylib/tests/test_learnrecur_batches.py pylib/anki/learnrecur_skill_import.py pylib/tests/test_learnrecur_skill_import.py pylib/tests/test_learnrecur_revisions.py qt/aqt/learnrecur_import.py qt/aqt/learnrecur_refill.py qt/aqt/learnrecur_delivery.py qt/tests/test_learnrecur_delivery.py qt/tests/test_learnrecur_import.py qt/tests/test_learnrecur_refill.py learnrecur/companion
           out/pyenv/bin/ruff check qt/aqt/learnrecur_skill_editor.py qt/aqt/browser/browser.py qt/tests/test_learnrecur_skill_editor.py
+          out/pyenv/bin/ruff check qt/aqt/learnrecur_generation_history.py qt/tests/test_learnrecur_generation_history.py
           out/pyenv/bin/ruff check pylib/anki/learnrecur_restore.py pylib/tests/test_learnrecur_restore.py
           ANKI_TEST_MODE=1 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m pytest learnrecur/deploy/tests -q
           out/pyenv/bin/ruff check pylib/anki/learnrecur_skill_links.py qt/aqt/learnrecur_sync.py qt/tests/test_learnrecur_sync.py learnrecur/deploy pylib/tests/learnrecur_upstream.py pylib/anki/collection.py

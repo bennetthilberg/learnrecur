@@ -2,6 +2,8 @@
 
 The companion stores skills and exercise banks behind an authenticated API. **Tools > Import skills…** previews supplied banks before creating native cards. Revision updates keep the existing card. **Tools > Add skill…** takes a description and optional examples, generates a first bank, and adds a card automatically. The user can preview the exercises afterward. [The editor notes](../SKILL-EDITOR.md) describe creation and retry behavior. [Generation jobs](GENERATION.md) support fixtures and [OpenAI](OPENAI.md). [The deployment guide](../deploy/README.md) covers Linux hosting.
 
+**Tools > Generation history…** shows saved job outcomes, attempts, estimated spend, and unresolved reservations. It does not reveal exercises or submit work. [The history notes](../GENERATION-HISTORY.md) describe paging, costs, and recovery messages.
+
 The service uses Python's standard library and SQLite. It binds only to `127.0.0.1`. The app accepts only a literal loopback HTTP URL, ignores environment proxies, and refuses redirects. This server is for local development; don't expose it to a network.
 
 ## Run it
@@ -51,6 +53,7 @@ The skill endpoints require `Authorization: Bearer <token>`:
 - `POST /v1/skill-drafts` saves a new definition and its first generation job together. It uses the server's configured refill provider. [The creation contract](../SKILL-EDITOR.md#creation-and-recovery) describes the fields and identities.
 - `GET /v1/skill-definitions/<skill_id>` returns the current definition and its saved example guidance. `POST /v1/skill-edits` generates a replacement bank before publishing the next revision. [The edit contract](../SKILL-EDITOR.md#edit-contract) describes concurrency and recovery.
 - `POST /v1/exercise-reports` saves versioned client reports and requests replacement work through existing refill checkpoints. [Report delivery](../REPORTS.md) describes retries, withdrawals, and recovery limits.
+- `GET /v1/generation-history` returns bounded job summaries and budget totals without running recovery. [The history API](../GENERATION-HISTORY.md#connection-and-api) describes its cursor and privacy limits.
 - `GET /v1/skills` returns `{"source_id": "<database UUID>", "skills": [...], "identities": {...}}`. When revisions exist, `previous_revisions` maps each revised skill ID to its earlier payloads, in order. POST returns the latest snapshot after committing. Published jobs also add a `bank_updates` map; [the generation notes](GENERATION.md) describe its append-only batches.
 
 The local store holds at most 100 skills and 1 MiB of snapshot data, including retained revisions. Each bank needs 1–100 exercises with distinct IDs, prompts, answers, and explanations. Invalid batches return 400; missing or incorrect authentication returns 401; changing content within an existing revision returns 409. A conflicting batch rolls back completely. Identical retries succeed, including concurrent requests.

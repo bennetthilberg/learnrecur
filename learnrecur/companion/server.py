@@ -15,6 +15,7 @@ import time
 from contextlib import closing, contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qsl
 from uuid import uuid4
 
 from anki.learnrecur_skill_import import (
@@ -334,6 +335,9 @@ class Handler(BaseHTTPRequestHandler):
             if not write
             else None
         )
+        history_get = (
+            not write and self.path.split("?", 1)[0] == "/v1/generation-history"
+        )
         definition_get = (
             re.fullmatch(r"/v1/skill-definitions/([a-zA-Z0-9_-]{1,128})", self.path)
             if not write
@@ -353,6 +357,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
             )
             and not job_get
+            and not history_get
             and not definition_get
         ):
             self._reply(404, {"error": "Unknown endpoint."})
@@ -399,6 +404,27 @@ class Handler(BaseHTTPRequestHandler):
                     result = self.server.store.import_batch(payload)
             elif job_get:
                 result = Jobs(self.server.store).get(job_get[1])
+            elif history_get:
+                try:
+                    pairs = parse_qsl(
+                        self.path.partition("?")[2],
+                        keep_blank_values=True,
+                        strict_parsing=True,
+                        max_num_fields=2,
+                    )
+                    if len(dict(pairs)) != len(pairs) or any(
+                        key not in ("limit", "before")
+                        or not re.fullmatch(r"[1-9][0-9]{0,18}", value)
+                        for key, value in pairs
+                    ):
+                        raise ValueError()
+                except ValueError:
+                    raise SkillImportError(
+                        "Use valid history limit and cursor parameters."
+                    ) from None
+                result = Jobs(self.server.store).history(
+                    **{key: int(value) for key, value in pairs}
+                )
             elif definition_get:
                 result = Jobs(self.server.store).definition(definition_get[1])
             else:

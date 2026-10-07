@@ -1458,6 +1458,7 @@ title="{}" {}>{}</button>""".format(
         qconnect(m.actionRedo.triggered, self.redo)
 
         # Tools
+        from aqt.learnrecur_generation_history import open_history
         from aqt.learnrecur_import import import_skills, reconnect_restored_skills
         from aqt.learnrecur_skill_editor import add_skill
 
@@ -1473,6 +1474,9 @@ title="{}" {}>{}</button>""".format(
             lambda: reconnect_restored_skills(self),
         )
         m.menuTools.addAction(self.reconnect_skills_action)
+        self.generation_history_action = QAction("Generation history…", self)
+        qconnect(self.generation_history_action.triggered, lambda: open_history(self))
+        m.menuTools.addAction(self.generation_history_action)
         qconnect(m.actionFullDatabaseCheck.triggered, self.onCheckDB)
         qconnect(m.actionCheckMediaDatabase.triggered, self.on_check_media_db)
         qconnect(m.actionStudyDeck.triggered, self.onStudyDeck)
