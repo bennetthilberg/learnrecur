@@ -1,5 +1,6 @@
 """Exercise the matching standalone server with disposable native collections."""
 
+import base64
 import copy
 import json
 import os
@@ -863,6 +864,74 @@ def test_generated_bank_sync_keeps_offline_reviews_cursor_tags_and_retry(
             select_skill_review(a.get_card(cid)).exercise.id
             == select_skill_review(b.get_card(cid)).exercise.id
         )
+
+
+def test_large_bank_sequence_usage_and_report_survive_two_client_sync(
+    server, snapshot, tmp_path
+):
+    latest = copy.deepcopy(snapshot)
+    key = latest["skills"][0]["id"]
+    latest["bank_updates"] = {
+        key: [
+            {
+                "job_id": f"{sequence:032x}",
+                "revision": 1,
+                "sequence": sequence,
+                "exercises": [
+                    {
+                        "id": f"extra-{sequence}",
+                        "prompt": f"What is {sequence} + 1?",
+                        "answer": str(sequence + 1),
+                        "explanation": "Add one.",
+                    }
+                ],
+            }
+            for sequence in range(1, 151)
+        ]
+    }
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        assert import_snapshot(a, latest).updated == 1
+        sync(a, auth)
+        sync(b, auth)
+        cid = a.find_cards("")[0]
+        card = a.get_card(cid)
+        context = select_skill_review(card)
+        used = (1 << 150) - 1
+        encoded = "~" + base64.urlsafe_b64encode(
+            used.to_bytes(19, "little")
+        ).decode().rstrip("=")
+        card.custom_data = json.dumps(
+            {"lr": {"b": context.cursor_hash, "n": 150, "u": encoded}},
+            separators=(",", ":"),
+        )
+        a.update_card(card)
+        assert select_skill_review(a.get_card(cid)).exercise.id == "extra-148"
+        rate(a)
+        sync(a, auth)
+        sync(b, auth)
+        from anki.learnrecur_skills import report_skill_review
+
+        original = select_skill_review(b.get_card(cid))
+        assert original.exercise.id == "extra-149" and original.used.bit_length() == 151
+        report_skill_review(b, original, "incorrect")
+        assert select_skill_review(b.get_card(cid)).exercise.id == "extra-150"
+        before = records(b)
+        b.undo()
+        assert select_skill_review(b.get_card(cid)) == original
+        b.redo()
+        sync(b, auth)
+        sync(a, auth)
+        for col in (a, b):
+            assert records(col) == before and len(before) == 1
+            review = select_skill_review(col.get_card(cid))
+            # Reports use the companion delivery path, not native collection sync.
+            assert review.exercise.id == ("extra-150" if col is b else "extra-149")
+            assert review.used == original.used
+            col.close()
+            col.reopen()
+            assert select_skill_review(col.get_card(cid)) == review
 
 
 def test_later_bank_sequence_survives_stale_offline_bank(server, snapshot, tmp_path):

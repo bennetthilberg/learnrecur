@@ -45,8 +45,10 @@ def main():
     elif mode == "companion":
         from learnrecur.companion.server import Server, Store
 
+        store = Store(Path("/state/companion"))
+        store.configure_environment_limits()
         server = Server(
-            Store(Path("/state/companion")),
+            store,
             read_secret("companion_token"),
             45321,
             host="0.0.0.0",
@@ -58,6 +60,9 @@ def main():
             raise ValueError(
                 "Restored jobs need inspection before starting the worker."
             )
+        from learnrecur.companion.server import Store
+
+        Store(folder).configure_environment_limits()
         options = []
         if provider == "openai":
             try:

@@ -1,6 +1,6 @@
 # Low-bank refill requests
 
-With refills enabled, the Mac app asks the companion for three exercises when a linked skill has at most two unused exercises. The check runs when a question appears and after a successful rating. Requests run on a background thread outside the collection queue. Reveal and rating use the local bank, even when the companion is unavailable.
+With refills enabled, the Mac app asks the companion for up to three exercises when a linked skill has at most two unused exercises. The check runs when a question appears and after a successful rating. Requests run on a background thread outside the collection queue. Reveal and rating use the local bank, even when the companion is unavailable.
 
 Completed batches now use [automatic delivery](DELIVERY.md) at the deck list or deck overview. **Tools > Import skills…** remains available. A refill request never changes the exercise on screen or adds an undo entry.
 
@@ -52,7 +52,7 @@ The desktop limits concurrent requests and remembered checkpoints to 100. It ret
 
 ## Exercise usage and native undo
 
-The native card's `lr` custom data stores its rating counter, bank fingerprint, and a compact bitmap of used exercise positions. A bank contains at most 100 exercises, so the bitmap fits the native 100-byte custom-data limit. It commits with the rating, scheduling changes, and review record. Native undo and redo restore them together; reveal does not change usage.
+The native card's `lr` custom data stores its rating counter, bank fingerprint, and a compact bitmap of used exercise positions. Banks support up to 256 exercises. Larger bitmaps use compact Base64 to stay within the native 100-byte custom-data limit; existing hexadecimal cursors remain readable. It commits with the rating, scheduling changes, and review record. Native undo and redo restore them together; reveal does not change usage.
 
 For example, after all three original exercises have been rated, all three bits are set. Repeating the old bank leaves those bits set. Importing three appended exercises adds three unset positions, so the next review chooses a fresh exercise regardless of how often the old bank cycled. After every eligible exercise has been used, offline review can reuse older eligible items. Reported and retired exercises remain excluded. A description revision starts fresh usage for its new bank.
 
@@ -60,7 +60,7 @@ Older cards with only a counter conservatively treat the first `n` active exerci
 
 ## Limits
 
-Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. [Report delivery](../REPORTS.md) also shares these checkpoints. This request path adds no hosting, budget UI, or paid trial. The store still caps jobs and batches at 100, exercises at 100 per revision, and snapshots at 1 MiB. A full bank stops generation rather than deleting older exercises. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
+Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. [Report delivery](../REPORTS.md) also shares these checkpoints. This request path adds no hosting, budget UI, or paid trial. The defaults are 1,000 jobs, 1,000 batches per skill, 200 exercises per revision, and an 8 MiB snapshot. The [storage limits](../STORAGE.md) are configurable. A full bank stops generation; older exercises remain available for eligible cached review. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
 
 
 ## Verification

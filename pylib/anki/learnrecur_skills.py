@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import html
 import json
@@ -14,6 +16,7 @@ from dataclasses import dataclass
 from anki.cards import Card, CardId
 from anki.collection import Collection
 from anki.collection_pb2 import OpChanges
+from anki.learnrecur_limits import MAX_BATCHES, MAX_EXERCISES
 from anki.scheduler.v3 import CardAnswer
 from anki.template import TemplateRenderOutput
 
@@ -75,7 +78,10 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
         _text(raw["skill_id"])
         if type(raw["revision"]) is not int or raw["revision"] < 1:
             raise ValueError()
-        if not isinstance(raw["exercises"], list) or len(raw["exercises"]) > 100:
+        if (
+            not isinstance(raw["exercises"], list)
+            or len(raw["exercises"]) > MAX_EXERCISES
+        ):
             raise ValueError()
         exercises = []
         ids = set()
@@ -149,9 +155,29 @@ def _used(card: Card, bank_hash: str, position: int, exercises: list[Exercise]) 
         # Older counters advanced through eligible items, not raw bank positions.
         return sum(1 << exercise.ordinal for exercise in exercises[:position])
     value = cursor["u"]
+    if isinstance(value, str) and value.startswith("~"):
+        try:
+            if not re.fullmatch(r"~[A-Za-z0-9_-]{1,43}", value):
+                raise ValueError()
+            raw = base64.b64decode(
+                value[1:] + "=" * (-len(value[1:]) % 4), altchars=b"-_", validate=True
+            )
+            used = int.from_bytes(raw, "little")
+            if used.bit_length() > MAX_EXERCISES or _encode_used(used) != value:
+                raise ValueError()
+            return used
+        except (ValueError, binascii.Error) as error:
+            raise SkillReviewError("This skill has invalid review data.") from error
     if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{1,25}", value):
         raise SkillReviewError("This skill has invalid review data.")
     return int(value, 16)
+
+
+def _encode_used(used: int) -> str:
+    if used.bit_length() <= 100:
+        return format(used, "x")  # Keep existing small-bank cursors readable.
+    raw = used.to_bytes((used.bit_length() + 7) // 8, "little")
+    return "~" + base64.urlsafe_b64encode(raw).decode().rstrip("=")
 
 
 def select_skill_review(card: Card) -> SkillReview | None:
@@ -197,7 +223,7 @@ def skill_refill_request(card: Card) -> dict | None:
         return None
     raw = json.loads(card.note()[BANK_FIELD])
     sequence = raw.get("bank_sequence", 0)
-    if type(sequence) is not int or not 0 <= sequence <= 100:
+    if type(sequence) is not int or not 0 <= sequence <= MAX_BATCHES:
         raise SkillReviewError("This skill has an invalid exercise bank.")
     return {
         "source_id": key[0],
@@ -265,7 +291,7 @@ def prepare_skill_answer(
     data[CURSOR_KEY] = {
         "b": review.cursor_hash,
         "n": review.position + 1,
-        "u": format(review.used | (1 << review.exercise.ordinal), "x"),
+        "u": _encode_used(review.used | (1 << review.exercise.ordinal)),
     }
     encoded = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     # Native card custom data allows 100 bytes and keys of at most eight bytes.

@@ -20,10 +20,12 @@ WORKDIR /app
 COPY --from=build /source/target/release/anki-sync-server /usr/local/bin/anki-sync-server
 COPY pylib/anki/learnrecur_skill_import.py /app/anki/learnrecur_skill_import.py
 COPY pylib/anki/learnrecur_batches.py /app/anki/learnrecur_batches.py
+COPY pylib/anki/learnrecur_limits.py /app/anki/learnrecur_limits.py
 COPY learnrecur/companion /app/learnrecur/companion
 COPY learnrecur/fixtures /app/learnrecur/fixtures
 COPY learnrecur/deploy/backup.py learnrecur/deploy/container.py learnrecur/deploy/run_sync_server.py learnrecur/deploy/recovery.py /app/learnrecur/deploy/
 COPY LICENSE /app/LICENSE
+RUN python -c "import learnrecur.companion.server, learnrecur.companion.jobs"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 USER 10001:10001
 ENTRYPOINT ["python", "-m", "learnrecur.deploy.container"]

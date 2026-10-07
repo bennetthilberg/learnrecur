@@ -11,7 +11,7 @@ import re
 from datetime import date
 from fractions import Fraction
 
-from anki.learnrecur_skill_import import MAX_BYTES, SkillImportError, decode, encode
+from anki.learnrecur_skill_import import SkillImportError, decode, encode
 from learnrecur.companion.jobs import RetryableFailure, TerminalFailure
 
 NAME = "openai-responses-v1"
@@ -210,8 +210,8 @@ class OpenAIProvider:
                 if method == "GET" and response.status in (429, 500, 502, 503, 504):
                     raise ReadFailure()
                 raise UncertainResponse()
-            raw = response.read(MAX_BYTES + 1)
-            if len(raw) > MAX_BYTES:
+            raw = response.read(1024 * 1024 + 1)
+            if len(raw) > 1024 * 1024:
                 raise UncertainResponse()
             return decode(raw)
         except (OSError, http.client.HTTPException):

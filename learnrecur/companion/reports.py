@@ -5,6 +5,7 @@
 
 import re
 
+from anki.learnrecur_limits import MAX_BATCHES
 from anki.learnrecur_skill_import import SkillImportError, decode, encode
 from learnrecur.companion.jobs import JobConflict, Jobs
 
@@ -61,7 +62,7 @@ class Reports:
         if (
             type(value["active"]) is not bool
             or type(value["bank_sequence"]) is not int
-            or not 0 <= value["bank_sequence"] <= 100
+            or not 0 <= value["bank_sequence"] <= MAX_BATCHES
             or not isinstance(value["reason"], str)
             or value["reason"] not in ("incorrect", "unclear", "out_of_scope", "other")
         ):

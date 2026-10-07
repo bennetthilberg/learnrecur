@@ -62,6 +62,9 @@ def tables(path):
 
 def test_both_stores_identities_usage_budgets_and_pending_jobs_survive(state, tmp_path):
     store = Store(state / "companion")
+    configured = store.configure_limits(
+        max_jobs=2000, max_exercises=240, max_snapshot_bytes=16 * 1024 * 1024
+    )
     jobs = Jobs(store)
 
     def enqueue(request_id, provider="fixture"):
@@ -104,6 +107,8 @@ def test_both_stores_identities_usage_budgets_and_pending_jobs_survive(state, tm
     restore_archive(archive, restored, REVISION)
     assert tables(restored / "companion/skills.sqlite3") == before
     assert Store(restored / "companion").snapshot() == store.snapshot()
+    with Store(restored / "companion").connect() as db:
+        assert Store.limits(db) == configured
     assert jobs.get(completed["id"])["state"] == "completed"
     assert (restored / "sync/user/media/synthetic.svg").read_bytes() == (
         state / "sync/user/media/synthetic.svg"

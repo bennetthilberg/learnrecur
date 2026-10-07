@@ -13,14 +13,15 @@ import re
 import sqlite3
 import time
 from contextlib import closing, contextmanager
+from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
+from anki.learnrecur_limits import StorageLimits
 from anki.learnrecur_skill_import import (
     MAX_BYTES,
-    MAX_SKILLS,
     SkillImportError,
     decode,
     encode,
@@ -67,6 +68,10 @@ class Store:
                 (str(uuid4()),),
             )
             db.execute(
+                "insert or ignore into metadata values ('storage_limits', ?)",
+                (encode(asdict(StorageLimits())),),
+            )
+            db.execute(
                 "create table if not exists identities (skill_id text primary key, "
                 "native_id integer not null unique, guid text not null unique)"
             )
@@ -87,11 +92,8 @@ class Store:
                 "select id from skills order by id"
             ).fetchall():
                 self._assign_identity(db, skill_id)
-            if self._too_large(self._snapshot(db)):
-                raise SkillImportError(
-                    "The stored skills are too large to add card identities. "
-                    "Back up this folder and import a smaller batch into a new companion folder."
-                )
+            # Quotas govern growth, not reading an existing store after a change.
+            self.limits(db)
             from learnrecur.companion.jobs import initialize
 
             initialize(db)
@@ -112,6 +114,47 @@ class Store:
         with closing(sqlite3.connect(self.path, timeout=5)) as db:
             with db:
                 yield db
+
+    @staticmethod
+    def limits(db):
+        row = db.execute(
+            "select value from metadata where key='storage_limits'"
+        ).fetchone()
+        if row is None:
+            return StorageLimits()
+        try:
+            return StorageLimits().updated(decode(row[0].encode()))
+        except (TypeError, ValueError) as error:
+            raise SkillImportError("The saved storage limits are invalid.") from error
+
+    def configure_limits(self, **changes):
+        with self.connect() as db:
+            db.execute("begin immediate")
+            limits = self.limits(db).updated(changes)
+            db.execute(
+                "insert into metadata values ('storage_limits',?) "
+                "on conflict(key) do update set value=excluded.value",
+                (encode(asdict(limits)),),
+            )
+            db.execute(
+                "update generation_jobs set next_run=0 where state='waiting_capacity'"
+            )
+            return limits
+
+    def configure_environment_limits(self, **changes):
+        for name in asdict(StorageLimits()):
+            if name in changes:
+                continue
+            value = os.environ.get("LEARNRECUR_" + name.upper())
+            if value:
+                try:
+                    changes[name] = int(value)
+                except ValueError:
+                    raise ValueError(
+                        f"Set LEARNRECUR_{name.upper()} to an integer."
+                    ) from None
+        if changes:
+            self.configure_limits(**changes)
 
     @staticmethod
     def _assign_identity(db, skill_id):
@@ -172,24 +215,46 @@ class Store:
         return result
 
     @staticmethod
-    def _too_large(snapshot):
-        return (
-            len(snapshot["skills"]) > MAX_SKILLS
-            or len(encode(snapshot).encode()) > MAX_BYTES
-        )
+    def _too_large(snapshot, limits):
+        if len(snapshot["skills"]) > limits.max_skills:
+            return True
+        for skill in snapshot["skills"]:
+            key = skill["id"]
+            batches = snapshot.get("bank_updates", {}).get(key, [])
+            if len(batches) > limits.max_batches:
+                return True
+            counts = {
+                version["bank"]["revision"]: len(version["bank"]["exercises"])
+                for version in [
+                    skill,
+                    *snapshot.get("previous_revisions", {}).get(key, []),
+                ]
+            }
+            for batch in batches:
+                revision = batch["revision"]
+                counts[revision] = counts.get(revision, 0) + len(batch["exercises"])
+            if any(count > limits.max_exercises for count in counts.values()):
+                return True
+        return len(encode(snapshot).encode()) > limits.max_snapshot_bytes
 
-    def _too_large_with_drafts(self, db, snapshot=None):
+    @staticmethod
+    def reserved_exercises(count):
+        # Reserve the largest valid output, including JSON escaping.
+        return [
+            {
+                "id": f"job-{'0' * 32}-{index}",
+                **{key: "\\" * 8192 for key in ("prompt", "answer", "explanation")},
+            }
+            for index in range(count)
+        ]
+
+    def _too_large_with_drafts(self, db, snapshot=None, *, exclude_job=None):
         snapshot = snapshot or self._snapshot(db)
+        drafts = set()
         for (payload,) in db.execute("select payload from skill_drafts"):
             skill = decode(payload.encode())
-            # Reserve the largest valid initial bank, including JSON escaping.
-            skill["bank"]["exercises"] = [
-                {
-                    "id": f"job-{'0' * 32}-{index}",
-                    **{key: "\\" * 8192 for key in ("prompt", "answer", "explanation")},
-                }
-                for index in range(3)
-            ]
+            drafts.add(skill["id"])
+            skill["bank"]["exercises"] = self.reserved_exercises(3)
             published = next(
                 (s for s in snapshot["skills"] if s["id"] == skill["id"]), None
             )
@@ -204,7 +269,50 @@ class Store:
                     "native_id": 2**53 - 1,
                     "guid": "0" * 32,
                 }
-        return self._too_large(snapshot)
+        # Claims reserve room under the same write lock as cost reservations.
+        # Saved results still need that room, but queued jobs have spent nothing.
+        current = {
+            skill["id"]: skill["bank"]["revision"] for skill in snapshot["skills"]
+        }
+        for job_id, payload in db.execute(
+            "select id,context from generation_jobs where "
+            "state in ('running','provider_pending','result_ready') "
+            "or (state='waiting_capacity' and result is not null) order by rowid"
+        ):
+            if job_id == exclude_job:
+                continue
+            context = decode(payload.encode())
+            skill = context["skill"]
+            if (
+                context.get("new_skill")
+                or skill["id"] in drafts
+                or current.get(skill["id"]) != skill["bank"]["revision"]
+            ):
+                continue
+            batches = snapshot.setdefault("bank_updates", {}).setdefault(
+                skill["id"], []
+            )
+            batches.append(
+                {
+                    "job_id": job_id,
+                    "revision": skill["bank"]["revision"],
+                    "sequence": len(batches) + 1,
+                    "exercises": self.reserved_exercises(context["count"]),
+                }
+            )
+        return self._too_large(snapshot, self.limits(db))
+
+    def has_batch_capacity(self, db, skill_id, revision, count):
+        snapshot = self._snapshot(db)
+        snapshot.setdefault("bank_updates", {}).setdefault(skill_id, []).append(
+            {
+                "job_id": "0" * 32,
+                "revision": revision,
+                "sequence": self.limits(db).max_batches,
+                "exercises": self.reserved_exercises(count),
+            }
+        )
+        return not self._too_large_with_drafts(db, snapshot)
 
     def snapshot(self):
         with self.connect() as db:
@@ -219,6 +327,7 @@ class Store:
         skills = validate_skills(payload["skills"])
         with self.connect() as db:
             db.execute("begin immediate")
+            changed = False
             for skill in skills:
                 if db.execute(
                     "select 1 from skill_drafts where id=?", (skill["id"],)
@@ -253,10 +362,11 @@ class Store:
                     (skill["id"], revision, encoded),
                 )
                 self._assign_identity(db, skill["id"])
+                changed = True
             result = self._snapshot(db)
-            if self._too_large_with_drafts(db, copy.deepcopy(result)):
+            if changed and self._too_large_with_drafts(db, copy.deepcopy(result)):
                 raise SkillImportError(
-                    "The local companion can hold at most 100 skills and 1 MiB of skill data."
+                    "The import exceeds the companion's storage limits."
                 )
             return result
 
@@ -443,10 +553,19 @@ def main():
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--port", type=int, default=45321)
     parser.add_argument("--refill-provider", choices=("fixture", "openai"))
+    for name in asdict(StorageLimits()):
+        parser.add_argument("--" + name.replace("_", "-"), type=int)
     args = parser.parse_args()
     try:
+        store = Store(args.data_dir)
+        changes = {
+            name: getattr(args, name)
+            for name in asdict(StorageLimits())
+            if getattr(args, name) is not None
+        }
+        store.configure_environment_limits(**changes)
         server = Server(
-            Store(args.data_dir),
+            store,
             os.environ.get("LEARNRECUR_COMPANION_TOKEN", ""),
             args.port,
             refill_provider=args.refill_provider,

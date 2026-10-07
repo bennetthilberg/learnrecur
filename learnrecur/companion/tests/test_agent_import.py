@@ -275,7 +275,8 @@ def test_changed_companion_stops_before_submission(server, plans, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "state", ["failed", "obsolete", "needs_attention", "waiting_budget"]
+    "state",
+    ["failed", "obsolete", "needs_attention", "waiting_budget", "waiting_capacity"],
 )
 def test_terminal_and_budget_states_never_create_replacement_jobs(server, plans, state):
     plan_id, plan = HELPER.prepare(
@@ -291,7 +292,9 @@ def test_terminal_and_budget_states_never_create_replacement_jobs(server, plans,
     assert counts(server) == (1, 0)
 
 
-@pytest.mark.parametrize("state", ["failed", "needs_attention", "waiting_budget"])
+@pytest.mark.parametrize(
+    "state", ["failed", "needs_attention", "waiting_budget", "waiting_capacity"]
+)
 def test_resume_stops_before_remaining_skills_when_a_job_needs_attention(
     server, plans, state
 ):

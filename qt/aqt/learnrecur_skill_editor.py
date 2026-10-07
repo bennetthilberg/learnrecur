@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import requests
 
 import aqt
+from anki.learnrecur_limits import MAX_BANK_BYTES
 from anki.learnrecur_skill_import import (
     FIELDS,
     MAX_BYTES,
@@ -64,6 +65,7 @@ STATES = {
     "retry_wait": "Retrying…",
     "result_ready": "Saving exercises…",
     "waiting_budget": "Waiting for budget.",
+    "waiting_capacity": "Waiting for storage.",
     "needs_attention": "Generation needs recovery.",
     "failed": "Generation failed.",
     "obsolete": "The skill definition changed.",
@@ -73,6 +75,8 @@ ERRORS = {
     "Generation is not enabled on this server.",
     "Generation is paused for recovery.",
     "The companion can hold at most 100 skills.",
+    "The companion has reached its skill limit.",
+    "The companion has reached its generation job limit.",
     "The companion has no room for another exercise bank.",
     "The companion changed. Reconnect to the original server.",
     "This request already has a different skill definition.",
@@ -251,7 +255,7 @@ def selected_skill(col, nid):
         note.guid,
     ):
         raise SkillImportError("This skill has no trusted import identity.")
-    bank = decode(note["LearnRecurSkill"].encode())
+    bank = decode(note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES)
     if not isinstance(bank, dict) or type(bank.get("revision")) is not int:
         raise SkillImportError("Invalid cached exercise bank.")
     return {"source_id": key[0], "skill_id": key[1], "base_revision": bank["revision"]}
