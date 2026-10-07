@@ -39,6 +39,8 @@ The 256-exercise ceiling keeps usage inside Anki's native 100-byte card field. L
 
 All clients and the sync server need the matching LearnRecur build to use the larger format. Earlier builds retain their old bounds. Skill description history still supports at most 100 revisions. The generation-history page size, provider-response limit, and backup archive guards remain separate bounds.
 
+Native bank fields keep batches alongside the flattened exercises and escape Unicode to preserve the original text. That can repeat text twice and triple its UTF-8 size. Native bank reads and reporting therefore allow up to six times the 64 MiB snapshot ceiling; the companion's snapshot quota still governs published data. Regression tests cover reporting, cache retry, reconnection, and undo/redo with large escaped banks.
+
 ## Retention
 
 There is no automatic deletion in this slice. Banks and batches are append-only, and clients compare earlier content when importing or syncing. Removing an item can change usage positions, break an offline client's checks, or discard an exercise referenced by a report or undo. Deleting jobs can also lose deduplication, example guidance, or unsettled charges.
@@ -58,6 +60,6 @@ The test prints snapshot, companion database, collection, and package sizes, plu
 
 The October 7 run took 44.5 seconds. Its snapshot was 1.52 MiB, companion database 11.42 MiB, collection 2.71 MiB, and compressed collection package 121 KiB. The repetitive synthetic text compresses well; real exercise text and job histories will have different sizes. The run reached batch sequence 198 and preserved all 325 ratings through edits, export, and reconnection. A separate two-client sync test preserved usage and review history beyond the old batch limit; report exclusions remained local to the reporting client, as before.
 
-The packaged Mac app also passed offline reveal, rating across the hexadecimal-to-Base64 boundary, exact native undo/redo, report-and-skip to a backup, ordinary-card review, and restart with a 256-exercise synthetic bank. Restart preserved both cards, two review records, and the exclusion, and showed the same backup prompt and answer. The test app exited normally. No personal Anki data, paid calls, or Azure changes were used.
+The packaged Mac app also passed offline reveal, rating across the hexadecimal-to-Base64 boundary, exact native undo/redo, report-and-skip to a backup, ordinary-card review, and restart with a 256-exercise synthetic bank. Restart preserved both cards, two review records, and the exclusion, and showed the same backup prompt and answer. The final package also passed report-and-skip and undo/redo from a 2 MiB bank with exact cards and no ratings changed. The test apps exited normally. No personal Anki data, paid calls, or Azure changes were used.
 
 The highest table values are format bounds, not load-test results. This slice tested default banks, the 256-exercise review ceiling, and smaller configured quotas; it did not fill a 64 MiB snapshot or 10,000-job store. Automatic pruning and an upstream update remain separate work.

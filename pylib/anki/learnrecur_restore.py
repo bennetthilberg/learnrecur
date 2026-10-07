@@ -6,6 +6,7 @@
 from dataclasses import dataclass
 
 from anki.collection import Collection, OpChanges
+from anki.learnrecur_limits import MAX_BANK_BYTES
 from anki.learnrecur_skill_import import (
     FIELDS,
     SkillImportError,
@@ -76,7 +77,7 @@ def reconnect_skills(col: Collection, snapshot: object) -> ReconnectResult:
         ):
             existing += 1
             continue
-        bank = decode(note["LearnRecurSkill"].encode())
+        bank = decode(note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES)
         if not isinstance(bank, dict):
             raise SkillImportError("Invalid restored exercise bank.")
         versions = [*history.get(key, []), skill]

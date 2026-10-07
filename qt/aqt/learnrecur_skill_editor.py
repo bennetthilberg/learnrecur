@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import requests
 
 import aqt
+from anki.learnrecur_limits import MAX_BANK_BYTES
 from anki.learnrecur_skill_import import (
     FIELDS,
     MAX_BYTES,
@@ -254,7 +255,7 @@ def selected_skill(col, nid):
         note.guid,
     ):
         raise SkillImportError("This skill has no trusted import identity.")
-    bank = decode(note["LearnRecurSkill"].encode())
+    bank = decode(note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES)
     if not isinstance(bank, dict) or type(bank.get("revision")) is not int:
         raise SkillImportError("Invalid cached exercise bank.")
     return {"source_id": key[0], "skill_id": key[1], "base_revision": bank["revision"]}

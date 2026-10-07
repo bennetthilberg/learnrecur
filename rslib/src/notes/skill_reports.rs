@@ -10,6 +10,9 @@ use crate::notetype::NotetypeKind;
 use crate::prelude::*;
 use crate::storage::SkillExerciseReport;
 
+// Match learnrecur_limits.MAX_BANK_BYTES, including native field expansion.
+const MAX_BANK_BYTES: usize = 6 * 64 * 1024 * 1024;
+
 impl Collection {
     pub(crate) fn report_skill_exercise(
         &mut self,
@@ -24,7 +27,7 @@ impl Collection {
                 "invalid report reason"
             );
             require!(
-                input.expected_bank.len() <= 1_048_576,
+                input.expected_bank.len() <= MAX_BANK_BYTES,
                 "exercise bank too large"
             );
             let card = col

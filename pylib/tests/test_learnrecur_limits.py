@@ -6,8 +6,15 @@ import json
 
 import pytest
 
-from anki.learnrecur_limits import MAX_EXERCISES
-from anki.learnrecur_skill_import import DECK_NAME, SkillImportError, import_snapshot
+from anki.learnrecur_limits import MAX_BANK_BYTES, MAX_EXERCISES
+from anki.learnrecur_restore import reconnect_skills
+from anki.learnrecur_skill_import import (
+    DECK_NAME,
+    SkillImportError,
+    decode,
+    encode,
+    import_snapshot,
+)
 from anki.learnrecur_skills import (
     SkillReviewError,
     prepare_skill_answer,
@@ -135,6 +142,50 @@ def test_report_above_100_uses_a_backup_without_rating_and_can_be_undone(col, sn
     assert select_skill_review(col.get_card(card.id)) == review
     col.redo()
     assert select_skill_review(col.get_card(card.id)).exercise.ordinal == 151
+
+
+@pytest.mark.parametrize("size", [40, 200, MAX_EXERCISES])
+def test_large_escaped_bank_reporting_cache_retry_and_reconnect(
+    col, snapshot, monkeypatch, size
+):
+    exercises = bank(size)
+    for index, exercise in enumerate(exercises):
+        exercise.update(
+            prompt=f"{index}: " + "😀" * 2046,
+            answer="😀" * 2048,
+            explanation="😀" * 2048,
+        )
+    snapshot["skills"][0]["bank"]["exercises"] = exercises
+    snapshot["identities"] = {
+        snapshot["skills"][0]["id"]: {
+            "native_id": 1800000000000,
+            "guid": "0" * 31 + "1",
+        }
+    }
+    if size == 40:
+        # Native Unicode escaping expands a snapshot that fits a smaller wire cap.
+        monkeypatch.setattr("anki.learnrecur_skill_import.MAX_BYTES", 1024 * 1024)
+        assert len(encode(snapshot).encode()) < 1024 * 1024
+    import_snapshot(col, snapshot)
+    card = col.get_card(col.find_cards("")[0])
+    encoded = card.note()["LearnRecurSkill"].encode()
+    assert 1024 * 1024 < len(encoded) < MAX_BANK_BYTES
+    if size == 40:
+        with pytest.raises(SkillImportError, match="too large"):
+            decode(encoded)
+    assert import_snapshot(col, snapshot, cache_only=True).existing == 1
+    # A package restore keeps the note but removes its trusted connection.
+    col.db.execute("delete from learnrecur_skill_identities")
+    assert reconnect_skills(col, snapshot).connected == 1
+    before = card_state(col, card.id)
+    review = select_skill_review(card)
+    report_skill_review(col, review, "unclear")
+    assert card_state(col, card.id) == before
+    assert select_skill_review(col.get_card(card.id)).exercise.ordinal == 1
+    col.undo()
+    assert select_skill_review(col.get_card(card.id)) == review
+    col.redo()
+    assert select_skill_review(col.get_card(card.id)).exercise.ordinal == 1
 
 
 @pytest.mark.parametrize("value", ["~", "~A", "~A!", "~" + "A" * 44, "~AA"])

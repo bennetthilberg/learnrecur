@@ -7,6 +7,8 @@ from dataclasses import asdict, dataclass
 
 # Readers use these bounds on every host. Quotas only restrict new writes.
 MAX_BYTES = 64 * 1024 * 1024
+# Native fields retain batches alongside flattened exercises and escape Unicode.
+MAX_BANK_BYTES = 6 * MAX_BYTES
 MAX_SKILLS = 5000
 MAX_EXERCISES = 256  # The usage bitmap must fit native card custom data.
 MAX_BATCHES = 5000

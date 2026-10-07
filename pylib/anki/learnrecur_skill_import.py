@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from unicodedata import normalize
 from uuid import UUID
 
-from anki.learnrecur_limits import MAX_BYTES, MAX_EXERCISES, MAX_SKILLS
+from anki.learnrecur_limits import MAX_BANK_BYTES, MAX_BYTES, MAX_EXERCISES, MAX_SKILLS
 
 if TYPE_CHECKING:
     from anki.collection import Collection, OpChanges
@@ -47,7 +47,7 @@ def encode(value: object) -> str:
     )
 
 
-def decode(data: bytes) -> object:
+def decode(data: bytes, *, max_bytes: int | None = None) -> object:
     def unique_keys(pairs: list[tuple[str, object]]) -> dict:
         result = {}
         for key, value in pairs:
@@ -56,7 +56,7 @@ def decode(data: bytes) -> object:
             result[key] = value
         return result
 
-    if len(data) > MAX_BYTES:
+    if len(data) > (MAX_BYTES if max_bytes is None else max_bytes):
         raise SkillImportError("The skill batch is too large.")
     try:
         return json.loads(data, object_pairs_hook=unique_keys)
@@ -462,7 +462,9 @@ def import_snapshot(
                     )
             if cache_only:
                 # New descriptions still need a preview and explicit import.
-                cached = decode(note["LearnRecurSkill"].encode())
+                cached = decode(
+                    note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES
+                )
                 if cached.get("revision") != pending[key]["bank"]["revision"]:
                     continue
             target_fields = _cache_update_fields(
