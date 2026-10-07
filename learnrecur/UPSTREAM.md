@@ -29,14 +29,17 @@ LearnRecur changes application identity, storage, updater behavior, and build co
 
 ## Update from upstream
 
-1. Start from a clean working tree on a dedicated `a/` update branch.
-2. Fetch and merge the selected stable release tag from `upstream`. Preserve its history instead of copying files from an archive.
-3. Check changed workflows, dependency automation, agent instructions, app identity, update destinations, and profile paths. Keep publishing and PR-management jobs disabled unless they've been adapted for LearnRecur.
-4. Run the relevant checks, including Mac launch isolation and sync compatibility. Review changes to upstream submodule pins.
-5. Update the base commit here and record the results and remaining problems in the roadmap.
+1. Start from a clean working tree. Create a disposable worktree for the rehearsal so the current app and backend stay available. Fetch the selected stable tag from `upstream` and record its exact commit.
+2. Merge that commit without pushing. Preserve its history instead of copying files from an archive. Resolve conflicts while preserving LearnRecur's identity, storage isolation, native review behavior, and sync metadata.
+3. Audit every resulting workflow job, including newly added workflows. A job inherited from Anki must require `github.repository == 'ankitects/anki'` unless it has been adapted for LearnRecur. Check dependency automation, agent instructions, update destinations, profile paths, publishing targets, and submodule pins too.
+4. Build the desktop app and matching sync server in the worktree's own output folders. Run the Python and Qt suites, affected Rust tests, ordinary package round trips, and two-client sync checks. Package and sign-check the Mac app, then exercise review, report-and-skip, undo/redo, and restart in fresh synthetic storage. Use only explicit LearnRecur profiles and disposable loopback services.
+5. Build the matching Linux image and run encrypted backup restoration with a fresh native client. Keep the checked image and a recovery copy of the current deployment before a real upgrade.
+6. Record the conflicts, fixes, elapsed effort, checks, and limits. Open an update PR only for a selected stable release. Change the base recorded here when that update lands, and handle deployment separately.
+
+The [October 7 rehearsal](UPSTREAM-REHEARSAL.md) checked 29 commits on upstream's development branch. It did not change this stable base or the deployed services. A development snapshot can help measure merge effort, but it doesn't replace a stable-release update.
 
 ## Workflow status
 
-All eight inherited workflows still contain their original jobs, with added conditions that allow them to run only in `ankitects/anki`. Their 32 jobs do not run in LearnRecur. These include CI, SonarCloud, release and package publishing, cache pruning, and PR-management bots. The separate `learnrecur-mac.yml` workflow builds and tests LearnRecur on Mac. It doesn't publish packages or deploy services.
+All eight inherited workflows still contain their original jobs, with added conditions that allow them to run only in `ankitects/anki`. Their 32 jobs do not run in LearnRecur. These include CI, SonarCloud, release and package publishing, cache pruning, and PR-management bots. LearnRecur's Mac and Linux workflows build and test the fork. They don't publish releases or deploy services.
 
 Dependabot's four version-update groups have `open-pull-requests-limit: 0` while the fork is pinned. GitHub security-update settings are separate. Revisit dependency updates after the first build, and check for security fixes when reviewing upstream releases.
