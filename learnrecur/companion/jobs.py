@@ -126,6 +126,146 @@ class Jobs:
                 ).fetchone(),
             )
 
+    def history(self, *, limit=50, before=None):
+        """Read summaries without recovering jobs or exposing exercise content."""
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise SkillImportError("Request 1 to 100 history entries.")
+        if before is not None and (
+            type(before) is not int or not 1 <= before <= 2**63 - 1
+        ):
+            raise SkillImportError("Use a valid history cursor.")
+        now = self.clock()
+        month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")
+        with self.store.connect() as db:
+            db.execute("begin")
+            source = db.execute(
+                "select value from metadata where key='source_id'"
+            ).fetchone()[0]
+            rows = db.execute(
+                "select rowid,id,json_extract(context,'$.skill.title'),"
+                "json_extract(context,'$.new_skill'),"
+                "json_extract(context,'$.skill.bank.revision'),"
+                "state,attempts,error,lease_until from generation_jobs "
+                "where rowid<=? order by rowid desc limit ?",
+                (before - 1 if before is not None else 2**63 - 1, limit + 1),
+            ).fetchall()
+            summaries = []
+            for (
+                position,
+                job_id,
+                title,
+                new_skill,
+                revision,
+                state,
+                attempts,
+                error,
+                lease,
+            ) in rows[:limit]:
+                spent, reserved = db.execute(
+                    "select coalesce(sum(net_actual),0),"
+                    "coalesce(sum(case when net_actual is null then net_reserved else 0 end),0) "
+                    "from generation_attempts where job_id=?",
+                    (job_id,),
+                ).fetchone()
+                attempt = db.execute(
+                    "select state,response_id is not null from generation_attempts where job_id=? and attempt=?",
+                    (job_id, attempts),
+                ).fetchone()
+                interrupted = state == "running" and lease is not None and lease <= now
+                summaries.append(
+                    {
+                        "id": job_id,
+                        "title": title,
+                        "action": "edit"
+                        if new_skill and revision > 1
+                        else "create"
+                        if new_skill
+                        else "refill",
+                        "state": state,
+                        "attempts": attempts,
+                        "estimated_spend_microusd": spent,
+                        "reserved_microusd": reserved,
+                        "interrupted": interrupted,
+                        "reason": self._history_reason(
+                            state, error, interrupted, attempt
+                        ),
+                    }
+                )
+            limit_amount = db.execute(
+                "select monthly_limit from generation_budget where id=1"
+            ).fetchone()[0]
+            spent = db.execute(
+                "select coalesce(sum(net_actual),0) from generation_attempts where month=?",
+                (month,),
+            ).fetchone()[0]
+            reserved = db.execute(
+                "select coalesce(sum(net_reserved),0) from generation_attempts where net_actual is null"
+            ).fetchone()[0]
+        folder = self.store.path.parent
+        pause = next(
+            (
+                reason
+                for marker, reason in (
+                    (
+                        ".generation-source-retired",
+                        "This generation source is retired.",
+                    ),
+                    (".restore-pending", "Generation is paused for backup recovery."),
+                    (
+                        ".paid-restore-pending",
+                        "Paid generation is paused for backup recovery.",
+                    ),
+                )
+                if (folder / marker).exists()
+            ),
+            "",
+        )
+        return {
+            "source_id": source,
+            "jobs": summaries,
+            "next_before": rows[limit - 1][0] if len(rows) > limit else None,
+            "budget": {
+                "month": month,
+                "limit_microusd": limit_amount,
+                "estimated_spend_microusd": spent,
+                "reserved_microusd": reserved,
+            },
+            "pause": pause,
+        }
+
+    @staticmethod
+    def _history_reason(state, error, interrupted, attempt):
+        if interrupted:
+            if attempt and attempt[0] == "reserved":
+                return "The worker's claim expired before contacting the provider. The job can resume."
+            if attempt and attempt[1]:
+                return "The worker's claim expired. Its saved provider response can be retrieved without another generation call."
+            return "The worker's claim expired. Its result or charge is unconfirmed; check it before starting another job."
+        # Never put provider output or arbitrary stored errors in this view.
+        known = {
+            "Attempt limit reached.": "The attempt limit was reached.",
+            "Temporary provider failure.": "The provider failed temporarily.",
+            "Provider rejected the request.": "The provider rejected this request.",
+            "Saved provider settings cannot run.": "The saved provider settings cannot run.",
+            "The current exercise bank is full.": "The exercise bank is full.",
+            "The companion is full.": "The companion has no room for another exercise bank.",
+            "The companion has no room for this exercise bank.": "The companion has no room for this exercise bank.",
+        }
+        if state == "needs_attention":
+            if (
+                error
+                == "The OpenAI API balance is exhausted. Add API credits before another trial. Charge unconfirmed; reservation retained."
+            ):
+                return "The provider balance is exhausted. The charge is unconfirmed; check it before starting another job."
+            return "The provider result or charge is unconfirmed. Check it before starting another job."
+        if state == "waiting_budget":
+            return "The generation budget cannot cover another attempt. Cached review still works."
+        if state == "obsolete":
+            return "The skill changed before this job finished."
+        if state in ("failed", "retry_wait"):
+            return known.get(error, "Generation failed. Check the companion logs.")
+        return ""
+
     def enqueue(self, value):
         if (self.store.path.parent / ".generation-source-retired").exists():
             raise JobConflict("This generation source is retired.")
