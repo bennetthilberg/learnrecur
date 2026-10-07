@@ -7,13 +7,21 @@ import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 
 from anki.learnrecur_skill_import import SkillImportError
-from learnrecur.companion.jobs import FixtureProvider, JobConflict, Jobs
+from learnrecur.companion.jobs import (
+    FixtureProvider,
+    JobConflict,
+    Jobs,
+    RetryableFailure,
+)
 from learnrecur.companion.openai_provider import (
     CONFIG,
+    GUIDANCE,
+    GUIDANCE_VERSION,
     MODEL,
     OpenAIProvider,
     ReadFailure,
@@ -126,6 +134,97 @@ def test_request_freezes_settings_and_examples_without_storing_credentials(
     assert SYNTHETIC_KEY not in serialized
     assert jobs.get(job["id"])["provider_response_id"] == "resp_test"
     assert jobs.enqueue(job["request"])["provider_response_id"] == "resp_test"
+
+
+@pytest.mark.parametrize("path", ["creation", "edit", "refill", "report"])
+def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
+    from learnrecur.companion.reports import Reports
+    from learnrecur.companion.tests.test_creation import definition
+    from learnrecur.companion.tests.test_refills import checkpoint
+    from learnrecur.companion.tests.test_reports import value as report_value
+
+    jobs = Jobs(jobs.store)
+    examples = [example()]
+    value = definition(jobs, examples=examples)
+    if path == "creation":
+        job = jobs.create_skill(value, "openai")
+    else:
+        created = jobs.create_skill(value, "fixture")
+        jobs.run_once(FixtureProvider())
+        skill_id = created["request"]["skill_id"]
+        if path == "edit":
+            job = jobs.edit_skill(
+                {
+                    **jobs.definition(skill_id),
+                    "request_id": uuid4().hex,
+                    "title": "Revised title",
+                },
+                "openai",
+            )
+        elif path == "refill":
+            result = jobs.request_refill(checkpoint(jobs, skill_id=skill_id), "openai")
+            job = jobs.get(result["job_id"])
+        else:
+            report = report_value(jobs.store)
+            assert report["skill_id"] == skill_id
+            result = Reports(jobs.store).receive(report, "openai")
+            job = jobs.get(result["job_id"])
+    transport = Transport(pending=True)
+    jobs.run_once(OpenAIProvider(SYNTHETIC_KEY, transport=transport))
+    assert jobs.get(job["id"])["state"] == "provider_pending"
+    assert len(transport.calls) == 1
+    body = transport.calls[0][2]
+    assert body["instructions"] == job["context"]["instructions"]
+    assert body["instructions"].startswith(GUIDANCE)
+    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 2
+    assert json.loads(body["input"])["examples"] == examples
+
+
+@pytest.mark.parametrize("stage", ["queued", "retry", "pending"])
+def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
+    jobs, payload, stage
+):
+    job = openai_job(jobs, payload)
+    legacy = {
+        **job["context"],
+        "instructions": "Saved legacy guidance.",
+        "instructions_version": 1,
+    }
+    with jobs.store.connect() as db:
+        db.execute(
+            "update generation_jobs set context=? where id=?",
+            (json.dumps(legacy), job["id"]),
+        )
+    transport = Transport(pending=stage == "pending")
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    if stage == "retry":
+        transport.failure = RetryableFailure
+    if stage != "queued":
+        jobs.run_once(provider)
+        assert jobs.get(job["id"])["state"] == (
+            "retry_wait" if stage == "retry" else "provider_pending"
+        )
+    transport.failure = None
+    transport.pending = False
+    restored = Jobs(Store(jobs.store.path.parent), clock=lambda: 1790889010)
+    restored.run_once(provider)
+    assert restored.get(job["id"])["state"] == "completed"
+    assert restored.get(job["id"])["context"] == legacy
+    assert [call[0] for call in transport.calls] == {
+        "queued": ["POST"],
+        "retry": ["POST", "POST"],
+        "pending": ["POST", "GET"],
+    }[stage]
+    assert all(
+        call[2]["instructions"] == legacy["instructions"]
+        for call in transport.calls
+        if call[0] == "POST"
+    )
+    fresh = restored.enqueue(
+        {**payload, "request_id": "new-guidance", "provider": "openai"}
+    )
+    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 2
+    assert request_body(fresh["context"])["instructions"].startswith(GUIDANCE)
 
 
 def test_tightening_budget_preserves_charges_holds_and_credits(jobs, payload):
