@@ -16,7 +16,6 @@ from aqt import gui_hooks
 from aqt import learnrecur_generation_history as ui
 from aqt.main import AnkiQt
 from aqt.qt import QApplication, QEvent, QTextDocument, QWidget
-from learnrecur.companion.jobs import Jobs
 from tests.test_learnrecur_import import server
 
 __all__ = ["server"]
@@ -29,6 +28,8 @@ def app():
 
 
 def enqueue(server, count=1):
+    from learnrecur.companion.jobs import Jobs
+
     jobs = Jobs(server.store)
     skill = server.store.snapshot()["skills"][0]
     for _ in range(count):
@@ -72,6 +73,8 @@ def receive(query):
 def test_native_read_only_table_does_not_submit_jobs_or_change_cards(
     app, server, tmp_path, monkeypatch
 ):
+    from learnrecur.companion.jobs import Jobs
+
     enqueue(server)
     queue = queries(monkeypatch)
     col = Collection(str(tmp_path / "synthetic.anki2"))
@@ -322,6 +325,8 @@ def test_redirect_is_not_followed_or_treated_as_history(server, monkeypatch):
     "damage", ["exercise_content", "cost", "duplicate_job", "oversized_page", "cursor"]
 )
 def test_invalid_history_is_rejected_before_rendering(server, damage):
+    from learnrecur.companion.jobs import Jobs
+
     enqueue(server)
     value = copy.deepcopy(Jobs(server.store).history())
     if damage == "exercise_content":
