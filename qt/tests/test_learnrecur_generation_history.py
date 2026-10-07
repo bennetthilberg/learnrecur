@@ -1,18 +1,21 @@
 """History cannot submit work, reveal exercises, or outlive its profile."""
 
 import copy
+from types import MethodType
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
 import requests
+from PyQt6 import sip
 
 import anki.lang
 from anki.collection import Collection
 from anki.learnrecur_skill_import import SkillImportError, import_snapshot
 from aqt import gui_hooks
 from aqt import learnrecur_generation_history as ui
-from aqt.qt import QApplication, QWidget
+from aqt.main import AnkiQt
+from aqt.qt import QApplication, QEvent, QTextDocument, QWidget
 from learnrecur.companion.jobs import Jobs
 from tests.test_learnrecur_import import server
 
@@ -140,15 +143,22 @@ def test_paging_replaces_rows_and_refresh_returns_to_newest(app, server, monkeyp
 
 def test_selected_failure_and_reservations_are_plain_text(app, server, monkeypatch):
     enqueue(server)
+    title = '<img src="synthetic.png"> & <b>Practice</b>'
     with server.store.connect() as db:
         db.execute(
-            "update generation_jobs set state='needs_attention',error='private provider output'"
+            "update generation_jobs set context=json_set(context,'$.skill.title',?),"
+            "state='needs_attention',error='private provider output'",
+            (title,),
         )
     queue = queries(monkeypatch)
     dialog = ui.GenerationHistory(window())
     try:
         receive(queue.pop(0))
         item = dialog.table.topLevelItem(0)
+        assert item.text(0) == title
+        tooltip = QTextDocument()
+        tooltip.setHtml(item.toolTip(0))
+        assert tooltip.toPlainText() == title
         assert item.text(2) == "Needs attention"
         dialog.table.setCurrentItem(item)
         assert "unconfirmed" in dialog.detail.text()
@@ -195,6 +205,35 @@ def test_profile_close_discards_late_success_and_failure(app, server, monkeypatc
     request["failure"](Exception("private"))
     assert dialog.table.topLevelItemCount() == 0
     assert dialog.reject not in gui_hooks.profile_will_close._hooks
+
+
+def test_reopening_releases_closed_dialogs_and_ignores_late_results(
+    app, server, monkeypatch
+):
+    queue = queries(monkeypatch)
+    mw = window()
+    mw.progress = MagicMock()
+    for name in (
+        "garbage_collect_on_dialog_finish",
+        "deferred_delete_and_garbage_collect",
+        "garbage_collect_now",
+    ):
+        setattr(mw, name, MethodType(getattr(AnkiQt, name), mw))
+    for _ in range(3):
+        ui.open_history(mw)
+        dialog = mw._learnrecur_generation_history
+        ui.open_history(mw)
+        assert mw._learnrecur_generation_history is dialog and len(queue) == 1
+        request = queue.pop(0)
+        result = request["op"](None)
+        dialog.reject()
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+        assert sip.isdeleted(dialog)
+        assert not mw.findChildren(ui.GenerationHistory)
+        assert mw._learnrecur_generation_history is None
+        request["success"](result)
+        request["failure"](Exception("late result"))
+    assert mw.progress.single_shot.call_count == 3
 
 
 @pytest.mark.parametrize("change", ["profile", "connection"])

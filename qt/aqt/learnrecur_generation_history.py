@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import re
+from html import escape
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -335,7 +336,7 @@ class GenerationHistory(QDialog):
                         dollars(job["reserved_microusd"]),
                     ]
                 )
-                item.setToolTip(0, job["title"])
+                item.setToolTip(0, f"<qt>{escape(job['title'])}</qt>")
                 item.setData(0, Qt.ItemDataRole.UserRole, job["reason"])
                 self.table.addTopLevelItem(item)
             for column in range(1, 6):
@@ -391,6 +392,7 @@ def open_history(mw: AnkiQt) -> None:
             showWarning(str(error), parent=mw)
             return
         mw._learnrecur_generation_history = dialog
+        mw.garbage_collect_on_dialog_finish(dialog)
     dialog.show()
     dialog.raise_()
     dialog.activateWindow()
