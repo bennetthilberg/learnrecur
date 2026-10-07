@@ -589,47 +589,73 @@ class Reviewer:
         if not proceed:
             return
 
-        sched = cast(V3Scheduler, self.mw.col.sched)
+        col = self.mw.col
+        card = self.card
+        skill_review = self._skill_review
+        sched = cast(V3Scheduler, col.sched)
         answer = sched.build_answer(
-            card=self.card,
+            card=card,
             states=self._v3.states,
             rating=self._v3.rating_from_ease(ease),
         )
 
         def after_answer(changes: OpChanges) -> None:
+            if self.mw.col is not col:
+                return
             if (
-                self._skill_review is not None
+                skill_review is not None
                 or gui_hooks.reviewer_did_answer_card.count() > 0
             ):
-                self.card.load()
-            if self._skill_review is not None:
+                card.load()
+            if skill_review is not None:
                 from aqt.learnrecur_refill import check_refill
 
-                check_refill(self)
+                check_refill(self, card=card)
             # v3 scheduler doesn't report this
-            suspended = self.card is not None and self.card.queue < 0
-            self._after_answering(ease)
-            if sched.state_is_leech(answer.new_state):
+            suspended = card.queue < 0
+            still_reviewing = self._after_answering(ease, card=card)
+            if self.mw.col is not col:
+                return
+            if not still_reviewing:
+                # The collection-change hook must refresh a newly opened review.
+                self._refresh_needed = RefreshNeeded.QUEUES
+            elif sched.state_is_leech(answer.new_state):
                 self.onLeech(suspended)
 
         self.state = "transition"
         operation = answer_card(
-            parent=self.mw, answer=answer, skill_review=self._skill_review
+            parent=self.mw, answer=answer, skill_review=skill_review
         ).success(after_answer)
-        if self._skill_review is not None:
+        if skill_review is not None:
 
             def failed_answer(error: Exception) -> None:
+                if self.mw.col is not col:
+                    return
                 show_warning(str(error), parent=self.mw)
-                self.nextCard()
+                if (
+                    self.mw.col is col
+                    and self.mw.state == "review"
+                    and self.card is card
+                ):
+                    self.nextCard()
 
             operation.failure(failed_answer)
         operation.run_in_background(initiator=self)
 
-    def _after_answering(self, ease: Literal[1, 2, 3, 4]) -> None:
-        gui_hooks.reviewer_did_answer_card(self, self.card, ease)
-        self._answeredIds.append(self.card.id)
+    def _after_answering(
+        self, ease: Literal[1, 2, 3, 4], *, card: Card | None = None
+    ) -> bool:
+        card = card or self.card
+        assert card is not None
+        col = self.mw.col
+        gui_hooks.reviewer_did_answer_card(self, card, ease)
+        self._answeredIds.append(card.id)
+        # Saving may finish after navigation, including navigation from a hook.
+        if self.mw.col is not col or self.mw.state != "review" or self.card is not card:
+            return False
         if not self.check_timebox():
             self.nextCard()
+        return True
 
     # Handlers
     ############################################################

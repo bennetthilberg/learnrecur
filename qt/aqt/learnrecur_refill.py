@@ -11,6 +11,7 @@ from collections import OrderedDict
 
 import requests
 
+from anki.cards import Card
 from anki.learnrecur_skill_import import SkillImportError, decode
 from anki.learnrecur_skills import SkillReviewError, skill_refill_request
 from aqt.learnrecur_import import companion_connection
@@ -97,9 +98,9 @@ class RefillRequests:
         ).failure(failed).without_collection().run_in_background()
 
 
-def check_refill(reviewer) -> None:
+def check_refill(reviewer, *, card: Card | None = None) -> None:
     mw = reviewer.mw
     requests = getattr(reviewer, "_refill_requests", None)
     if requests is None or requests.collection is not mw.col:
         requests = reviewer._refill_requests = RefillRequests(mw.col)
-    requests.check(mw, reviewer.card)
+    requests.check(mw, card if card is not None else reviewer.card)

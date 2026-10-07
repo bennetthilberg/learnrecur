@@ -158,7 +158,7 @@ def on_op_finished(
     # fire new hook
     aqt.gui_hooks.operation_did_execute(changes, initiator)
     # fire legacy hook so old code notices changes
-    if mw.col.op_made_changes(changes):
+    if mw.col and mw.col.op_made_changes(changes):
         aqt.gui_hooks.state_did_reset()
 
 
