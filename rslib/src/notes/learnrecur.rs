@@ -25,7 +25,7 @@ impl Collection {
         input: anki_proto::notes::ReconnectSkillNotesRequest,
     ) -> Result<()> {
         require!(
-            (1..=100).contains(&input.notes.len()),
+            (1..=5000).contains(&input.notes.len()),
             "invalid reconnect size"
         );
         let stamps = self.storage.get_collection_timestamps()?;
@@ -98,7 +98,7 @@ impl Collection {
         input: AddSkillNotesRequest,
     ) -> Result<OpOutput<Vec<NoteId>>> {
         require!(
-            (1..=100).contains(&(input.requests.len() + input.updates.len())),
+            (1..=5000).contains(&(input.requests.len() + input.updates.len())),
             "invalid skill batch size"
         );
         if input.cache_only {
@@ -371,7 +371,7 @@ impl Collection {
         let sequence = match bank.get("bank_sequence") {
             Some(value) => value
                 .as_u64()
-                .filter(|n| (1..=100).contains(n))
+                .filter(|n| (1..=5000).contains(n))
                 .or_invalid("invalid bank sequence")?,
             None => 0,
         };

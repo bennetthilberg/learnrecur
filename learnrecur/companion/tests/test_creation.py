@@ -164,6 +164,7 @@ def test_import_cannot_take_over_a_pending_skill_identity(jobs):
 
 
 def test_drafts_obey_capacity_and_published_identity_collisions(jobs):
+    jobs.store.configure_limits(max_skills=100)
     payload = definition(jobs)
     key = "skill-" + payload["request_id"]
     skill = {**FIXTURE, "id": key, "bank": {**FIXTURE["bank"], "skill_id": key}}
@@ -180,7 +181,7 @@ def test_drafts_obey_capacity_and_published_identity_collisions(jobs):
             }
         )
     jobs.create_skill(definition(jobs), "fixture")
-    with pytest.raises(JobConflict, match="100 skills"):
+    with pytest.raises(JobConflict, match="skill limit"):
         jobs.create_skill(definition(jobs), "fixture")
     with pytest.raises(SkillImportError):
         jobs.store.import_batch({"skills": [FIXTURE]})
@@ -201,6 +202,7 @@ def large_skill(count=19):
 
 
 def test_creation_rejects_full_snapshot_before_reserving_or_calling(jobs):
+    jobs.store.configure_limits(max_snapshot_bytes=1024 * 1024)
     jobs.store.import_batch({"skills": [large_skill()]})
     with pytest.raises(JobConflict, match="no room"):
         jobs.create_skill(definition(jobs), "openai")
@@ -210,6 +212,7 @@ def test_creation_rejects_full_snapshot_before_reserving_or_calling(jobs):
 
 
 def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
+    jobs.store.configure_limits(max_snapshot_bytes=1024 * 1024)
     # Leave enough space for exactly one worst-case initial bank.
     jobs.store.import_batch({"skills": [large_skill(18)]})
     payloads = [definition(jobs), definition(jobs)]
@@ -229,7 +232,7 @@ def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
     assert (
         len(json.dumps({"skills": [*before["skills"], extra]}).encode()) < 1024 * 1024
     )
-    with pytest.raises(SkillImportError, match="1 MiB"):
+    with pytest.raises(SkillImportError, match="storage limits"):
         jobs.store.import_batch({"skills": [extra]})
     assert jobs.store.snapshot() == before
     job = next(job for job in created if job)

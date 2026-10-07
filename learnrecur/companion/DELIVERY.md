@@ -26,7 +26,7 @@ Review undo and redo should still operate on the last rating. Stop the companion
 
 Automated checks cover safe boundaries, queued state/profile changes, connection changes, authentication and fetch limits, unchanged retries, stale revisions, import undo, saved edit undo/redo, failed native transactions, process death around commit, and two-client offline review and sync-server restart. They use synthetic data and make no paid calls.
 
-The store retains its existing 100-exercise and 1 MiB snapshot limits. This slice adds no hosting, Skill editor, reporting UI, cleanup, or complete backup restoration. All clients and the sync server must run the matching LearnRecur build. The [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remains open before daily use or distribution.
+The store uses the [configurable storage limits](../STORAGE.md). This slice adds no hosting, Skill editor, reporting UI, cleanup, or complete backup restoration. All clients and the sync server must run the matching LearnRecur build. The [Qt accessibility crash](../MAC-ACCESSIBILITY.md) remains open before daily use or distribution.
 
 On October 2, 2026, the packaged Mac app rated the original `hablar` exercise in fresh synthetic storage. The fixture worker completed three variations while `trabajar` remained displayed; reveal still showed `trabajé`. Returning to the deck list automatically expanded the bank from three to six. A comparison through the app's debug console confirmed the exact native card row, review row, and Answer Card undo action were unchanged. Native undo and redo restored that same state while retaining six exercises.
 

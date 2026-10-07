@@ -18,7 +18,7 @@ The authenticated, read-only endpoint is `GET /v1/generation-history`. Its optio
 
 The response contains the companion's `source_id`, bounded `jobs`, `next_before`, `budget`, and a safe `pause` message. Job summaries contain only their internal ID, requested title, action, state, attempts, net spend and reservation amounts in millionths of a dollar, an interruption flag, and a fixed reason. They omit descriptions, examples, exercises, provider response IDs, credentials, and arbitrary stored errors.
 
-The client ignores environment proxies, refuses redirects, and limits the response to 1 MiB. A failed refresh keeps previously loaded rows visible with a warning that they may be out of date. Closing the window discards them; they are not saved in a profile. Closing or switching profiles discards late responses. A changed connection or companion identity cannot mix two sources' history.
+The client ignores environment proxies, refuses redirects, and limits the response to 1 MiB. A failed refresh keeps previously loaded rows visible with a warning that they may be out of date. Closing the window discards them; they are not saved in a profile. Closing or switching profiles discards late responses. A changed connection or companion identity cannot mix two sources' history. **Storage paused** means a job is waiting for room under the [configured storage limits](STORAGE.md); cached review remains available.
 
 Upgrade the companion before using this desktop feature. An older companion returns an update message. This slice does not deploy the new endpoint to Azure or add retry, budget-editing, or exercise-preview controls.
 

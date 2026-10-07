@@ -12,7 +12,7 @@ from uuid import UUID
 
 import requests
 
-from anki.learnrecur_skill_import import MAX_BYTES, SkillImportError, _text, decode
+from anki.learnrecur_skill_import import SkillImportError, _text, decode
 from aqt import gui_hooks
 from aqt.learnrecur_import import companion_connection
 from aqt.operations import QueryOp
@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from aqt.main import AnkiQt
 
 PAGE_SIZE = 50
+MAX_BYTES = 1024 * 1024  # History pages contain summaries, not exercise banks.
 STATES = {
     "queued": "Waiting",
     "running": "Generating",
@@ -40,6 +41,7 @@ STATES = {
     "result_ready": "Ready to save",
     "retry_wait": "Retry pending",
     "waiting_budget": "Budget paused",
+    "waiting_capacity": "Storage paused",
     "needs_attention": "Needs attention",
     "failed": "Failed",
     "obsolete": "Outdated",

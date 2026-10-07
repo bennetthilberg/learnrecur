@@ -28,6 +28,12 @@ services:
   companion:
     <<: *service
     command: [companion]
+    environment:
+      LEARNRECUR_MAX_EXERCISES: ${LEARNRECUR_MAX_EXERCISES:-}
+      LEARNRECUR_MAX_JOBS: ${LEARNRECUR_MAX_JOBS:-}
+      LEARNRECUR_MAX_SNAPSHOT_BYTES: ${LEARNRECUR_MAX_SNAPSHOT_BYTES:-}
+      LEARNRECUR_MAX_SKILLS: ${LEARNRECUR_MAX_SKILLS:-}
+      LEARNRECUR_MAX_BATCHES: ${LEARNRECUR_MAX_BATCHES:-}
     ports: ["127.0.0.1:${LEARNRECUR_COMPANION_PORT:-45321}:45321"]
     volumes:
       - ${LEARNRECUR_STATE}/companion:/state/companion

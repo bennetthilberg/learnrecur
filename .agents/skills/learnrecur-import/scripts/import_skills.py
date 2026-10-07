@@ -18,11 +18,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from uuid import UUID, uuid4
 
-MAX_BYTES = 1024 * 1024
+MAX_BYTES = 64 * 1024 * 1024  # Match the companion's snapshot format ceiling.
 MAX_GUIDANCE = 64 * 1024
 STATES = {
     "queued",
     "waiting_budget",
+    "waiting_capacity",
     "running",
     "provider_pending",
     "retry_wait",
@@ -61,7 +62,7 @@ def decode(data):
         raise ImportError("JSON must not contain NaN or Infinity.")
 
     if len(data) > MAX_BYTES:
-        raise ImportError("JSON exceeds the 1 MiB limit.")
+        raise ImportError("JSON exceeds the 64 MiB format limit.")
     try:
         return json.loads(data, object_pairs_hook=pairs, parse_constant=constant)
     except (ValueError, UnicodeError, RecursionError) as error:
@@ -247,7 +248,7 @@ class Plans:
     def save(self, plan_id, plan):
         data = encode(plan)
         if len(data) > MAX_BYTES:
-            raise ImportError("The saved plan exceeds the 1 MiB limit.")
+            raise ImportError("The saved plan exceeds the 64 MiB format limit.")
         destination = self.folder / (identifier(plan_id) + ".json")
         temporary = self.folder / (uuid4().hex + ".tmp")
         try:
@@ -393,6 +394,7 @@ def refresh(plans, companion, plan_id, plan, *, submit):
             "obsolete",
             "needs_attention",
             "waiting_budget",
+            "waiting_capacity",
         }:
             break
 

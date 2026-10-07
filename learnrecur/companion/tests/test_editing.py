@@ -158,6 +158,7 @@ def test_rejected_edit_preserves_published_state_without_reservation(jobs, chang
 
 
 def test_edit_reserves_history_and_bank_space_before_paid_generation(jobs):
+    jobs.store.configure_limits(max_snapshot_bytes=1024 * 1024)
     large = large_skill()
     large["id"] = large["bank"]["skill_id"] = "large-bank"
     jobs.store.import_batch({"skills": [large]})
@@ -170,6 +171,7 @@ def test_edit_reserves_history_and_bank_space_before_paid_generation(jobs):
 
 
 def test_edit_does_not_consume_another_skill_slot(jobs):
+    jobs.store.configure_limits(max_skills=100)
     skills = []
     for index in range(99):
         skill = copy.deepcopy(ORIGINAL)

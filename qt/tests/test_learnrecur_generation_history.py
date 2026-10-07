@@ -70,12 +70,16 @@ def receive(query):
     query["success"](query["op"](None))
 
 
+@pytest.mark.parametrize("state", ["queued", "waiting_capacity"])
 def test_native_read_only_table_does_not_submit_jobs_or_change_cards(
-    app, server, tmp_path, monkeypatch
+    app, server, tmp_path, monkeypatch, state
 ):
     from learnrecur.companion.jobs import Jobs
 
     enqueue(server)
+    if state == "waiting_capacity":
+        with server.store.connect() as db:
+            db.execute("update generation_jobs set state='waiting_capacity'")
     queue = queries(monkeypatch)
     col = Collection(str(tmp_path / "synthetic.anki2"))
     import_snapshot(col, server.store.snapshot())
@@ -98,12 +102,16 @@ def test_native_read_only_table_does_not_submit_jobs_or_change_cards(
         item = dialog.table.topLevelItem(0)
         assert [item.text(i) for i in range(1, 6)] == [
             "Refill",
-            "Waiting",
+            "Waiting" if state == "queued" else "Storage paused",
             "0",
             "$0.00",
             "$0.00",
         ]
-        assert item.data(0, ui.Qt.ItemDataRole.UserRole) == ""
+        assert item.data(0, ui.Qt.ItemDataRole.UserRole) == (
+            ""
+            if state == "queued"
+            else "The companion's storage limit is reached. Cached review still works."
+        )
         assert not dialog.table.selectedItems()
         assert (
             dialog.table.editTriggers()

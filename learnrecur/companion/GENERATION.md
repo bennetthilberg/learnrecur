@@ -88,7 +88,7 @@ Description revisions and batch sequences are separate. Importing a refill prese
 
 Sync orders trusted skill content by description revision, then batch sequence. Tags and other note metadata retain native conflict handling. A same-description refill must preserve prior exercises, batch history, and definition fields. Ordinary note behavior is unchanged. All clients and the sync server must run the matching LearnRecur build.
 
-The current proof retains at most 100 jobs, 100 batches per skill, and 100 active cached exercises per description revision. Published data and retained history share the 1 MiB snapshot limit. The Mac app makes [bounded low-bank refill requests](REFILLS.md), and [automatic delivery](DELIVERY.md) applies completed batches outside review. Cleanup remains unimplemented. [The editor](../SKILL-EDITOR.md), [hosting](../deploy/README.md), and [complete backups](../deploy/AUTOMATIC-BACKUPS.md) have separate setup and verification notes. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
+The defaults are 1,000 retained jobs, 1,000 batches per skill, 200 exercises per revision, and an 8 MiB snapshot. The [storage limits](../STORAGE.md) are configurable and survive backup restoration. The Mac app makes [bounded low-bank refill requests](REFILLS.md), and [automatic delivery](DELIVERY.md) applies completed batches outside review. Cleanup remains unimplemented. [The editor](../SKILL-EDITOR.md), [hosting](../deploy/README.md), and [complete backups](../deploy/AUTOMATIC-BACKUPS.md) have separate setup and verification notes. Back up the whole companion database, including job and cost records; ordinary deck exports do not include those records.
 
 ## Verification
 

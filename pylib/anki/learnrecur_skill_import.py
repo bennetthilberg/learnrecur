@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING
 from unicodedata import normalize
 from uuid import UUID
 
+from anki.learnrecur_limits import MAX_BYTES, MAX_EXERCISES, MAX_SKILLS
+
 if TYPE_CHECKING:
     from anki.collection import Collection, OpChanges
 
-MAX_BYTES = 1024 * 1024
-MAX_SKILLS = 100
 LINK_FIELD = "LearnRecurLink"
 MODEL_NAME = "LearnRecur Imported Skill"
 DECK_NAME = "LearnRecur skills"
@@ -84,7 +84,7 @@ def _text(value: object, limit: int = 8192) -> str:
 
 def validate_skills(value: object) -> list[dict]:
     if not isinstance(value, list) or not 1 <= len(value) <= MAX_SKILLS:
-        raise SkillImportError("Import between 1 and 100 skills at a time.")
+        raise SkillImportError(f"Import between 1 and {MAX_SKILLS} skills at a time.")
     ids = set()
     for skill in value:
         if not isinstance(skill, dict) or set(skill) != {
@@ -123,8 +123,10 @@ def validate_skills(value: object) -> list[dict]:
         if type(bank["revision"]) is not int or bank["revision"] < 1:
             raise SkillImportError("Invalid skill revision.")
         exercises = bank["exercises"]
-        if not isinstance(exercises, list) or not 1 <= len(exercises) <= 100:
-            raise SkillImportError("A skill needs between 1 and 100 cached exercises.")
+        if not isinstance(exercises, list) or not 1 <= len(exercises) <= MAX_EXERCISES:
+            raise SkillImportError(
+                f"A skill needs between 1 and {MAX_EXERCISES} cached exercises."
+            )
         exercise_ids = set()
         for exercise in exercises:
             if not isinstance(exercise, dict) or set(exercise) != {

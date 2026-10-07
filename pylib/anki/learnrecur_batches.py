@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from anki.learnrecur_limits import MAX_BATCHES, MAX_EXERCISES
 from anki.learnrecur_skill_import import SkillImportError, _text, validate_skills
 
 
@@ -13,7 +14,7 @@ def validate_batches(value: object, skills: list[dict], history: dict) -> dict:
         raise SkillImportError("Invalid exercise batches.")
     for skill in skills:
         batches = value.get(skill["id"], [])
-        if not isinstance(batches, list) or len(batches) > 100:
+        if not isinstance(batches, list) or len(batches) > MAX_BATCHES:
             raise SkillImportError("Too many exercise batches.")
         versions = {
             v["bank"]["revision"]: v for v in [*history.get(skill["id"], []), skill]
@@ -60,9 +61,9 @@ def validate_batches(value: object, skills: list[dict], history: dict) -> dict:
                     raise SkillImportError("Duplicate generated exercise.")
                 seen[rev].add(exercise["id"])
                 prompts[rev].add(exercise["prompt"])
-            if len(seen[rev]) > 100:
+            if len(seen[rev]) > MAX_EXERCISES:
                 raise SkillImportError(
-                    "A skill revision can cache at most 100 exercises."
+                    f"A skill revision can cache at most {MAX_EXERCISES} exercises."
                 )
     return value
 

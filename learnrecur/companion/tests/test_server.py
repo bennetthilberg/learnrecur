@@ -193,14 +193,17 @@ def test_missing_legacy_revision_history_stops_upgrade_without_changes(tmp_path,
 
 
 def test_identity_migration_over_limit_rolls_back_and_explains_recovery(
-    tmp_path, batch
+    tmp_path, batch, monkeypatch
 ):
     from anki.learnrecur_skill_import import (
-        MAX_BYTES,
         SkillImportError,
         encode,
         validate_skills,
     )
+
+    # Exercise the hard format boundary without allocating a 64 MiB fixture.
+    MAX_BYTES = 1024 * 1024
+    monkeypatch.setattr("anki.learnrecur_skill_import.MAX_BYTES", MAX_BYTES)
 
     store = Store(tmp_path / "companion")
     source = store.snapshot()["source_id"]
@@ -224,7 +227,7 @@ def test_identity_migration_over_limit_rolls_back_and_explains_recovery(
         db.execute("insert into skills values (?,?)", (skill["id"], original))
         db.execute("drop table identities")
     with pytest.raises(
-        SkillImportError, match="Back up this folder.*new companion folder"
+        SkillImportError, match="Back up this folder.*fresh companion folder"
     ):
         Store(store.path.parent)
     with store.connect() as db:
@@ -287,6 +290,7 @@ def test_concurrent_revision_writers_keep_one_immutable_definition(server, batch
 
 
 def test_retained_revision_size_limit_rolls_back(server, batch):
+    server.store.configure_limits(max_snapshot_bytes=1024 * 1024)
     batch["skills"][0]["bank"]["exercises"] = [
         {
             "id": str(index),

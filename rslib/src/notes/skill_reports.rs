@@ -75,7 +75,7 @@ impl Collection {
             let exercises = bank
                 .get("exercises")
                 .and_then(Value::as_array)
-                .filter(|exercises| exercises.len() <= 100)
+                .filter(|exercises| exercises.len() <= 256)
                 .or_invalid("invalid exercise bank")?;
             let exercise = exercises
                 .iter()

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
+from anki.learnrecur_limits import MAX_BATCHES
 from anki.learnrecur_skill_import import (
     MAX_BYTES,
     SkillImportError,
@@ -260,6 +261,10 @@ class Jobs:
             return "The provider result or charge is unconfirmed. Check it before starting another job."
         if state == "waiting_budget":
             return "The generation budget cannot cover another attempt. Cached review still works."
+        if state == "waiting_capacity":
+            return (
+                "The companion's storage limit is reached. Cached review still works."
+            )
         if state == "obsolete":
             return "The skill changed before this job finished."
         if state in ("failed", "retry_wait"):
@@ -430,9 +435,9 @@ class Jobs:
                 and db.execute(
                     "select (select count(*) from skills)+(select count(*) from skill_drafts where id not in (select id from skills))"
                 ).fetchone()[0]
-                >= 100
+                >= self.store.limits(db).max_skills
             ):
-                raise JobConflict("The companion can hold at most 100 skills.")
+                raise JobConflict("The companion has reached its skill limit.")
             key = value["skill_id"] if editing else "skill-" + value["request_id"]
             current = db.execute(
                 "select payload from skills where id=?", (key,)
@@ -523,8 +528,11 @@ class Jobs:
                     "This request_id already has different generation settings."
                 )
             return self._read(db, existing)
-        if db.execute("select count(*) from generation_jobs").fetchone()[0] >= 100:
-            raise JobConflict("The local proof can retain at most 100 generation jobs.")
+        if (
+            db.execute("select count(*) from generation_jobs").fetchone()[0]
+            >= self.store.limits(db).max_jobs
+        ):
+            raise JobConflict("The companion has reached its generation job limit.")
         row = db.execute(
             "select payload from skill_drafts where id=?"
             if draft
@@ -558,8 +566,15 @@ class Jobs:
                 context["existing_prompts"].extend(
                     e["prompt"] for e in batch["exercises"]
                 )
-        if len(context["existing_prompts"]) + value["count"] > 100:
+        if (
+            len(context["existing_prompts"]) + value["count"]
+            > self.store.limits(db).max_exercises
+        ):
             raise JobConflict("The current exercise bank is full.")
+        if not draft and not self.store.has_batch_capacity(
+            db, skill_id, value["revision"], value["count"]
+        ):
+            raise JobConflict("The companion has no room for another exercise bank.")
         if "base_revision" in context:
             previous = decode(
                 db.execute("select payload from skills where id=?", (skill_id,))
@@ -615,7 +630,7 @@ class Jobs:
             or type(value["revision"]) is not int
             or not 1 <= value["revision"] <= 100
             or type(value["bank_sequence"]) is not int
-            or not 0 <= value["bank_sequence"] <= 100
+            or not 0 <= value["bank_sequence"] <= MAX_BATCHES
             or type(value["remaining"]) is not int
             or not 0 <= value["remaining"] <= 2
         ):
@@ -693,11 +708,21 @@ class Jobs:
                     if example
                     else []
                 )
+            cached = len(skill["bank"]["exercises"])
+            for (encoded,) in db.execute(
+                "select payload from exercise_batches where skill_id=?", (key,)
+            ):
+                batch = decode(encoded.encode())
+                if batch["revision"] == value["revision"]:
+                    cached += len(batch["exercises"])
+            available = self.store.limits(db).max_exercises - cached
+            if available <= 0:
+                raise JobConflict("The current exercise bank is full.")
             request = {
                 "request_id": request_id,
                 "skill_id": key,
                 "revision": value["revision"],
-                "count": 3,
+                "count": min(3, available),
                 "examples": examples,
                 "provider": provider,
             }
@@ -832,7 +857,7 @@ class Jobs:
             self.check_restore(provider)
             self._recover(db, now)
             rows = db.execute(
-                "select id,context,attempts from generation_jobs where state in ('queued','retry_wait','waiting_budget') and next_run<=? order by next_run,id",
+                "select id,context,attempts from generation_jobs where state in ('queued','retry_wait','waiting_budget','waiting_capacity') and result is null and next_run<=? order by next_run,id",
                 (now,),
             ).fetchall()
             for job_id, encoded, attempts in rows:
@@ -895,16 +920,24 @@ class Jobs:
                     batch = decode(batch.encode())
                     if batch["revision"] == skill["bank"]["revision"]:
                         active += len(batch["exercises"])
-                if active + context["count"] > 100:
+                if active + context["count"] > self.store.limits(db).max_exercises:
                     db.execute(
-                        "update generation_jobs set state='failed',error='The current exercise bank is full.' where id=?",
-                        (job_id,),
+                        "update generation_jobs set state='waiting_capacity',next_run=?,error='The current exercise bank is full.' where id=?",
+                        (now + 60, job_id),
                     )
                     continue
                 if context.get("new_skill") and self.store._too_large_with_drafts(db):
                     db.execute(
-                        "update generation_jobs set state='failed',error='The companion is full.' where id=?",
-                        (job_id,),
+                        "update generation_jobs set state='waiting_capacity',next_run=?,error='The companion is full.' where id=?",
+                        (now + 60, job_id),
+                    )
+                    continue
+                if not context.get("new_skill") and not self.store.has_batch_capacity(
+                    db, skill["id"], skill["bank"]["revision"], context["count"]
+                ):
+                    db.execute(
+                        "update generation_jobs set state='waiting_capacity',next_run=?,error='The companion is full.' where id=?",
+                        (now + 60, job_id),
                     )
                     continue
                 token = uuid4().hex
@@ -963,7 +996,8 @@ class Jobs:
                 (month,),
             ).fetchone()[0]
             blocked = committed - net + gross - credit > limit
-            if stale or blocked:
+            full = not stale and self.store._too_large_with_drafts(db)
+            if stale or blocked or full:
                 db.execute(
                     "update generation_attempts set state='abandoned',gross_actual=0,credit_actual=0,net_actual=0 where job_id=? and attempt=?",
                     (job_id, attempt),
@@ -971,10 +1005,16 @@ class Jobs:
                 db.execute(
                     "update generation_jobs set state=?,error=?,next_run=?,lease_token=null,lease_until=null where id=?",
                     (
-                        "obsolete" if stale else "waiting_budget",
+                        "obsolete"
+                        if stale
+                        else "waiting_budget"
+                        if blocked
+                        else "waiting_capacity",
                         "The skill description changed."
                         if stale
-                        else "Generation budget unavailable.",
+                        else "Generation budget unavailable."
+                        if blocked
+                        else "The companion is full.",
                         now + 60,
                         job_id,
                     ),
@@ -1197,7 +1237,11 @@ class Jobs:
             row = db.execute(
                 "select context,state,result from generation_jobs where id=?", (job_id,)
             ).fetchone()
-            if not row or row[1] != "result_ready":
+            if (
+                not row
+                or row[1] not in ("result_ready", "waiting_capacity")
+                or row[2] is None
+            ):
                 return
             context = decode(row[0].encode())
             if not self._current(db, context):
@@ -1254,10 +1298,14 @@ class Jobs:
                         (skill["id"], sequence, encode(batch)),
                     )
                 validate_snapshot(self.store._snapshot(db))
-                if self.store._too_large_with_drafts(db):
-                    raise SkillImportError(
-                        "The companion has no room for this exercise bank."
+                if self.store._too_large_with_drafts(db, exclude_job=job_id):
+                    db.execute("rollback to publish_batch")
+                    db.execute("release publish_batch")
+                    db.execute(
+                        "update generation_jobs set state='waiting_capacity',next_run=?,error='The companion has no room for this exercise bank.' where id=?",
+                        (self.clock() + 60, job_id),
                     )
+                    return
             except (SkillImportError, TypeError, KeyError) as error:
                 db.execute("rollback to publish_batch")
                 db.execute("release publish_batch")
@@ -1280,7 +1328,8 @@ class Jobs:
     def run_once(self, provider):
         with self.store.connect() as db:
             ready = db.execute(
-                "select id from generation_jobs where state='result_ready' order by next_run,id limit 1"
+                "select id from generation_jobs where result is not null and state in ('result_ready','waiting_capacity') and next_run<=? order by next_run,id limit 1",
+                (self.clock(),),
             ).fetchone()
         if ready:
             self.publish(ready[0])
