@@ -8,7 +8,9 @@ The job saves the full instructions, model settings, and price assumptions. Text
 
 The native review card shows only the prompt before revealing the answer. Generation instructions require each prompt to state the task and supply any necessary forms, choices, units, or other information. For a skill that applies a given tense, identify that tense, the verb, and the subject. When choosing the tense or operation is the target skill, state that decision and supply the needed context or allowed options without making the choice for the learner. Keep instructions brief and avoid hints that solve the skill.
 
-New OpenAI jobs save instruction version 2, including creation, editing, refills, and report replacements. Queued jobs and retries keep their saved instructions and version, even after a worker upgrade. Existing cached exercises are unchanged. This guidance still needs manual quality checks; it is not a semantic validator.
+Separate task instructions go on their own line, followed by the exercise. Self-contained questions don't need an extra instruction. Fill-in-the-blank prompts use six underscores for a word or number and eight for a multiword form or phrase, without encoding the answer's letter count. Necessary choices and separate parts go on separate lines; cues stay beside the text they apply to. Wording should be natural and concise, with no decorative headings or unrelated vocabulary. These defaults apply even when source examples use a different layout. The native reviewer already preserves plain-text line breaks and underscores.
+
+New OpenAI jobs save instruction version 3, including creation, editing, refills, and report replacements. Queued jobs and retries keep their saved instructions and version, even after a worker upgrade. Existing cached exercises are unchanged. This guidance still needs manual quality checks; it is not a semantic or layout validator.
 
 ## Save the test key
 

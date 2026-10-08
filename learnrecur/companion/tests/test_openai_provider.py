@@ -176,19 +176,20 @@ def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
     body = transport.calls[0][2]
     assert body["instructions"] == job["context"]["instructions"]
     assert body["instructions"].startswith(GUIDANCE)
-    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 2
+    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 3
     assert json.loads(body["input"])["examples"] == examples
 
 
 @pytest.mark.parametrize("stage", ["queued", "retry", "pending"])
+@pytest.mark.parametrize("version", [1, 2])
 def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
-    jobs, payload, stage
+    jobs, payload, stage, version
 ):
     job = openai_job(jobs, payload)
     legacy = {
         **job["context"],
         "instructions": "Saved legacy guidance.",
-        "instructions_version": 1,
+        "instructions_version": version,
     }
     with jobs.store.connect() as db:
         db.execute(
@@ -223,7 +224,7 @@ def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
     fresh = restored.enqueue(
         {**payload, "request_id": "new-guidance", "provider": "openai"}
     )
-    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 2
+    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 3
     assert request_body(fresh["context"])["instructions"].startswith(GUIDANCE)
 
 
