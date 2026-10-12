@@ -44,6 +44,8 @@ def getEmptyCol():
         os.close(fd)
         os.unlink(path)
         col = aopen(path)
+        # Inherited scheduler tests assume SM-2; FSRS tests enable it explicitly.
+        col.set_config("fsrs", False)
         col.close(downgrade=False)
         _emptyCol = path
     (fd, path) = tempfile.mkstemp(suffix=".anki2")

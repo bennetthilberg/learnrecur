@@ -47,7 +47,10 @@ pub(crate) fn open_test_collection_with_relearning_card() -> Collection {
 
 impl Collection {
     pub(crate) fn new() -> Collection {
-        CollectionBuilder::default().build().unwrap()
+        let mut col = CollectionBuilder::default().build().unwrap();
+        // Inherited scheduler tests assume SM-2; FSRS tests enable it explicitly.
+        col.set_config_bool_inner(BoolKey::Fsrs, false).unwrap();
+        col
     }
 
     pub(crate) fn add_media(&self, media: &[(&str, &[u8])]) {
