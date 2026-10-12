@@ -21,6 +21,7 @@ from anki.learnrecur_skill_import import (
     decode,
     encode,
     import_snapshot,
+    validate_exercise,
     validate_snapshot,
 )
 from aqt import colors, gui_hooks
@@ -94,7 +95,7 @@ def validate_definition(value):
         "description",
         "examples",
     }
-    if not isinstance(value, dict) or set(value) not in (
+    if not isinstance(value, dict) or set(value) - {"formatting_preferences"} not in (
         fields,
         fields | {"skill_id", "base_revision"},
     ):
@@ -117,17 +118,12 @@ def validate_definition(value):
         raise SkillImportError("Invalid companion identity.") from None
     _text(value["title"], 256)
     _text(value["description"])
+    if "formatting_preferences" in value:
+        _text(value["formatting_preferences"], 2048, optional=True)
     if not isinstance(value["examples"], list) or len(value["examples"]) > 5:
         raise SkillImportError("Use at most five examples.")
     for example in value["examples"]:
-        if not isinstance(example, dict) or set(example) != {
-            "prompt",
-            "answer",
-            "explanation",
-        }:
-            raise SkillImportError("Invalid example exercise.")
-        for text in example.values():
-            _text(text)
+        validate_exercise(example)
     if len(encode(value).encode()) > 65536:
         raise SkillImportError("The skill description and examples are too long.")
     return value
@@ -216,6 +212,8 @@ def creation_snapshot(snapshot, definition):
         not generated
         or generated["title"] != definition["title"]
         or generated["description"] != definition["description"]
+        or generated.get("formatting_preferences", "")
+        != definition.get("formatting_preferences", "")
         or "identities" not in snapshot
     ):
         raise SkillImportError("The generated skill is missing or changed.")
@@ -513,13 +511,24 @@ class ExampleDialog(QDialog):
         form = QVBoxLayout()
         form.setSpacing(20)
         self.fields = {
+            "instruction": text_field("Instruction", 48),
             "prompt": text_field("Prompt", 70),
+            "context": text_field("Supporting context", 70),
             "answer": text_field("Answer", 45),
             "explanation": text_field("Explanation", 70),
         }
         for key, field in self.fields.items():
             field.setPlainText((example or {}).get(key, ""))
-            form_row(form, key.capitalize(), field)
+            if key in ("instruction", "context"):
+                section = FieldSection(
+                    ("Instruction" if key == "instruction" else "Supporting context")
+                    + " (optional)",
+                    field,
+                )
+                section.header.setChecked(bool(field.toPlainText()))
+                form.addWidget(section)
+            else:
+                form_row(form, key.capitalize(), field)
             field.textChanged.connect(self.changed)
         layout.addLayout(form)
         self.buttons = QDialogButtonBox(
@@ -529,21 +538,25 @@ class ExampleDialog(QDialog):
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
-        self.resize(640, 450)
+        self.resize(640, 580)
         self.changed()
         self.fields["prompt"].setFocus()
 
     def changed(self):
         self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(
-            all(field.toPlainText().strip() for field in self.fields.values())
+            all(
+                self.fields[key].toPlainText().strip()
+                for key in ("prompt", "answer", "explanation")
+            )
         )
 
     def example(self):
         result = {
-            key: field.toPlainText().strip() for key, field in self.fields.items()
+            key: field.toPlainText().strip()
+            for key, field in self.fields.items()
+            if key not in ("instruction", "context") or field.toPlainText().strip()
         }
-        for value in result.values():
-            _text(value)
+        validate_exercise(result)
         return result
 
 
@@ -569,12 +582,28 @@ class ExercisePreview(QDialog):
             tab = QWidget()
             form = QVBoxLayout(tab)
             form.setSpacing(12)
-            for key, height in (("prompt", 88), ("answer", 60), ("explanation", 88)):
-                field = text_field(key.capitalize(), height, readonly=True)
+            for key, height in (
+                ("instruction", 48),
+                ("prompt", 88),
+                ("context", 64),
+                ("answer", 60),
+                ("explanation", 88),
+            ):
+                if not exercise.get(key):
+                    continue
+                label = "Supporting context" if key == "context" else key.capitalize()
+                field = text_field(label, height, readonly=True)
                 field.setPlainText(exercise[key])
-                form_row(form, key.capitalize(), field)
+                if key == "answer":
+                    font = field.font()
+                    font.setBold(True)
+                    field.setFont(font)
+                form_row(form, label, field)
             form.addStretch()
-            tabs.addTab(tab, f"Exercise {index}")
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setWidget(tab)
+            tabs.addTab(scroll, f"Exercise {index}")
         layout.addWidget(tabs)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
@@ -650,6 +679,19 @@ class SkillEditor(QDialog):
         )
         self.title.textChanged.connect(self.changed)
         self.description.textChanged.connect(self.changed)
+        self.formatting_preferences = text_field("Formatting preferences", 64)
+        self.formatting_preferences.setFixedHeight(64)
+        self.formatting_section = FieldSection(
+            "Formatting preferences (optional)",
+            self.formatting_preferences,
+            help_text=(
+                "Describe how exercises should be organized, such as putting an "
+                "English meaning below the sentence. Leave blank for the defaults. "
+                "Fonts and colors use the card's styling."
+            ),
+        )
+        form.addWidget(self.formatting_section)
+        self.formatting_preferences.textChanged.connect(self.changed)
         entry_layout.addLayout(form)
         self.example_group = QWidget()
         self.example_group.setSizePolicy(
@@ -719,6 +761,9 @@ class SkillEditor(QDialog):
         if self.pending is not None:
             self.title.setText(self.pending["title"])
             self.description.setPlainText(self.pending["description"])
+            self.formatting_preferences.setPlainText(
+                self.pending.get("formatting_preferences", "")
+            )
             self.examples = list(self.pending["examples"])
             self.refresh_examples()
             self.freeze(True)
@@ -746,6 +791,9 @@ class SkillEditor(QDialog):
             self.original = definition
             self.title.setText(definition["title"])
             self.description.setPlainText(definition["description"])
+            self.formatting_preferences.setPlainText(
+                definition.get("formatting_preferences", "")
+            )
             self.examples = list(definition["examples"])
             self.refresh_examples()
             self.processing()
@@ -805,7 +853,12 @@ class SkillEditor(QDialog):
         if not hasattr(self, "action"):
             return
         editable = not self.frozen and not self.busy and not self.added
-        for field in (self.title, self.description, self.example_list):
+        for field in (
+            self.title,
+            self.description,
+            self.formatting_preferences,
+            self.example_list,
+        ):
             field.setEnabled(editable)
         selected = bool(self.example_list.selectedItems()) and (
             0 <= self.example_list.currentRow() < len(self.examples)
@@ -822,10 +875,11 @@ class SkillEditor(QDialog):
                     not self.editing
                     or self.original is not None
                     and any(
-                        self.original[key] != value
+                        self.original.get(key, "") != value
                         for key, value in {
                             "title": self.title.text().strip(),
                             "description": self.description.toPlainText().strip(),
+                            "formatting_preferences": self.formatting_preferences.toPlainText().strip(),
                             "examples": self.examples,
                         }.items()
                     )
@@ -836,6 +890,7 @@ class SkillEditor(QDialog):
         self.frozen = frozen
         self.title.setReadOnly(frozen)
         self.description.setReadOnly(frozen)
+        self.formatting_preferences.setReadOnly(frozen)
         self.changed()
 
     def processing(self, text=None):
@@ -958,6 +1013,13 @@ class SkillEditor(QDialog):
                         "source_id": "00000000-0000-0000-0000-000000000000",
                         "title": self.title.text().strip(),
                         "description": self.description.toPlainText().strip(),
+                        **(
+                            {
+                                "formatting_preferences": self.formatting_preferences.toPlainText().strip()
+                            }
+                            if self.formatting_preferences.toPlainText().strip()
+                            else {}
+                        ),
                         "examples": list(self.examples),
                         **(self.editing or {}),
                     }
@@ -1105,6 +1167,7 @@ class SkillEditor(QDialog):
         if not keep_fields:
             self.title.clear()
             self.description.clear()
+            self.formatting_preferences.clear()
             self.examples.clear()
             self.refresh_examples()
         self.freeze(False)

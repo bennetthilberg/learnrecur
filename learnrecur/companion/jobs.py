@@ -22,6 +22,7 @@ from anki.learnrecur_skill_import import (
     _text,
     decode,
     encode,
+    validate_exercise,
     validate_snapshot,
 )
 
@@ -303,16 +304,7 @@ class Jobs:
         if not isinstance(examples, list) or len(examples) > 5:
             raise SkillImportError("Supply at most five example exercises.")
         for example in examples:
-            if not isinstance(example, dict) or set(example) != {
-                "prompt",
-                "answer",
-                "explanation",
-            }:
-                raise SkillImportError(
-                    "An example needs a prompt, answer, and explanation."
-                )
-            for text in example.values():
-                _text(text)
+            validate_exercise(example)
         request = {**value, "examples": examples}
         encoded = encode(request)
         if len(encoded.encode()) > 65536:
@@ -356,6 +348,11 @@ class Jobs:
                 "base_revision": skill["bank"]["revision"],
                 "title": skill["title"],
                 "description": skill["description"],
+                **(
+                    {"formatting_preferences": skill["formatting_preferences"]}
+                    if "formatting_preferences" in skill
+                    else {}
+                ),
                 "examples": examples,
             }
 
@@ -369,7 +366,8 @@ class Jobs:
             fields |= {"skill_id", "base_revision"}
         if (
             not isinstance(value, dict)
-            or set(value) != fields
+            or not fields <= set(value)
+            or set(value) - fields - {"formatting_preferences"}
             or not isinstance(value["request_id"], str)
             or not re.fullmatch(r"[a-f0-9]{32}", value["request_id"])
         ):
@@ -385,20 +383,13 @@ class Jobs:
             raise SkillImportError("Supply a skill identity and revision below 100.")
         _text(value["title"], 256)
         _text(value["description"])
+        if "formatting_preferences" in value:
+            _text(value["formatting_preferences"], 2048, optional=True)
         examples = value["examples"]
         if not isinstance(examples, list) or len(examples) > 5:
             raise SkillImportError("Supply at most five example exercises.")
         for example in examples:
-            if not isinstance(example, dict) or set(example) != {
-                "prompt",
-                "answer",
-                "explanation",
-            }:
-                raise SkillImportError(
-                    "An example needs a prompt, answer, and explanation."
-                )
-            for text in example.values():
-                _text(text)
+            validate_exercise(example)
         if len(encode(value).encode()) > 65536:
             raise SkillImportError("Generation guidance is too large.")
         with self.store.connect() as db:
@@ -416,8 +407,15 @@ class Jobs:
             ).fetchone()
             if existing:
                 saved = decode(existing[2].encode())
-                if ("base_revision" in saved) != editing or any(
-                    saved.get(key) != item for key, item in value.items()
+                if (
+                    ("base_revision" in saved) != editing
+                    or any(
+                        saved.get(key) != item
+                        for key, item in value.items()
+                        if key != "formatting_preferences"
+                    )
+                    or saved.get("formatting_preferences", "")
+                    != value.get("formatting_preferences", "")
                 ):
                     raise JobConflict(
                         "This request already has a different skill definition."
@@ -479,6 +477,8 @@ class Jobs:
                     "exercises": [],
                 },
             }
+            if "formatting_preferences" in value:
+                skill["formatting_preferences"] = value["formatting_preferences"]
             db.execute(
                 "insert into skill_drafts values (?,?) on conflict(id) do update set payload=excluded.payload",
                 (key, encode(skill)),
@@ -704,7 +704,7 @@ class Jobs:
                     None,
                 )
                 examples = (
-                    [{k: example[k] for k in ("prompt", "answer", "explanation")}]
+                    [{k: item for k, item in example.items() if k != "id"}]
                     if example
                     else []
                 )
@@ -1261,12 +1261,9 @@ class Jobs:
                     raise SkillImportError("Unexpected generated exercise count.")
                 examples = {e["prompt"] for e in context["examples"]}
                 for index, exercise in enumerate(exercises):
-                    if (
-                        not isinstance(exercise, dict)
-                        or set(exercise) != {"prompt", "answer", "explanation"}
-                        or exercise["prompt"] in examples
-                    ):
+                    if not isinstance(exercise, dict) or exercise["prompt"] in examples:
                         raise SkillImportError("Invalid or copied example exercise.")
+                    validate_exercise(exercise)
                     exercise["id"] = f"job-{job_id}-{index}"
                 skill = context["skill"]
                 sequence = db.execute(
