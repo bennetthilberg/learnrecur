@@ -299,7 +299,7 @@ def test_concurrent_claims_cannot_spend_the_same_bank_capacity_twice(jobs, paylo
 
 
 def test_claimed_batch_reserves_snapshot_space_against_new_imports(jobs, payload):
-    jobs.store.configure_limits(max_snapshot_bytes=150000)
+    jobs.store.configure_limits(max_snapshot_bytes=250000)
     claimed = jobs.claim(FixtureProvider())
     assert claimed is None
     jobs.enqueue(payload)

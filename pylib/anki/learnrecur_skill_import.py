@@ -64,11 +64,11 @@ def decode(data: bytes, *, max_bytes: int | None = None) -> object:
         raise SkillImportError("Invalid skill JSON.") from error
 
 
-def _text(value: object, limit: int = 8192) -> str:
+def _text(value: object, limit: int = 8192, *, optional: bool = False) -> str:
     try:
         valid = (
             isinstance(value, str)
-            and bool(value.strip())
+            and (optional or bool(value.strip()))
             and len(value.encode()) <= limit
         )
     except UnicodeError:
@@ -82,17 +82,34 @@ def _text(value: object, limit: int = 8192) -> str:
     return value
 
 
+def validate_exercise(value: object, *, cached: bool = False) -> None:
+    required = {"prompt", "answer", "explanation"}
+    if cached:
+        required.add("id")
+    if (
+        not isinstance(value, dict)
+        or not required <= set(value)
+        or set(value) - required - {"instruction", "context"}
+    ):
+        raise SkillImportError("Invalid exercise fields.")
+    for key in required:
+        _text(value[key], 128 if key == "id" else 8192)
+    for key in ("instruction", "context"):
+        if key in value:
+            _text(value[key], optional=True)
+
+
 def validate_skills(value: object) -> list[dict]:
     if not isinstance(value, list) or not 1 <= len(value) <= MAX_SKILLS:
         raise SkillImportError(f"Import between 1 and {MAX_SKILLS} skills at a time.")
     ids = set()
     for skill in value:
-        if not isinstance(skill, dict) or set(skill) != {
-            "id",
-            "title",
-            "description",
-            "bank",
-        }:
+        required = {"id", "title", "description", "bank"}
+        if (
+            not isinstance(skill, dict)
+            or not required <= set(skill)
+            or set(skill) - required - {"formatting_preferences"}
+        ):
             raise SkillImportError(
                 "A skill needs an ID, title, description, and exercise bank."
             )
@@ -104,6 +121,8 @@ def validate_skills(value: object) -> list[dict]:
         ids.add(skill_id)
         _text(skill["title"], 256)
         _text(skill["description"])
+        if "formatting_preferences" in skill:
+            _text(skill["formatting_preferences"], 2048, optional=True)
         bank = skill["bank"]
         if not isinstance(bank, dict) or set(bank) != {
             "version",
@@ -129,13 +148,7 @@ def validate_skills(value: object) -> list[dict]:
             )
         exercise_ids = set()
         for exercise in exercises:
-            if not isinstance(exercise, dict) or set(exercise) != {
-                "id",
-                "prompt",
-                "answer",
-                "explanation",
-            }:
-                raise SkillImportError("Invalid cached exercise.")
+            validate_exercise(exercise, cached=True)
             exercise_id = _text(exercise["id"], 128)
             if exercise_id in exercise_ids:
                 raise SkillImportError("Duplicate exercise ID.")
@@ -253,12 +266,17 @@ def _fields(
 ) -> list[str]:
     first = skill["bank"]["exercises"][0]
     bank = skill["bank"]
-    if previous:
+    if previous or "formatting_preferences" in skill:
         bank = {
             **bank,
-            "definition": {key: skill[key] for key in ("title", "description")},
-            "retired_revisions": previous,
+            "definition": {
+                key: skill[key]
+                for key in ("title", "description", "formatting_preferences")
+                if key in skill
+            },
         }
+        if previous:
+            bank["retired_revisions"] = previous
     if batches:
         bank = {
             **bank,
@@ -275,12 +293,29 @@ def _fields(
                 ),
             ],
         }
+    prompt = html.escape(normalize("NFC", first["prompt"]))
+    if first.get("instruction") or first.get("context"):
+        from anki.learnrecur_skills import Exercise, exercise_html
+
+        prompt, _ = exercise_html(
+            Exercise(
+                first["id"],
+                *(
+                    normalize("NFC", first[key])
+                    for key in ("prompt", "answer", "explanation")
+                ),
+                0,
+                normalize("NFC", first.get("instruction", "")),
+                normalize("NFC", first.get("context", "")),
+            )
+        )
     return [
         html.escape(normalize("NFC", skill["title"])),
         html.escape(normalize("NFC", skill["description"])),
+        prompt,
         *(
             html.escape(normalize("NFC", first[key]))
-            for key in ("prompt", "answer", "explanation")
+            for key in ("answer", "explanation")
         ),
         # Escapes protect bank text from native field normalization.
         json.dumps(bank, sort_keys=True, separators=(",", ":"), ensure_ascii=True),
@@ -551,10 +586,13 @@ def import_snapshot(
         template = col.models.new_template("Skill")
         template["qfmt"] = "{{Prompt}}"
         template["afmt"] = (
-            '{{FrontSide}}<hr id="answer">{{Answer}}<br><br>{{Explanation}}'
+            '{{FrontSide}}<hr id="answer"><strong class="lr-answer">{{Answer}}</strong>'
+            '<div class="lr-explanation">{{Explanation}}</div>'
         )
         col.models.add_template(model, template)
-        model["css"] = ".card { font: 24px Arial; text-align: center; }"
+        from anki.learnrecur_skills import EXERCISE_CSS
+
+        model["css"] = ".card { font: 24px Arial; text-align: center; }" + EXERCISE_CSS
         model = col.models.get(col.models.add_dict(model).id)
     did = col.decks.id(DECK_NAME) if missing else None
     requests = []

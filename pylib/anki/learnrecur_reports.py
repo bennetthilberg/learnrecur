@@ -40,7 +40,9 @@ def pending_reports(col, source, after="", *, replay=False):
         saved = json.loads(encoded)
         bank = json.loads(card.note()[BANK_FIELD])
         exercise = {
-            k: saved["exercise"][k] for k in ("id", "prompt", "answer", "explanation")
+            k: saved["exercise"][k]
+            for k in ("id", "prompt", "answer", "explanation", "instruction", "context")
+            if k in saved["exercise"]
         }
         result.append(
             {
