@@ -57,6 +57,12 @@ git submodule update --init qt/installer/mac-template
 
 Isolation tests use fake Anki folders in temporary directories. They check ignored Anki settings, rejected existing folders, symbolic links, downgrade paths, updater entry points, custom-server login, and clock checks. They don't read the user's Anki data.
 
+Deck options use “skills” for new-item limits and insertion order when the deck and its subdecks contain only skill cards. Empty or mixed decks keep “cards.” Deck and note-type names do not decide the wording. Skills in filtered decks still count toward their home deck's classification. Each skill counts once, regardless of its exercise bank size.
+
+In a skill deck, preset help explains that changes also apply to ordinary decks using that preset. Collection-wide controls name both cards and skills. Ordinary deck wording and save behavior stay unchanged.
+
+Check the wording and saved settings with `./ninja check:pytest:aqt check:vitest check:svelte`. Run these checks before packaging; overlapping Svelte checks and builds can produce mismatched page assets. For the native check, use synthetic skill and ordinary decks sharing a preset. Change its daily limit, save, and reopen each deck's options. Confirm that the value is shared while the wording differs, and that notes, cards, and review history remain unchanged.
+
 ## Build a local package
 
 ```sh

@@ -12,6 +12,34 @@ deck-config-used-by-decks =
 deck-config-default-name = Default
 deck-config-title = Deck Options
 
+## LearnRecur skill decks
+
+deck-config-new-skills = New skills
+deck-config-new-skillsday = New skills/day
+deck-config-skills-reviews-too-low =
+    If adding { $count ->
+        [one] { $count } new skill each day
+       *[other] { $count } new skills each day
+    }, your review limit should be at least { $expected }.
+deck-config-new-insertion-order-skills = Sequential (oldest skills first)
+deck-config-new-skills-limit-tooltip =
+    The maximum number of new skills to start each day. Each skill has one schedule;
+    its exercise variations do not count as new skills. A lower new-skill limit
+    keeps the review workload manageable.
+deck-config-skill-insertion-order-tooltip =
+    Sets the position of newly added skills. Lower positions are studied first.
+    Changing this option also updates the positions of existing new skills.
+deck-config-cards-and-skills-preset-scope =
+    Preset changes apply to every deck using this preset, including ordinary decks.
+    Limits count skills in skill decks and cards in ordinary decks.
+deck-config-skill-limit-tabs =
+    - `Preset`: Applies to every deck using this preset, including ordinary decks. Limits count skills in skill decks and cards in ordinary decks.
+    - `This deck`: Applies only to this deck.
+    - `Today only`: Changes this deck's limit for today.
+deck-config-new-cards-and-skills-ignore-review-limit = New cards and skills ignore review limit
+deck-config-cards-and-skills-collection-scope = Applies to the entire collection, including ordinary cards and skills.
+deck-config-reschedule-cards-and-skills-on-change = Reschedule cards and skills on change
+
 ## Daily limits section
 
 deck-config-daily-limits = Daily Limits

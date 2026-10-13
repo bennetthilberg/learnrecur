@@ -22,6 +22,7 @@
     import SpinBoxRow from "./SpinBoxRow.svelte";
     import TabbedValue from "./TabbedValue.svelte";
     import Warning from "./Warning.svelte";
+    import { deckOptionsWording } from "./wording";
 
     export let state: DeckOptionsState;
     export let api: Record<string, never>;
@@ -48,25 +49,20 @@
     const defaults = state.defaults;
     const newCardsIgnoreReviewLimit = state.newCardsIgnoreReviewLimit;
     const applyAllParentLimits = state.applyAllParentLimits;
+    const wording = deckOptionsWording(state.skillDeck);
 
-    const v3Extra =
-        "\n\n" + tr.deckConfigLimitDeckV3() + "\n\n" + tr.deckConfigTabDescription();
+    const v3Extra = "\n\n" + tr.deckConfigLimitDeckV3() + "\n\n" + wording.tabsHelp;
     const reviewV3Extra = "\n\n" + tr.deckConfigLimitInterdayBoundByReviews() + v3Extra;
     const newCardsIgnoreReviewLimitHelp =
-        tr.deckConfigAffectsEntireCollection() +
+        wording.collectionScope +
         "\n\n" +
         tr.deckConfigNewCardsIgnoreReviewLimitTooltip();
     const applyAllParentLimitsHelp =
-        tr.deckConfigAffectsEntireCollection() +
-        "\n\n" +
-        tr.deckConfigApplyAllParentLimitsTooltip();
+        wording.collectionScope + "\n\n" + tr.deckConfigApplyAllParentLimitsTooltip();
 
     $: reviewsTooLow =
         Math.min(9999, newValue * 10) > reviewsValue
-            ? tr.deckConfigReviewsTooLow({
-                  cards: newValue,
-                  expected: Math.min(9999, newValue * 10),
-              })
+            ? wording.reviewsTooLow(newValue, Math.min(9999, newValue * 10))
             : "";
 
     const newTabs: ValueTab[] = [
@@ -122,8 +118,8 @@
 
     const settings = {
         newLimit: {
-            title: tr.schedulingNewCardsday(),
-            help: tr.deckConfigNewLimitTooltip() + v3Extra,
+            title: wording.newPerDay,
+            help: wording.newLimitHelp + v3Extra,
             url: HelpPage.DeckOptions.newCardsday,
         },
         reviewLimit: {
@@ -132,7 +128,7 @@
             url: HelpPage.DeckOptions.maximumReviewsday,
         },
         newCardsIgnoreReviewLimit: {
-            title: tr.deckConfigNewCardsIgnoreReviewLimit(),
+            title: wording.ignoreReviewLimit,
             help: newCardsIgnoreReviewLimitHelp,
             url: HelpPage.DeckOptions.newCardsday,
             global: true,
@@ -203,7 +199,10 @@
                             Object.keys(settings).indexOf("newCardsIgnoreReviewLimit"),
                         )}
                 >
-                    <GlobalLabel title={settings.newCardsIgnoreReviewLimit.title} />
+                    <GlobalLabel
+                        title={settings.newCardsIgnoreReviewLimit.title}
+                        scopeHelp={wording.collectionScope}
+                    />
                 </SettingTitle>
             </SwitchRow>
         </Item>
@@ -216,7 +215,10 @@
                             Object.keys(settings).indexOf("applyAllParentLimits"),
                         )}
                 >
-                    <GlobalLabel title={settings.applyAllParentLimits.title} />
+                    <GlobalLabel
+                        title={settings.applyAllParentLimits.title}
+                        scopeHelp={wording.collectionScope}
+                    />
                 </SettingTitle>
             </SwitchRow>
         </Item>
