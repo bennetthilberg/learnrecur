@@ -10,6 +10,8 @@ LearnRecur lets users study ordinary decks and practice skills in the same Mac a
 
 Each skill is one scheduled Anki card with a bank of exercise variations. The user solves mentally, aloud, or on paper, reveals an answer and short explanation, and chooses Again, Hard, Good, or Easy. Anki's normal review code records the rating and sets the next review date. Ordinary cards keep their existing behavior.
 
+New LearnRecur collections use FSRS by default. Existing collections keep their saved scheduler choice, including older collections without an FSRS setting. Native deck options still control learning steps, retention, and review limits for both ordinary cards and skills.
+
 Keep skill decks and ordinary decks separate within the app for V1. We can consider mixed decks later. Start with Mac and decide about Windows and mobile after the first version works. Keep Anki's minimal, functional UI and add only the controls and text the new features need.
 
 Use synthetic ordinary cards and narrow Spanish grammar skills for development. Include examples with HTML, media, and different scheduling states. Never change the user's actual Anki data or installation.
@@ -74,6 +76,7 @@ After these milestones, decide whether to add outside users, Windows or mobile c
 
 ## Current progress
 
+- **FSRS default checked locally on October 12, 2026:** new collections enable FSRS at creation, while reopening, upgrading, and opting out preserve existing settings. The inherited scheduler test fixtures explicitly use SM-2; production defaults apply normally during tests. All 369 library, 314 Qt, and 653 Rust tests pass, including ordinary package round trips and skill rating/undo checks under both schedulers. The signed Mac package passed native reveal, Good, undo, and persistence in a synthetic profile. Good retained the native ten-minute learning step and saved FSRS memory state. The user also requested FSRS for Daily Spanish; native deck options enabled it at 90% desired retention without immediate rescheduling. Its five cards and 13 reviews remain, and sync and a fresh encrypted off-host backup passed. Learning steps remain `1m 10m`; the native twenty-minute learn-ahead setting can show the next step early. No paid generation or personal Anki data was used.
 - **Repository:** Anki 26.09.3 at `29bb700b951e3f0c0cb69b77c0180fc1fe33e6ba`, with upstream history, source layout, license, and submodules preserved. The user approved the initial direct push to `main`. Later changes use PRs.
 - **Merged:** the user merged [the isolation PR](https://github.com/bennetthilberg/learnrecur/pull/1), [the ordinary-deck checks and icon PR](https://github.com/bennetthilberg/learnrecur/pull/2), [the native export checks PR](https://github.com/bennetthilberg/learnrecur/pull/3), and [the cached-skill PR](https://github.com/bennetthilberg/learnrecur/pull/4) on September 30, 2026. The user merged [the browser-data fix PR](https://github.com/bennetthilberg/learnrecur/pull/5) on October 1, 2026.
 - **Checked on September 30, 2026:** the source build and Mac installer package succeed on Apple Silicon with macOS 27 and Xcode 27. The package contains `LearnRecur.app` with bundle ID `io.github.bennetthilberg.learnrecur.anki`. Its ad hoc signature passes verification. [MAC-DEVELOPMENT.md](learnrecur/MAC-DEVELOPMENT.md) has the commands and limits.
