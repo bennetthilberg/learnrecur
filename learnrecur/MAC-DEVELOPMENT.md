@@ -100,4 +100,3 @@ Collection and media sync errors must stay visible until the user dismisses them
 For a native check, use a synthetic profile with automatic sync enabled and an unreachable loopback sync server. Quit, confirm that the error stays open, dismiss it, and check that the app closes with its notes, cards, and review records preserved. Run `qt/tests/test_sync_errors.py` for normal sync, full upload/download, authentication failure, cancellation, and media errors during shutdown.
 
 The daily-use trial uses SSH forwarding to reach the hosted services. Its private launcher restarts its own forwarding process if it exits during a long session. It leaves other processes using those ports alone. A failed connection leaves reviews saved locally until a later successful sync; it does not mean those reviews reached the server.
-
