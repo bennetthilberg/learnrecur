@@ -7,8 +7,11 @@ import aqt
 import aqt.deckconf
 import aqt.main
 from anki.cards import Card
+from anki.collection import Collection
 from anki.decks import DeckDict, DeckId
 from anki.lang import without_unicode_isolation
+from anki.learnrecur_skills import BANK_FIELD, MODEL_KIND, MODEL_MARKER
+from anki.utils import ids2str
 from aqt import gui_hooks
 from aqt.qt import *
 from aqt.utils import (
@@ -19,6 +22,26 @@ from aqt.utils import (
     tr,
 )
 from aqt.webview import AnkiWebView, AnkiWebViewKind
+
+
+def deck_options_path(col: Collection, deck_id: DeckId) -> str:
+    """Use skill wording only when the deck and its subdecks contain skills."""
+    deck_ids = ids2str(col.decks.deck_and_child_ids(deck_id))
+    model_ids = col.db.list(
+        "select distinct n.mid from cards c join notes n on n.id = c.nid "
+        f"where c.did in {deck_ids} or c.odid in {deck_ids}"
+    )
+    models = [col.models.get(mid) for mid in model_ids]
+    skill_deck = bool(models) and all(
+        model
+        and model.get(MODEL_MARKER) == MODEL_KIND
+        and model["type"] == 0
+        and len(model["tmpls"]) == 1
+        and any(field["name"] == BANK_FIELD for field in model["flds"])
+        for model in models
+    )
+    path = f"deck-options/{deck_id}"
+    return path + "?skills=1" if skill_deck else path
 
 
 class DeckOptionsDialog(QDialog):
@@ -44,7 +67,7 @@ class DeckOptionsDialog(QDialog):
         restoreGeom(self, self.TITLE, default_size=(800, 800))
 
         self.web = AnkiWebView(kind=AnkiWebViewKind.DECK_OPTIONS)
-        self.web.load_sveltekit_page(f"deck-options/{self._deck['id']}")
+        self.web.load_sveltekit_page(deck_options_path(self.mw.col, self._deck["id"]))
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.web)

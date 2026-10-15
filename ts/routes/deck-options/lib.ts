@@ -83,7 +83,11 @@ export class DeckOptionsState {
     // needed for proper change detection
     private loadedPresets: Set<DeckConfig["id"]> = new Set();
 
-    constructor(targetDeckId: DeckOptionsId, data: DeckConfigsForUpdate) {
+    constructor(
+        targetDeckId: DeckOptionsId,
+        data: DeckConfigsForUpdate,
+        readonly skillDeck = false,
+    ) {
         this.targetDeckId = targetDeckId;
         this.currentDeck = data.currentDeck!;
         this.defaults = data.defaults!.config!;
