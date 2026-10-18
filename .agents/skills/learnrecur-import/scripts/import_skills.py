@@ -84,11 +84,11 @@ def source_id(value):
     return value
 
 
-def text(value, limit):
+def text(value, limit, *, optional=False):
     try:
         valid = (
             isinstance(value, str)
-            and bool(value.strip())
+            and (optional or bool(value.strip()))
             and len(value.encode("utf-8")) <= limit
             and not any(
                 (ord(c) < 32 and c not in "\n\t") or ord(c) == 127 for c in value
@@ -102,7 +102,7 @@ def text(value, limit):
 
 
 def definition(value):
-    if not isinstance(value, dict) or set(value) != {
+    if not isinstance(value, dict) or set(value) - {"formatting_preferences"} != {
         "title",
         "description",
         "examples",
@@ -110,18 +110,23 @@ def definition(value):
         raise ImportError("Each skill needs only title, description, and examples.")
     text(value["title"], 256)
     text(value["description"], 8192)
+    if "formatting_preferences" in value:
+        text(value["formatting_preferences"], 2048, optional=True)
     examples = value["examples"]
     if not isinstance(examples, list) or len(examples) > 5:
         raise ImportError("Each skill can have up to five examples.")
     for example in examples:
-        if not isinstance(example, dict) or set(example) != {
+        if not isinstance(example, dict) or set(example) - {
+            "instruction",
+            "context",
+        } != {
             "prompt",
             "answer",
             "explanation",
         }:
             raise ImportError("Each example needs prompt, answer, and explanation.")
-        for field in example.values():
-            text(field, 8192)
+        for key, field in example.items():
+            text(field, 8192, optional=key in ("instruction", "context"))
 
 
 class Companion:
@@ -291,7 +296,9 @@ class Plans:
             if not isinstance(entry["state"], str):
                 raise ImportError("Invalid saved generation state.")
             payload = entry["request"]
-            if not isinstance(payload, dict) or set(payload) != {
+            if not isinstance(payload, dict) or set(payload) - {
+                "formatting_preferences"
+            } != {
                 "request_id",
                 "source_id",
                 "title",
@@ -304,7 +311,16 @@ class Plans:
                 raise ImportError("Saved request identities do not match this plan.")
             ids.add(request_id)
             definition(
-                {key: payload[key] for key in ("title", "description", "examples")}
+                {
+                    key: payload[key]
+                    for key in (
+                        "title",
+                        "description",
+                        "examples",
+                        "formatting_preferences",
+                    )
+                    if key in payload
+                }
             )
             if len(encode(payload)) > MAX_GUIDANCE:
                 raise ImportError(
@@ -407,7 +423,11 @@ def summary(plan_id, plan, *, preview=False):
                 "title": entry["request"]["title"],
                 "state": entry["state"],
                 **(
-                    {key: entry["request"][key] for key in ("description", "examples")}
+                    {
+                        key: entry["request"][key]
+                        for key in ("description", "examples", "formatting_preferences")
+                        if key in entry["request"]
+                    }
                     if preview
                     else {"job_id": entry["job_id"]}
                 ),

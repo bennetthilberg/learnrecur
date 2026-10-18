@@ -36,6 +36,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     import TabbedValue from "./TabbedValue.svelte";
     import Item from "$lib/components/Item.svelte";
     import DynamicallySlottable from "$lib/components/DynamicallySlottable.svelte";
+    import { deckOptionsWording } from "./wording";
 
     export let state: DeckOptionsState;
     export let openHelpModal: (String) => void;
@@ -58,6 +59,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     const fsrsReschedule = state.fsrsReschedule;
     const daysSinceLastOptimization = state.daysSinceLastOptimization;
     const limits = state.deckLimits;
+    const wording = deckOptionsWording(state.skillDeck);
 
     $: lastOptimizationWarning =
         $daysSinceLastOptimization > 30 ? tr.deckConfigTimeToOptimize() : "";
@@ -415,7 +417,10 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
     <SwitchRow bind:value={$fsrsReschedule} defaultValue={false}>
         <SettingTitle on:click={() => openHelpModal("rescheduleCardsOnChange")}>
-            <GlobalLabel title={tr.deckConfigRescheduleCardsOnChange()} />
+            <GlobalLabel
+                title={wording.reschedule}
+                scopeHelp={wording.collectionScope}
+            />
         </SettingTitle>
     </SwitchRow>
 
@@ -427,6 +432,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
         <SettingTitle on:click={() => openHelpModal("healthCheck")}>
             <GlobalLabel
                 title={tr.deckConfigSlowSuffix({ text: tr.deckConfigHealthCheck() })}
+                scopeHelp={wording.collectionScope}
             />
         </SettingTitle>
     </SwitchRow>

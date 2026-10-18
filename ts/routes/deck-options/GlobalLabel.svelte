@@ -8,10 +8,11 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     import Icon from "$lib/components/Icon.svelte";
 
     export let title: string;
+    export let scopeHelp = tr.deckConfigAffectsEntireCollection();
 </script>
 
 {title}
-<div class="inline-icon" title={tr.deckConfigAffectsEntireCollection()}>
+<div class="inline-icon" title={scopeHelp}>
     <Icon icon={mdiEarth} />
 </div>
 

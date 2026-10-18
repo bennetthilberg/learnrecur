@@ -19,6 +19,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     import FsrsOptions from "./FsrsOptions.svelte";
     import GlobalLabel from "./GlobalLabel.svelte";
     import type { DeckOptionsState } from "./lib";
+    import { deckOptionsWording } from "./wording";
 
     export let state: DeckOptionsState;
     export let api: Record<string, never>;
@@ -31,6 +32,8 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     }
 
     const fsrs = state.fsrs;
+    const wording = deckOptionsWording(state.skillDeck);
+    const scopeHelp = state.skillDeck ? wording.collectionScope + "\n\n" : "";
     let newlyEnabled = false;
     $: if (!$fsrs) {
         newlyEnabled = true;
@@ -39,7 +42,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     const settings = {
         fsrs: {
             title: "FSRS",
-            help: tr.deckConfigFsrsTooltip(),
+            help: scopeHelp + tr.deckConfigFsrsTooltip(),
             url: HelpPage.DeckOptions.fsrs,
             global: true,
         },
@@ -60,15 +63,15 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
             sched: HelpItemScheduler.FSRS,
         },
         rescheduleCardsOnChange: {
-            title: tr.deckConfigRescheduleCardsOnChange(),
-            help: tr.deckConfigRescheduleCardsOnChangeTooltip(),
+            title: wording.reschedule,
+            help: scopeHelp + tr.deckConfigRescheduleCardsOnChangeTooltip(),
             sched: HelpItemScheduler.FSRS,
             global: true,
         },
         healthCheck: {
             title: tr.deckConfigHealthCheck(),
             help:
-                tr.deckConfigAffectsEntireCollection() +
+                wording.collectionScope +
                 "\n\n" +
                 tr.deckConfigHealthCheckTooltip1() +
                 "\n\n" +
@@ -107,7 +110,10 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
                     on:click={() =>
                         openHelpModal(Object.keys(settings).indexOf("fsrs"))}
                 >
-                    <GlobalLabel title={settings.fsrs.title} />
+                    <GlobalLabel
+                        title={settings.fsrs.title}
+                        scopeHelp={wording.collectionScope}
+                    />
                 </SettingTitle>
             </SwitchRow>
         </Item>

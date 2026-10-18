@@ -73,9 +73,8 @@ def cursor_bank(bank: dict) -> dict:
     if "bank_updates" not in bank:
         return bank
     result = dict(bank["base_skill"]["bank"])
+    if "definition" in bank:
+        result["definition"] = bank["definition"]
     if bank.get("retired_revisions"):
-        result["definition"] = {
-            key: bank["base_skill"][key] for key in ("title", "description")
-        }
         result["retired_revisions"] = bank["retired_revisions"]
     return result

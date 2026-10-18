@@ -37,6 +37,8 @@ class Exercise:
     answer: str
     explanation: str
     ordinal: int
+    instruction: str = ""
+    context: str = ""
 
 
 @dataclass(frozen=True)
@@ -85,13 +87,21 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
             raise ValueError()
         exercises = []
         ids = set()
+        from anki.learnrecur_skill_import import _text as validate_text
+
         for ordinal, item in enumerate(raw["exercises"]):
+            if not isinstance(item, dict):
+                raise ValueError()
+            for key in ("instruction", "context"):
+                validate_text(item.get(key, ""), optional=True)
             exercise = Exercise(
                 *(
                     _text(item[key])
                     for key in ("id", "prompt", "answer", "explanation")
                 ),
                 ordinal,
+                item.get("instruction", ""),
+                item.get("context", ""),
             )
             if exercise.id in ids:
                 raise ValueError()
@@ -255,24 +265,50 @@ def report_skill_review(col: Collection, review: SkillReview, reason: str) -> Op
     )
 
 
-def render_skill_review(card: Card, review: SkillReview) -> None:
-    """Pin both sides, including the answer preloaded by the native reviewer."""
-    validate_skill_review(card, review)
+EXERCISE_CSS = """
+.lr-instruction { font-size: .9em; margin-bottom: .45em; }
+.lr-context { font-size: .85em; margin-top: .65em; color: #555; }
+.nightMode .lr-context { color: #bbb; }
+.lr-answer { display: block; font-weight: bold; }
+.lr-explanation { margin-top: .65em; font-weight: normal; }
+"""
+
+
+def exercise_html(exercise: Exercise) -> tuple[str, str]:
+    """Render supported text parts; generated text never supplies markup."""
 
     def plain_text(text: str) -> str:
         # Brackets must not become native typed-answer or media instructions.
         return html.escape(text).replace("[", "&#91;").replace("\n", "<br>")
 
-    question = plain_text(review.exercise.prompt)
-    answer = plain_text(review.exercise.answer)
-    explanation = plain_text(review.exercise.explanation)
+    question = "".join(
+        f'<div class="lr-{key}">{plain_text(text)}</div>'
+        for key, text in (
+            ("instruction", exercise.instruction),
+            ("prompt", exercise.prompt),
+            ("context", exercise.context),
+        )
+        if text
+    )
+    answer = plain_text(exercise.answer)
+    explanation = plain_text(exercise.explanation)
+    return question, (
+        f'{question}<hr id="answer"><strong class="lr-answer">{answer}</strong>'
+        f'<div class="lr-explanation">{explanation}</div>'
+    )
+
+
+def render_skill_review(card: Card, review: SkillReview) -> None:
+    """Pin both sides, including the answer preloaded by the native reviewer."""
+    validate_skill_review(card, review)
+    question, answer = exercise_html(review.exercise)
     card.set_render_output(
         TemplateRenderOutput(
             question_text=question,
-            answer_text=f'{question}<hr id="answer">{answer}<br><br>{explanation}',
+            answer_text=answer,
             question_av_tags=[],
             answer_av_tags=[],
-            css=card.note_type()["css"],
+            css=EXERCISE_CSS + card.note_type()["css"],
         )
     )
 

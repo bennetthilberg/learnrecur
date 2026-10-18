@@ -160,7 +160,10 @@ def test_plain_text_is_escaped(col):
     card, _ = next_answer(col, CardAnswer.GOOD)
     note = card.note()
     bank = json.loads(note[BANK_FIELD])
-    bank["exercises"][0]["prompt"] = '<script>alert("x")</script> [[type:Answer]]'
+    bank["exercises"][0]["prompt"] = (
+        'Complete the sentence.\n<script>alert("x")</script> ______ ________ '
+        "[[type:Answer]]"
+    )
     bank["exercises"][0]["answer"] = "<input>"
     note[BANK_FIELD] = json.dumps(bank)
     col.update_note(note)
@@ -168,6 +171,9 @@ def test_plain_text_is_escaped(col):
     render_skill_review(card, select_skill_review(card))
     assert "<script>" not in card.question()
     assert "&lt;script&gt;" in card.question()
+    assert "Complete the sentence.<br>" in card.question()
+    assert "______ ________" in card.question()
+    assert card.question() in card.answer()
     assert "[[type:" not in card.question()
     assert "<input>" not in card.answer()
 

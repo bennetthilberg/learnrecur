@@ -57,6 +57,12 @@ git submodule update --init qt/installer/mac-template
 
 Isolation tests use fake Anki folders in temporary directories. They check ignored Anki settings, rejected existing folders, symbolic links, downgrade paths, updater entry points, custom-server login, and clock checks. They don't read the user's Anki data.
 
+Deck options use “skills” for new-item limits and insertion order when the deck and its subdecks contain only skill cards. Empty or mixed decks keep “cards.” Deck and note-type names do not decide the wording. Skills in filtered decks still count toward their home deck's classification. Each skill counts once, regardless of its exercise bank size.
+
+In a skill deck, preset help explains that changes also apply to ordinary decks using that preset. Collection-wide controls name both cards and skills. Ordinary deck wording and save behavior stay unchanged.
+
+Check the wording and saved settings with `./ninja check:pytest:aqt check:vitest check:svelte`. Run these checks before packaging; overlapping Svelte checks and builds can produce mismatched page assets. For the native check, use synthetic skill and ordinary decks sharing a preset. Change its daily limit, save, and reopen each deck's options. Confirm that the value is shared while the wording differs, and that notes, cards, and review history remain unchanged.
+
 ## Build a local package
 
 ```sh
@@ -86,3 +92,11 @@ The ordinary-deck package checks and native review results are recorded in [ORDI
 On October 7, 2026, the packaged app passed rapid navigation with a synthetic Spanish skill and an ordinary typed-answer card. A test-only half-second delay in the background save let the rating and **Decks** shortcuts leave review before saving finished. Each callback reported the original card and recorded one review without reopening review. Native undo restored the exact original cards, notes, exercise usage, and empty review history; redo restored both reviews. Restart preserved that state and revealed the next Spanish exercise with its paired answer. Outbound network access was blocked throughout.
 
 Quitting immediately after undo exposed a separate operation notification reading a closed collection. The final package passed that sequence after adding a guard, with the exact saved state preserved and no callback error. The 23 new Qt cases cover navigation, reopened review, native undo/redo, refill usage, answer hooks, late failures, and collection closure. All 313 Qt tests, packaging, ad hoc signature verification, lint, and formatting pass. The existing mpv test still prints an audio-thread warning during teardown after the suite passes.
+
+## Check sync errors on quit
+
+Collection and media sync errors must stay visible until the user dismisses them. Quitting or switching profiles waits for that acknowledgment. Cancelling sync needs no warning. Periodic media failures stay in the log.
+
+For a native check, use a synthetic profile with automatic sync enabled and an unreachable loopback sync server. Quit, confirm that the error stays open, dismiss it, and check that the app closes with its notes, cards, and review records preserved. Run `qt/tests/test_sync_errors.py` for normal sync, full upload/download, authentication failure, cancellation, and media errors during shutdown.
+
+The daily-use trial uses SSH forwarding to reach the hosted services. Its private launcher restarts its own forwarding process if it exits during a long session. It leaves other processes using those ports alone. A failed connection leaves reviews saved locally until a later successful sync; it does not mean those reviews reached the server.

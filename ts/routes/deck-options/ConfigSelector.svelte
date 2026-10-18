@@ -15,8 +15,10 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     import type { ConfigListEntry, DeckOptionsState } from "./lib";
     import SaveButton from "./SaveButton.svelte";
     import TextInputModal from "./TextInputModal.svelte";
+    import { deckOptionsWording } from "./wording";
 
     export let state: DeckOptionsState;
+    const wording = deckOptionsWording(state.skillDeck);
     const configList = state.configList;
     const dispatch = createEventDispatcher();
     const dispatchPresetChange = () => dispatch("presetchange");
@@ -97,6 +99,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
             class="flex-grow-1 mr1"
             bind:value
             {label}
+            tooltip={wording.presetScope}
             list={$configList}
             parser={(entry) => ({
                 content: configLabel(entry),

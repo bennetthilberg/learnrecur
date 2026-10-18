@@ -8,19 +8,22 @@ Select **Add skill**. The companion saves the definition and queues a job for th
 
 Closing before Add skill discards an unsent form. Closing after submission leaves the request saved. Reopen Add skill to resume the same job and finish saving its card, without another generation call. Closing after completion leaves the saved skill intact. **Add another skill** resets the form after the current card has been saved. Budget waits and errors stop the animation and show recovery controls. A known failed job offers **Edit** so the user can deliberately submit a new request. An uncertain provider response must be recovered before this flow offers a new request.
 
-To edit a saved skill, return to the deck list, open Browse, select its card, and choose **Notes > Edit skill…**. The same form loads its title, description, and saved examples. **Save changes** generates a replacement bank. The current definition and exercises stay available until the new bank is ready. Saving keeps the original card, schedule, and review history. Unused exercises from the old revision retire. The completion window offers optional **Preview exercises…** and **Done**.
+To edit a saved skill, return to the deck list, open Browse, select its card, and choose **Notes > Edit skill…**. The same form loads its title, description, formatting preferences, and saved examples. **Save changes** generates a replacement bank. The current definition and exercises stay available until the new bank is ready. Saving keeps the original card, schedule, and review history. Unused exercises from the old revision retire. The completion window offers optional **Preview exercises…** and **Done**.
+
+**Formatting preferences (optional)** describes how to organize the exercise, such as putting an intended English meaning below a Spanish sentence. Leave it blank for the defaults. It stays separate from the skill's scope; fonts, colors, and spacing still use Anki's card styling controls. Examples can also have an optional instruction and supporting context. [The presentation notes](PRESENTATION.md) describe the fields and rendering.
 
 Close before Save changes to discard an unsent edit. After submission, reopen Add skill or Edit skill to resume the saved request. A failed job can be replaced deliberately; an uncertain response must be recovered first. A deleted original card blocks saving instead of creating a replacement. Editing requires the current imported revision and its original identity. Changes made directly to linked note fields must be reconciled before editing.
 
 ## Creation and recovery
 
-`POST /v1/skill-drafts` requires the same bearer token as other companion endpoints. Its payload contains exactly these fields:
+`POST /v1/skill-drafts` requires the same bearer token as other companion endpoints. Its payload contains these fields:
 
 - `request_id`: a fresh UUID represented as 32 lowercase hexadecimal characters.
 - `source_id`: the companion's database UUID from `GET /v1/skills`.
 - `title`: up to 256 UTF-8 bytes.
 - `description`: up to 8,192 UTF-8 bytes.
-- `examples`: zero to five objects with nonempty `prompt`, `answer`, and `explanation` strings, each up to 8,192 UTF-8 bytes. The complete request must fit within 65,536 bytes.
+- `formatting_preferences`: optional text, up to 2,048 UTF-8 bytes. An empty string or an omitted field uses the defaults.
+- `examples`: zero to five objects with nonempty `prompt`, `answer`, and `explanation` strings. Optional `instruction` and `context` strings may be empty. Each exercise field is limited to 8,192 UTF-8 bytes; the complete request must fit within 65,536 bytes.
 
 The server chooses `fixture` or `openai` from its existing refill configuration. Clients cannot select a provider through this endpoint. A disabled provider rejects new requests. Retrying a saved request returns its original job even after the configuration changes. Reusing a request ID with different content fails.
 
@@ -32,7 +35,7 @@ The initial Add skill click authorizes generation and local card creation togeth
 
 ## Edit contract
 
-`GET /v1/skill-definitions/<skill_id>` returns `source_id`, `skill_id`, `base_revision`, `title`, `description`, and `examples`. Examples come from the creation or edit job that published the current revision, not from automatic refill requests. Imported skills without saved examples return an empty list.
+`GET /v1/skill-definitions/<skill_id>` returns `source_id`, `skill_id`, `base_revision`, `title`, `description`, `examples`, and `formatting_preferences` when saved. Examples come from the creation or edit job that published the current revision, not from automatic refill requests. Imported skills without saved examples return an empty list.
 
 `POST /v1/skill-edits` accepts the creation fields plus `skill_id` and `base_revision`. It uses the same authentication, bounds, provider configuration, cost accounting, and recovery fences. The base revision must be current and below 100. One pending edit is allowed per skill; repeating its request ID returns the same job. A competing request fails. The pending replacement reserves snapshot space, including the old revision's history, before generation starts.
 

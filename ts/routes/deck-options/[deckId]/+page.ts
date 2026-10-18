@@ -5,12 +5,12 @@ import { getDeckConfigsForUpdate } from "@generated/backend";
 import { DeckOptionsState } from "../lib";
 import type { PageLoad } from "./$types";
 
-export const load = (async ({ params }) => {
+export const load = (async ({ params, url }) => {
     const deckId = Number(params.deckId);
 
     const did = BigInt(deckId);
     const info = await getDeckConfigsForUpdate({ did });
-    const state = new DeckOptionsState(BigInt(did), info);
+    const state = new DeckOptionsState(BigInt(did), info, url.searchParams.get("skills") === "1");
 
     return { state };
 }) satisfies PageLoad;
