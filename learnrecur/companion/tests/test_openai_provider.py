@@ -145,7 +145,11 @@ def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
 
     jobs = Jobs(jobs.store)
     examples = [example()]
-    value = definition(jobs, examples=examples)
+    value = definition(
+        jobs,
+        examples=examples,
+        formatting_preferences="Put the intended meaning below the sentence.",
+    )
     if path == "creation":
         job = jobs.create_skill(value, "openai")
     else:
@@ -176,12 +180,22 @@ def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
     body = transport.calls[0][2]
     assert body["instructions"] == job["context"]["instructions"]
     assert body["instructions"].startswith(GUIDANCE)
-    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 3
+    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 4
     assert json.loads(body["input"])["examples"] == examples
+    assert (
+        json.loads(body["input"])["skill"]["formatting_preferences"]
+        == value["formatting_preferences"]
+    )
+    schema = body["text"]["format"]["schema"]["properties"]["exercises"]["items"]
+    assert (
+        set(schema["properties"])
+        == set(schema["required"])
+        == {"instruction", "prompt", "context", "answer", "explanation"}
+    )
 
 
 @pytest.mark.parametrize("stage", ["queued", "retry", "pending"])
-@pytest.mark.parametrize("version", [1, 2])
+@pytest.mark.parametrize("version", [1, 2, 3])
 def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
     jobs, payload, stage, version
 ):
@@ -221,10 +235,16 @@ def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
         for call in transport.calls
         if call[0] == "POST"
     )
+    for call in transport.calls:
+        if call[0] == "POST":
+            schema = call[2]["text"]["format"]["schema"]["properties"]["exercises"][
+                "items"
+            ]
+            assert set(schema["properties"]) == {"prompt", "answer", "explanation"}
     fresh = restored.enqueue(
         {**payload, "request_id": "new-guidance", "provider": "openai"}
     )
-    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 3
+    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 4
     assert request_body(fresh["context"])["instructions"].startswith(GUIDANCE)
 
 

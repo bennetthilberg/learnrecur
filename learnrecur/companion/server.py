@@ -243,7 +243,16 @@ class Store:
         return [
             {
                 "id": f"job-{'0' * 32}-{index}",
-                **{key: "\\" * 8192 for key in ("prompt", "answer", "explanation")},
+                **{
+                    key: "\\" * 8192
+                    for key in (
+                        "prompt",
+                        "answer",
+                        "explanation",
+                        "instruction",
+                        "context",
+                    )
+                },
             }
             for index in range(count)
         ]

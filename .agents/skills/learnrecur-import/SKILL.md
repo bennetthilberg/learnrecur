@@ -15,7 +15,10 @@ For each skill, write:
 
 - **Title:** a short, recognizable name.
 - **Description:** what an exercise should test, the expected difficulty, and what it must leave out. Write enough for a generator to create a fresh example without the original passage.
+- **Formatting preferences:** optional requests about wording or organization, such as putting an intended English meaning below the exercise. Keep them separate from the learning scope. Use `formatting_preferences` in the definition when the user requests a layout preference; omit it otherwise. Fonts, colors, and spacing use the app's card styling controls.
 - **Examples:** optionally, up to five exercises with a prompt, correct answer, and brief explanation. Prefer suitable exercises from the learning material; they are the best guide to its intended format and difficulty. Adapt their format to LearnRecur's self-check reviews without changing the tested skill or difficulty. Write new examples when the material has none or its exercises cannot be adapted to fit. These examples guide initial generation and later refills; they are not imported as review exercises.
+
+Examples may separate a task into `instruction`, `prompt`, and supporting `context`. Keep all three as plain text; the answer and explanation belong in their own fields. Do not put an answer or a hint that solves the skill in context.
 
 Check that the definitions match the source and that example answers are correct. Do not invent missing rules or expand into material the learner has not studied. If the source is ambiguous, ask about that part and continue with the clear parts. Save only the definitions and selected examples. Do not save the full source passage in an import plan or send it to the companion.
 

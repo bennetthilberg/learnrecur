@@ -149,6 +149,7 @@ def test_form_has_accessible_fields_and_disables_incomplete_submission(
         assert [header.text() for header in headers] == [
             "&Title",
             "&Description",
+            "Formatting preferences (optional)",
             "Examples (optional)",
         ]
         assert all(
@@ -158,6 +159,10 @@ def test_form_has_accessible_fields_and_disables_incomplete_submission(
         assert dialog.title.accessibleName() == "Title"
         assert dialog.description.accessibleName() == "Description"
         assert dialog.description.tabChangesFocus()
+        assert (
+            dialog.formatting_preferences.accessibleName() == "Formatting preferences"
+        )
+        assert dialog.formatting_preferences.tabChangesFocus()
         assert dialog.status.isHidden()
         assert dialog.windowModality() == Qt.WindowModality.NonModal
         assert dialog.parent() is None
@@ -321,11 +326,16 @@ def test_completion_adds_one_card_without_revealing_exercises(
         value = payload(server)
         dialog.title.setText(value["title"])
         dialog.description.setPlainText(value["description"])
+        dialog.formatting_preferences.setPlainText("Supporting information below.")
         dialog.perform_action()
         receive(queries.pop(0))
         receive(queries.pop(0))
         assert dialog.timer.isActive()
         assert not dialog.title.isEnabled()
+        assert not dialog.formatting_preferences.isEnabled()
+        assert (
+            dialog.pending["formatting_preferences"] == "Supporting information below."
+        )
         assert not dialog.action.isEnabled()
         assert dialog.status.isHidden()
         run_fixture(server)
@@ -353,6 +363,7 @@ def test_completion_adds_one_card_without_revealing_exercises(
         assert col.card_count() == 1
         assert dialog.action.text() == "Add skill"
         assert not dialog.title.text()
+        assert not dialog.formatting_preferences.toPlainText()
         assert dialog.title.isEnabled()
         assert dialog.preview_button.isHidden()
         assert not queries and not mutations
@@ -431,13 +442,20 @@ def test_example_form_has_required_fields_and_focus_navigation(app):
     parent = QWidget()
     dialog = ui.ExampleDialog(parent)
     try:
-        assert len(dialog.fields) == 3
+        assert not dialog.buttons.button(
+            ui.QDialogButtonBox.StandardButton.Ok
+        ).isEnabled()
+        for key in ("prompt", "answer", "explanation"):
+            dialog.fields[key].setPlainText("Example " + key)
+        assert dialog.buttons.button(ui.QDialogButtonBox.StandardButton.Ok).isEnabled()
+        assert set(dialog.example()) == {"prompt", "answer", "explanation"}
         for key, field in dialog.fields.items():
             assert field.tabChangesFocus()
             field.setPlainText("Example " + key)
         assert dialog.example() == {key: "Example " + key for key in dialog.fields}
         assert all(
-            field.accessibleName() == key.capitalize()
+            field.accessibleName()
+            == ("Supporting context" if key == "context" else key.capitalize())
             for key, field in dialog.fields.items()
         )
     finally:
@@ -492,6 +510,8 @@ def test_edit_uses_same_form_and_preserves_review_history_undo_and_offline_revie
         assert dialog.action.text() == "Save changes"
         assert dialog.title.text() == server.store.snapshot()["skills"][0]["title"]
         assert not dialog.action.isEnabled()
+        dialog.formatting_preferences.setPlainText("Use concise instructions.")
+        assert dialog.action.isEnabled()
         revise(dialog)
         assert dialog.action.isEnabled()
         dialog.perform_action()
@@ -517,6 +537,9 @@ def test_edit_uses_same_form_and_preserves_review_history_undo_and_offline_revie
         assert select_skill_review(col.get_card(cid)).exercise != old_exercise
         bank = json.loads(col.get_card(cid).note()["LearnRecurSkill"])
         assert bank["revision"] == 2 and len(bank["retired_revisions"]) == 1
+        assert (
+            bank["definition"]["formatting_preferences"] == "Use concise instructions."
+        )
         assert old_exercise.prompt not in [e["prompt"] for e in bank["exercises"]]
         col.undo()
         assert select_skill_review(col.get_card(cid)).exercise == old_exercise
