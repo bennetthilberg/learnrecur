@@ -22,6 +22,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     import SpinBoxRow from "./SpinBoxRow.svelte";
     import StepsInputRow from "./StepsInputRow.svelte";
     import Warning from "./Warning.svelte";
+    import { deckOptionsWording } from "./wording";
 
     export let state: DeckOptionsState;
     export let api = {};
@@ -29,6 +30,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     const config = state.currentConfig;
     const defaults = state.defaults;
     const fsrs = state.fsrs;
+    const wording = deckOptionsWording(state.skillDeck);
 
     let stepsExceedGraduatingInterval: string;
     let stepsTooLargeForFsrs: string;
@@ -76,7 +78,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
         },
         insertionOrder: {
             title: tr.deckConfigNewInsertionOrder(),
-            help: tr.deckConfigNewInsertionOrderTooltip(),
+            help: wording.insertionHelp,
             url: HelpPage.DeckOptions.insertionOrder,
         },
     };
@@ -91,9 +93,9 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
     }
 </script>
 
-<TitledContainer title={tr.schedulingNewCards()}>
+<TitledContainer title={wording.newTitle}>
     <HelpModal
-        title={tr.schedulingNewCards()}
+        title={wording.newTitle}
         url={HelpPage.DeckOptions.newCards}
         slot="tooltip"
         {helpSections}
@@ -168,7 +170,7 @@ License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
             <EnumSelectorRow
                 bind:value={$config.newCardInsertOrder}
                 defaultValue={defaults.newCardInsertOrder}
-                choices={newInsertOrderChoices()}
+                choices={newInsertOrderChoices(state.skillDeck)}
                 breakpoint={"md"}
             >
                 <SettingTitle

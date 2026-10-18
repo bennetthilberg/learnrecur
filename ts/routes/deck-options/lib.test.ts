@@ -111,6 +111,24 @@ test("start", () => {
     expect(state.currentDeck.name).toBe("Default::child");
 });
 
+test("skill wording does not change saved options or preset membership", () => {
+    const cards = new DeckOptionsState(123n, new DeckConfigsForUpdate(exampleData));
+    const skills = new DeckOptionsState(123n, new DeckConfigsForUpdate(exampleData), true);
+    expect(cards.skillDeck).toBe(false);
+    expect(skills.skillDeck).toBe(true);
+    expect(get(skills.configList)).toStrictEqual(get(cards.configList));
+    for (const state of [cards, skills]) {
+        state.currentConfig.update((config) => {
+            config.newPerDay = 15;
+            return config;
+        });
+        state.newCardsIgnoreReviewLimit.set(true);
+    }
+    expect(skills.dataForSaving(UpdateDeckConfigsMode.NORMAL)).toStrictEqual(
+        cards.dataForSaving(UpdateDeckConfigsMode.NORMAL),
+    );
+});
+
 test("deck list", () => {
     const state = startingState();
     expect(get(state.configList)).toStrictEqual([

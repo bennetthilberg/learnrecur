@@ -14,6 +14,7 @@ import {
 import * as tr from "@generated/ftl";
 
 import type { Choice } from "$lib/components/EnumSelector.svelte";
+import { deckOptionsWording } from "./wording";
 
 export function newGatherPriorityChoices(): Choice<DeckConfig_Config_NewCardGatherPriority>[] {
     return [
@@ -148,10 +149,10 @@ export function leechChoices(): Choice<DeckConfig_Config_LeechAction>[] {
     ];
 }
 
-export function newInsertOrderChoices(): Choice<DeckConfig_Config_NewCardInsertOrder>[] {
+export function newInsertOrderChoices(skillDeck = false): Choice<DeckConfig_Config_NewCardInsertOrder>[] {
     return [
         {
-            label: tr.deckConfigNewInsertionOrderSequential(),
+            label: deckOptionsWording(skillDeck).sequential,
             value: DeckConfig_Config_NewCardInsertOrder.DUE,
         },
         {
