@@ -52,4 +52,6 @@ On October 9, normal skill revisions replaced the initial banks with clearer lin
 
 On October 15, sync recovery preserved all 21 review records and uploaded three pending records. The launcher now reconnects its SSH tunnel, and failed collection or media sync waits for acknowledgment before quitting. No test ratings or reports were added.
 
-Assess actual review friction, prompt clarity, por/para ambiguity, variation, naturalness, and coverage of all three regular verb endings. Confirm automatic refills arrive, report-and-skip uses an eligible backup without rating, sync and restart preserve reviews, backups remain fresh, and generation spending stays within the allowance. Keep observed failures separate from guesses. Use those results to choose the next small change.
+Assess actual review friction, prompt clarity, por/para ambiguity, variation, naturalness, and coverage of all three regular verb endings. Check that report-and-skip uses an eligible backup without rating, sync and restart preserve reviews, and backups remain fresh.
+
+Automatic refills cannot arrive while the paid worker is stopped. Before testing them, establish a bounded allowance and end date, then start the worker with the existing spending records intact. Once enabled, check refill delivery and generation spending. Keep observed failures separate from guesses, and use those results to choose the next small change.
