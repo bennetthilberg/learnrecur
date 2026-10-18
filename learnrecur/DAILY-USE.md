@@ -1,6 +1,6 @@
 # Daily-use trial
 
-The October 8–15, 2026 trial uses three Spanish skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Each skill has one native card and a locally cached exercise bank. The paid trial has ended; cached review and sync can continue. Further paid generation needs a new allowance.
+The October 8–15, 2026 trial started with three Spanish skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Each skill has one native card and a locally cached exercise bank. Initial generation is complete and the paid worker is stopped; cached review and sync can continue.
 
 ## Use the app
 
@@ -38,7 +38,13 @@ On October 18, the Daily runtime was rebuilt with FSRS defaults, optional format
 
 All 375 library, 338 Qt, and 455 companion/deployment tests passed, along with focused lint, packaging, and signature verification. A disposable Mac profile passed separated instruction/context rendering, bold answers, native rating, and undo. Daily Spanish passed startup, manual sync, and normal quit with its three trial notes, five native cards, and all 21 reviews preserved. FSRS remained enabled and no uploads were pending. No test ratings or reports were added to the daily profile.
 
-The hosted companion is still on the earlier runtime. Update it before using the new formatting preferences for generation. The worker remains stopped and its active provider key is absent; this app update does not renew paid generation.
+The hosted sync server and companion now use `d2a73884c47603aa2abe73431c53fa5351f7f472`, matching the current presentation contract. A fresh encrypted backup preceded the upgrade, and the checked native and companion tables matched their previous fingerprints. The previous source and image remain available for recovery.
+
+The user approved two more grammar skills and up to $1 in new generation spending. Their two initial jobs each produced three exercises on the first attempt, using instruction version 4 and all four selected book examples. Their answers and scope were checked privately. One context has slightly awkward chronology; watch naturalness during use. The estimated cost was $0.001039, with no reservation left. The existing $1 monthly ceiling and earlier spending records were preserved. A finite worker ran only these jobs, then exited; the persistent worker stays stopped and its active key stays absent. Automatic refills remain paused.
+
+Native import, sync, and restart left the two new cards unrated in Daily Spanish. All five previous notes and cards and all 21 review records were preserved exactly. FSRS remains enabled, and no uploads are pending. A fresh encrypted off-host backup restored on the Mac Linux host with all checked source tables intact and both generation pauses retained. No restored service or paid call ran during restoration.
+
+The pinned Daily shortcut now uses a native Mac launcher instead of a background shell wrapper, so macOS can show its normal opening animation. It hands off to the same runtime, profile, and SSH supervisor. Cold launch and clicking it again opened only one Daily Spanish runtime. The previous shortcut is retained locally for recovery; the Dock still has one pinned Daily shortcut.
 
 ## Follow-up
 
