@@ -32,6 +32,14 @@ The retrieved password-manager key decrypted a current backup and passed every m
 
 Definitions, source references, provider responses, keys, collections, receipts, and the operational handoff stay outside Git under `~/.local/share/learnrecur/daily-use/2026-10-08`. Start with `HANDOFF.md` there before resuming operational work. The matching image archive is under `~/.local/share/learnrecur/backend-images`.
 
+## Current app
+
+On October 18, the Daily runtime was rebuilt with FSRS defaults, optional formatting preferences, structured exercise layout, skill-deck wording, and the sync-error fixes. **LearnRecur Daily** is pinned to the Dock and still opens the existing Daily Spanish profile through its supervised SSH connection. The previous runtime and a collection snapshot remain available locally for recovery.
+
+All 375 library, 338 Qt, and 455 companion/deployment tests passed, along with focused lint, packaging, and signature verification. A disposable Mac profile passed separated instruction/context rendering, bold answers, native rating, and undo. Daily Spanish passed startup, manual sync, and normal quit with its three trial notes, five native cards, and all 21 reviews preserved. FSRS remained enabled and no uploads were pending. No test ratings or reports were added to the daily profile.
+
+The hosted companion is still on the earlier runtime. Update it before using the new formatting preferences for generation. The worker remains stopped and its active provider key is absent; this app update does not renew paid generation.
+
 ## Follow-up
 
 On October 9, normal skill revisions replaced the initial banks with clearer line breaks and wider blanks while retaining the source examples and review history. On October 12, the user enabled FSRS at 90% desired retention without immediate rescheduling. Native learning steps remain `1m 10m`; learn-ahead can show the ten-minute step early.
