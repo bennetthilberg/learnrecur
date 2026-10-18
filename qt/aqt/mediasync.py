@@ -18,13 +18,14 @@ from anki.utils import int_time
 from aqt import gui_hooks
 from aqt.operations import QueryOp
 from aqt.qt import QDialog, QDialogButtonBox, QPushButton, Qt, QTimer, qconnect
-from aqt.utils import disable_help_button, show_info, tr
+from aqt.utils import MessageBox, disable_help_button, show_info, tr
 
 
 class MediaSyncer:
     def __init__(self, mw: aqt.main.AnkiQt) -> None:
         self.mw = mw
         self._syncing: bool = False
+        self._error_dialogs: set[MessageBox] = set()
         self.last_progress = ""
         self._last_progress_at = 0
         gui_hooks.media_sync_did_start_or_stop.append(self._on_start_stop)
@@ -94,7 +95,11 @@ class MediaSyncer:
             print(str(exc))
         else:
             self._update_progress(tr.sync_media_failed())
-            show_info(str(exc), modality=Qt.WindowModality.NonModal)
+            dialog = show_info(
+                str(exc), parent=self.mw, modality=Qt.WindowModality.NonModal
+            )
+            self._error_dialogs.add(dialog)
+            qconnect(dialog.finished, lambda _: self._error_dialogs.discard(dialog))
 
     def abort(self) -> None:
         if not self.is_syncing():
@@ -113,6 +118,12 @@ class MediaSyncer:
         aqt.dialogs.open("sync_log", self.mw, self)
 
     def show_diag_until_finished(self, on_finished: Callable[[], None]) -> None:
+        if self._error_dialogs:
+            qconnect(
+                next(iter(self._error_dialogs)).finished,
+                lambda _: self.show_diag_until_finished(on_finished),
+            )
+            return
         # nothing to do if not syncing
         if not self.is_syncing():
             return on_finished()
@@ -125,7 +136,7 @@ class MediaSyncer:
         def check_finished() -> None:
             if not self.is_syncing():
                 timer.deleteLater()
-                on_finished()
+                self.show_diag_until_finished(on_finished)
 
         timer = self.mw.progress.timer(150, check_finished, True, False, parent=self.mw)
 

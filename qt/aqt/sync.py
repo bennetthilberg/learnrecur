@@ -64,14 +64,23 @@ def get_sync_status(
     )
 
 
-def handle_sync_error(mw: aqt.main.AnkiQt, err: Exception) -> None:
+def handle_sync_error(
+    mw: aqt.main.AnkiQt,
+    err: Exception,
+    on_done: Callable[[], None] | None = None,
+) -> None:
     if isinstance(err, SyncError):
         if err.kind is SyncErrorKind.AUTH:
             mw.pm.clear_sync_auth()
     elif isinstance(err, Interrupted):
         # no message to show
+        if on_done:
+            on_done()
         return
-    show_warning(str(err), parent=mw)
+    warning = show_warning(str(err), parent=mw)
+    if on_done:
+        # Closing the profile must wait until the user has read the error.
+        qconnect(warning.finished, lambda _: on_done())
 
 
 def on_normal_sync_timer(mw: aqt.main.AnkiQt) -> None:
@@ -109,8 +118,7 @@ def sync_collection(mw: aqt.main.AnkiQt, on_done: Callable[[], None]) -> None:
         try:
             out = fut.result()
         except Exception as err:
-            handle_sync_error(mw, err)
-            return on_done()
+            return handle_sync_error(mw, err, on_done)
 
         mw.pm.set_host_number(out.host_number)
         if out.new_endpoint:
@@ -265,9 +273,12 @@ def full_download(
         try:
             fut.result()
         except Exception as err:
-            handle_sync_error(mw, err)
+            return handle_sync_error(mw, err, finish)
+        finish()
+
+    def finish() -> None:
         mw.media_syncer.start_monitoring()
-        return on_done()
+        on_done()
 
     mw.taskman.with_progress(
         download,
@@ -297,8 +308,7 @@ def full_upload(
         try:
             fut.result()
         except Exception as err:
-            handle_sync_error(mw, err)
-            return on_done()
+            return handle_sync_error(mw, err, on_done)
         mw.media_syncer.start_monitoring()
         return on_done()
 
