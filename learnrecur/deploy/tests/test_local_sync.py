@@ -478,6 +478,33 @@ def test_skill_deletion_is_refused_before_it_can_stop_sync(
         assert a.get_note(nid).fields == b.get_note(nid).fields
 
 
+def test_extra_card_of_a_skill_note_can_be_deleted(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        model = a.get_note(nid).note_type()
+        template = a.models.new_template("Synthetic extra")
+        template["qfmt"], template["afmt"] = "{{Title}}", "{{Description}}"
+        a.models.add_template(model, template)
+        a.models.update_dict(model)
+        full_sync(a, auth, True)
+        full_sync(b, auth, False)
+        skill_card, extra = sorted(
+            a.find_cards(""), key=lambda cid: a.get_card(cid).ord
+        )
+        time.sleep(0.01)
+        with pytest.raises(InvalidInput, match="Skills can't be deleted yet"):
+            a.remove_cards_and_orphaned_notes([skill_card])
+        # Empty Cards removes cards this way without removing their note.
+        a.remove_cards_and_orphaned_notes([extra])
+        sync(a, auth)
+        sync(b, auth)
+        for col in (a, b):
+            assert col.find_cards("") == [skill_card]
+            assert col.get_card(skill_card).nid == nid
+
+
 def test_server_explains_refused_skill_deletion(server, snapshot, tmp_path):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)

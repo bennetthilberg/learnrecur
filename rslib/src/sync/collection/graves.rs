@@ -48,7 +48,8 @@ impl Graves {
 impl Collection {
     pub fn apply_graves(&self, graves: Graves, latest_usn: Usn) -> Result<()> {
         // Native graves carry only IDs, so they cannot prove skill ownership.
-        // Refuse skill deletions until reconciliation supports that proof. Deck
+        // Refuse skill deletions until reconciliation supports that proof. Extra
+        // cards of a skill note, such as one from an added template, still sync. Deck
         // graves only remove the deck row, as upstream; card moves arrive later
         // in the same sync, and real deletions also send card and note graves.
         for nid in &graves.notes {
@@ -56,7 +57,9 @@ impl Collection {
         }
         for cid in &graves.cards {
             if let Some(card) = self.storage.get_card(*cid)? {
-                self.require_safe_remote_deletion(card.note_id)?;
+                if self.is_trusted_skill_card(&card)? {
+                    self.require_safe_remote_deletion(card.note_id)?;
+                }
             }
         }
         for nid in graves.notes {

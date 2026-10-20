@@ -274,6 +274,16 @@ impl Collection {
             .is_some_and(|identity| identity.guid == note.guid))
     }
 
+    /// True for the scheduled card of a trusted skill. Other cards of the note,
+    /// such as one from an added template, aren't part of the skill's identity.
+    pub(crate) fn is_trusted_skill_card(&self, card: &Card) -> Result<bool> {
+        Ok(self.is_trusted_skill_note(card.note_id)?
+            && self
+                .storage
+                .skill_identity_for_note(card.note_id)?
+                .is_some_and(|identity| identity.cid == card.id))
+    }
+
     pub(crate) fn validate_skill_bank_append(older: &[String], newer: &[String]) -> Result<()> {
         let old: serde_json::Value =
             serde_json::from_str(&older[5]).or_invalid("invalid old bank")?;
