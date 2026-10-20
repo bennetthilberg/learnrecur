@@ -301,16 +301,26 @@ def test_request_in_progress_cannot_be_discarded(jobs, state):
     assert drafts(jobs) == 1
 
 
-def test_uncertain_request_keeps_its_hold_and_draft_when_discarded(jobs):
+def test_discarded_uncertain_request_records_cost_but_never_publishes(jobs):
     payload = definition(jobs)
-    job = jobs.create_skill(payload, "fixture")
-    with jobs.store.connect() as db:
-        db.execute(
-            "update generation_jobs set state='needs_attention' where id=?",
-            (job["id"],),
-        )
+    job = jobs.create_skill(payload, "openai")
+    transport = Transport()
+    transport.failure = TimeoutError
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    assert jobs.get(job["id"])["state"] == "needs_attention"
     assert discard(jobs, payload)["state"] == "needs_attention"
-    assert drafts(jobs) == 1
+    assert drafts(jobs) == 0
+    assert jobs.history()["budget"]["reserved_microusd"] > 0
+    # The operator later finds that the response succeeded.
+    transport.failure = None
+    assert jobs.reconcile(job["id"], "resp_test", provider)["state"] == "obsolete"
+    assert jobs.store.snapshot()["skills"] == []
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select net_actual>0 from generation_attempts"
+        ).fetchone() == (1,)
+    assert [call[0] for call in transport.calls] == ["POST", "GET"]
 
 
 def test_discard_requires_this_companion_and_a_skill_request(jobs):

@@ -12,6 +12,7 @@ from learnrecur.companion.jobs import (
     FixtureProvider,
     JobConflict,
     Jobs,
+    RetryableFailure,
     TerminalFailure,
 )
 from learnrecur.companion.openai_provider import request_body
@@ -376,44 +377,60 @@ def at(jobs, seconds):
 
 
 @pytest.mark.parametrize("provider", [Rejected(), Copied()], ids=["free", "charged"])
-def test_failed_refill_starts_a_new_round_after_a_growing_wait(jobs, provider):
+def test_failed_refill_retries_in_its_own_row_after_a_growing_wait(jobs, provider):
     value = checkpoint(jobs)
     first = jobs.request_refill(value, "fixture")
-    assert jobs.run_once(provider) == first["job_id"]
-    assert jobs.get(first["job_id"])["state"] == "failed"
+    job_id = first["job_id"]
+    assert jobs.run_once(provider) == job_id
+    assert jobs.get(job_id)["state"] == "failed"
+    failed = {"status": "failed", "job_id": job_id}
     at(jobs, 3500)
-    assert jobs.request_refill(value, "fixture") == {
-        "status": "failed",
-        "job_id": first["job_id"],
-    }
+    assert jobs.request_refill(value, "fixture") == failed
     restarted = Jobs(Store(jobs.store.path.parent), clock=lambda: 1790888400 + 3700)
     with ThreadPoolExecutor(max_workers=8) as pool:
         replies = list(
             pool.map(lambda _: restarted.request_refill(value, "fixture"), range(8))
         )
-    assert all(reply == replies[0] for reply in replies)
-    second = replies[0]
-    assert second["status"] == "queued" and second["job_id"] != first["job_id"]
-    assert count(jobs) == 2
-    assert jobs.get(second["job_id"])["context"] == jobs.get(first["job_id"])["context"]
-    assert restarted.run_once(provider) == second["job_id"]
+    assert all(reply == {"status": "queued", "job_id": job_id} for reply in replies)
+    assert count(jobs) == 1
+    assert restarted.run_once(provider) == job_id
+    assert restarted.get(job_id)["attempts"] == 2
     # The second failure waits two hours before a third round.
     at(jobs, 3700 + 7000)
-    assert jobs.request_refill(value, "fixture")["job_id"] == second["job_id"]
+    assert jobs.request_refill(value, "fixture") == failed
     at(jobs, 3700 + 7300)
-    third = jobs.request_refill(value, "fixture")
-    assert third["job_id"] not in (first["job_id"], second["job_id"])
-    assert jobs.run_once(FixtureProvider()) == third["job_id"]
-    assert jobs.get(third["job_id"])["state"] == "completed"
+    assert jobs.request_refill(value, "fixture")["status"] == "queued"
+    assert jobs.run_once(FixtureProvider()) == job_id
+    assert jobs.get(job_id)["state"] == "completed"
     assert jobs.request_refill(value, "fixture") == {
         "status": "awaiting_import",
         "job_id": None,
     }
+    assert count(jobs) == 1
     with jobs.store.connect() as db:
         spent = db.execute(
             "select count(*),sum(net_actual) from generation_attempts where net_actual is not null"
         ).fetchone()
     assert spent == (3, 160 if isinstance(provider, Copied) else 0)
+
+
+def test_retried_round_gets_its_own_attempt_limit_and_short_backoff(jobs):
+    class Busy(FixtureProvider):
+        def generate(self, context):
+            raise RetryableFailure()
+
+    value = checkpoint(jobs)
+    job_id = jobs.request_refill(value, "fixture")["job_id"]
+    # Each round retries three times within seconds, then waits for the next.
+    for start, wait in ((0, 3700), (4000, 7300)):
+        for step in range(4):
+            at(jobs, start + step * 20)
+            jobs.run_once(Busy())
+        assert jobs.get(job_id)["state"] == "failed"
+        at(jobs, start + wait)
+        assert jobs.request_refill(value, "fixture")["status"] == "queued"
+    assert jobs.get(job_id)["attempts"] == 6
+    assert count(jobs) == 1
 
 
 def test_settled_failed_manual_job_no_longer_blocks_refills(jobs, payload):

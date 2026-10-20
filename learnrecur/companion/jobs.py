@@ -9,6 +9,7 @@ import argparse
 import copy
 import hashlib
 import re
+import sys
 import time
 from contextlib import nullcontext
 from datetime import datetime, timezone
@@ -67,6 +68,16 @@ def initialize(db):
         db.execute(
             "alter table generation_attempts add column poll_failures integer not null default 0"
         )
+    columns = {row[1] for row in db.execute("pragma table_info(generation_jobs)")}
+    # A failed refill retries in its own row; the limit counts this round only.
+    if "retry_rounds" not in columns:
+        db.execute(
+            "alter table generation_jobs add column retry_rounds integer not null default 0"
+        )
+    if "round_start" not in columns:
+        db.execute(
+            "alter table generation_jobs add column round_start integer not null default 0"
+        )
     db.execute(
         "create unique index if not exists generation_response_ids on generation_attempts(response_id) where response_id is not null"
     )
@@ -93,7 +104,7 @@ class Jobs:
             until,
             result,
             error,
-        ) = row
+        ) = row[:11]
         return {
             "id": job_id,
             "request_id": request_id,
@@ -544,15 +555,14 @@ class Jobs:
                     "update generation_jobs set state='obsolete',error='The request was discarded.' where id=?",
                     (job_id,),
                 )
-                state = "obsolete"
             elif state not in ("failed", "obsolete", "needs_attention"):
                 raise JobConflict("Generation is in progress. Check status again.")
-            if state != "needs_attention":
-                # Leave a newer draft from another request in place.
-                db.execute(
-                    "delete from skill_drafts where id=? and payload=?",
-                    (context["skill"]["id"], encode(context["skill"])),
-                )
+            # Without its draft, a later reconciled result records its cost but
+            # can't publish. Leave a newer draft from another request in place.
+            db.execute(
+                "delete from skill_drafts where id=? and payload=?",
+                (context["skill"]["id"], encode(context["skill"])),
+            )
             return self._read(
                 db,
                 db.execute(
@@ -697,6 +707,7 @@ class Jobs:
         checkpoint = {
             k: value[k] for k in ("source_id", "skill_id", "revision", "bank_sequence")
         }
+        request_id = "refill-" + hashlib.sha256(encode(checkpoint).encode()).hexdigest()
         now = self.clock()
         with self.store.connect() if _db is None else nullcontext(_db) as db:
             if _db is None:
@@ -726,24 +737,17 @@ class Jobs:
                 raise JobConflict("The imported bank checkpoint is unknown.")
             if value["bank_sequence"] < sequence:
                 return {"status": "awaiting_import", "job_id": None}
-            # Each round has its own stable ID. A new round starts only after
-            # the previous one failed with every charge recorded, and waits
-            # longer after each failure so a lasting fault can't fill the store.
-            rounds = 0
-            while True:
-                request_id = self._refill_request_id(checkpoint, rounds)
-                existing = db.execute(
-                    "select id,state,next_run from generation_jobs where request_id=?",
-                    (request_id,),
-                ).fetchone()
-                if not existing:
-                    break
+            existing = db.execute(
+                "select id,state,next_run,retry_rounds from generation_jobs where request_id=?",
+                (request_id,),
+            ).fetchone()
+            if existing:
                 if not self._settled_failure(db, existing[0], existing[1]):
                     return {"status": existing[1], "job_id": existing[0]}
-                previous = existing
-                rounds += 1
-            if rounds and now < previous[2] + 3600 * min(2 ** (rounds - 1), 24):
-                return {"status": "failed", "job_id": previous[0]}
+                # A failure with every charge recorded can retry after a wait
+                # that doubles each round, from one hour up to a day.
+                if now < existing[2] + 3600 * min(2 ** existing[3], 24):
+                    return {"status": "failed", "job_id": existing[0]}
             # Any uncertain charge needs explicit recovery before automatic work.
             uncertain = db.execute(
                 "select id from generation_jobs where state='needs_attention' limit 1"
@@ -760,6 +764,14 @@ class Jobs:
                     and not self._settled_failure(db, job_id, state)
                 ):
                     return {"status": state, "job_id": job_id}
+            if existing:
+                # Retry in the same row, with its frozen guidance, so a lasting
+                # fault can't use up the job quota.
+                db.execute(
+                    "update generation_jobs set state='queued',error=null,result=null,next_run=?,retry_rounds=retry_rounds+1,round_start=attempts where id=?",
+                    (now, existing[0]),
+                )
+                return {"status": "queued", "job_id": existing[0]}
             examples = self._saved_examples(db, skill)
             if not examples:
                 reported = {
@@ -807,12 +819,6 @@ class Jobs:
                 now,
             )
             return {"status": job["state"], "job_id": job["id"]}
-
-    @staticmethod
-    def _refill_request_id(checkpoint, rounds):
-        # Round 0 keeps the original ID so existing jobs still deduplicate.
-        identity = {**checkpoint, "round": rounds} if rounds else checkpoint
-        return "refill-" + hashlib.sha256(encode(identity).encode()).hexdigest()
 
     @staticmethod
     def _settled_failure(db, job_id, state):
@@ -950,10 +956,10 @@ class Jobs:
             self.check_restore(provider)
             self._recover(db, now)
             rows = db.execute(
-                "select id,context,attempts from generation_jobs where state in ('queued','retry_wait','waiting_budget','waiting_capacity') and result is null and next_run<=? order by next_run,id",
+                "select id,context,attempts,round_start from generation_jobs where state in ('queued','retry_wait','waiting_budget','waiting_capacity') and result is null and next_run<=? order by next_run,id",
                 (now,),
             ).fetchall()
-            for job_id, encoded, attempts in rows:
+            for job_id, encoded, attempts, round_start in rows:
                 context = decode(encoded.encode())
                 if context["provider"] != getattr(
                     provider, "name", "fixture-spanish-v1"
@@ -965,7 +971,7 @@ class Jobs:
                         (job_id,),
                     )
                     continue
-                if attempts >= MAX_ATTEMPTS:
+                if attempts - round_start >= MAX_ATTEMPTS:
                     db.execute(
                         "update generation_jobs set state='failed',error='Attempt limit reached.',next_run=? where id=?",
                         (now, job_id),
@@ -1351,6 +1357,9 @@ class Jobs:
                     "update generation_attempts set state='settled',gross_actual=0,credit_actual=0,net_actual=0 where job_id=? and attempt=?",
                     (job_id, attempt),
                 )
+            attempt -= db.execute(
+                "select round_start from generation_jobs where id=?", (job_id,)
+            ).fetchone()[0]
             state = (
                 "retry_wait"
                 if kind == "retry" and attempt < MAX_ATTEMPTS
@@ -1514,6 +1523,7 @@ class Jobs:
 
                 print(
                     f"Job {job_id} attempt {attempt} submitted as {response_id(response)}.",
+                    file=sys.stderr,
                     flush=True,
                 )
                 self.submitted(job_id, token, response)

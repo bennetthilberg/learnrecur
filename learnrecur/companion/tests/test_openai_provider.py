@@ -633,7 +633,7 @@ def test_successful_poll_resets_read_failures_and_id_is_logged_first(
     provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
     jobs.run_once(provider)
     assert f"Job {job['id']} attempt 1 submitted as resp_test." in (
-        capsys.readouterr().out
+        capsys.readouterr().err
     )
     transport.steps = ["fail", "fail", "pending", "fail", "fail", "pending", "done"]
     for n in range(7):
