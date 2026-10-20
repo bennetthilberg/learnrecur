@@ -60,6 +60,12 @@ impl Collection {
 
     /// Remove a note. Cards must already have been deleted.
     pub(crate) fn remove_note_only_undoable(&mut self, nid: NoteId, usn: Usn) -> Result<()> {
+        // Other clients refuse skill deletions during sync, so stop them here
+        // instead of saving a change that can't sync.
+        require!(
+            !self.is_trusted_skill_note(nid)?,
+            "Skills can't be deleted yet. Suspend them instead."
+        );
         if let Some(note) = self.storage.get_note(nid)? {
             self.save_undo(UndoableNoteChange::Removed(Box::new(note)));
             self.storage.remove_note(nid)?;

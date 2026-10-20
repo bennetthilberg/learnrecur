@@ -63,6 +63,9 @@ impl IntoResponse for HttpError {
         }
         if code == StatusCode::PERMANENT_REDIRECT {
             Redirect::permanent(&context).into_response()
+        } else if code == StatusCode::UNPROCESSABLE_ENTITY {
+            // A LearnRecur refusal written for the user.
+            (code, context).into_response()
         } else {
             (code, code.as_str().to_string()).into_response()
         }

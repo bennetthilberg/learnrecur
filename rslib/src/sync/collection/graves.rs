@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::prelude::*;
+use crate::sync::collection::chunks::skill_sync_refusal;
 use crate::sync::collection::chunks::CHUNK_SIZE;
 use crate::sync::collection::start::ServerSyncState;
 
@@ -47,18 +48,18 @@ impl Graves {
 impl Collection {
     pub fn apply_graves(&self, graves: Graves, latest_usn: Usn) -> Result<()> {
         // Native graves carry only IDs, so they cannot prove skill ownership.
-        // Refuse skill deletions until reconciliation supports that proof.
+        // Refuse skill deletions until reconciliation supports that proof. Extra
+        // cards of a skill note, such as one from an added template, still sync. Deck
+        // graves only remove the deck row, as upstream; card moves arrive later
+        // in the same sync, and real deletions also send card and note graves.
         for nid in &graves.notes {
             self.require_safe_remote_deletion(*nid)?;
         }
         for cid in &graves.cards {
             if let Some(card) = self.storage.get_card(*cid)? {
-                self.require_safe_remote_deletion(card.note_id)?;
-            }
-        }
-        for did in &graves.decks {
-            for nid in self.storage.note_ids_for_remote_deck_deletion(*did)? {
-                self.require_safe_remote_deletion(nid)?;
+                if self.is_trusted_skill_card(&card)? {
+                    self.require_safe_remote_deletion(card.note_id)?;
+                }
             }
         }
         for nid in graves.notes {
@@ -77,18 +78,25 @@ impl Collection {
     }
 
     fn require_safe_remote_deletion(&self, nid: NoteId) -> Result<()> {
-        let Some(note) = self.storage.get_note(nid)? else {
+        if !self.is_trusted_skill_note(nid)? {
             return Ok(());
-        };
-        let protected = self
-            .storage
-            .skill_identity_for_note(nid)?
-            .is_some_and(|identity| identity.guid == note.guid);
-        require!(
-            !protected,
-            "remote skill deletion is not supported; sync stopped without applying changes"
-        );
-        Ok(())
+        }
+        // The server refuses a client's deletion; a client refuses the server's.
+        Err(if self.server {
+            skill_sync_refusal(
+                "A skill was deleted on this device, but skills can't be deleted yet.",
+                "To get it back, open Preferences on this device, turn on \
+                 “On next sync, force changes in one direction”, then sync and choose \
+                 Download. This replaces changes made on this device since its last sync.",
+            )
+        } else {
+            skill_sync_refusal(
+                "Another device deleted a note with the same ID as a skill on this device.",
+                "To keep the skill, open Preferences on this device, turn on \
+                 “On next sync, force changes in one direction”, then sync and choose \
+                 Upload. Your other devices will download it when they next sync.",
+            )
+        })
     }
 }
 
