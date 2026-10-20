@@ -420,6 +420,46 @@ class Deployment:
             check=True,
         )
 
+    def release_generation(self, job_id, charge):
+        """Close a needs_attention job with the charge read from provider records."""
+        validate_root(self.state)
+        self.verify_containers()
+        if type(charge) is not int or not 0 <= charge <= 5000000:
+            raise ValueError("Supply the confirmed charge in microusd.")
+        # No key or network: this only records what the operator confirmed.
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--user",
+                f"{self.uid}:{self.uid}",
+                "--cap-drop",
+                "ALL",
+                "--security-opt",
+                "no-new-privileges",
+                "--tmpfs",
+                "/tmp:size=64m,mode=1777",
+                "--mount",
+                f"type=bind,src={self.state / 'companion'},dst=/state/companion",
+                "--entrypoint",
+                "python",
+                self.image,
+                "-m",
+                "learnrecur.companion.jobs",
+                "--data-dir",
+                "/state/companion",
+                "--release-job",
+                job_id,
+                "--confirmed-charge-microusd",
+                str(charge),
+            ],
+            check=True,
+        )
+
 
 def main():
     os.umask(0o077)
@@ -442,6 +482,7 @@ def main():
             "inspect-generation",
             "publish-ready",
             "reconcile-openai",
+            "release-generation",
             "handoff-backup",
             "allow-paid-worker",
         ),
@@ -452,6 +493,7 @@ def main():
     parser.add_argument("--monthly-limit-microusd", type=int)
     parser.add_argument("--job-id")
     parser.add_argument("--response-id")
+    parser.add_argument("--confirmed-charge-microusd", type=int)
     parser.add_argument("--handoff-id")
     parser.add_argument("--confirm-sole-active-host", action="store_true")
     args = parser.parse_args()
@@ -515,6 +557,14 @@ def main():
                 args.command == "reconcile-openai" and args.job_id and args.response_id
             ):
                 deployment.reconcile_openai(args.job_id, args.response_id)
+            elif (
+                args.command == "release-generation"
+                and args.job_id
+                and args.confirmed_charge_microusd is not None
+            ):
+                deployment.release_generation(
+                    args.job_id, args.confirmed_charge_microusd
+                )
             else:
                 raise ValueError(
                     "Supply the archive and recipient or identity options."

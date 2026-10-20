@@ -8,7 +8,12 @@ from uuid import uuid4
 import pytest
 
 from anki.learnrecur_skill_import import SkillImportError
-from learnrecur.companion.jobs import FixtureProvider, JobConflict, Jobs
+from learnrecur.companion.jobs import (
+    FixtureProvider,
+    JobConflict,
+    Jobs,
+    TerminalFailure,
+)
 from learnrecur.companion.openai_provider import request_body
 from learnrecur.companion.reports import Reports
 from learnrecur.companion.server import Store
@@ -224,7 +229,6 @@ def test_completed_batch_requires_import_before_another_refill(jobs):
         "retry_wait",
         "waiting_budget",
         "result_ready",
-        "failed",
         "needs_attention",
     ],
 )
@@ -343,3 +347,191 @@ def test_endpoint_is_authenticated_and_disabled_by_default(server, batch):
     status, first = request(server, body, path="/v1/refill-requests")
     assert status == 200 and first["status"] == "queued"
     assert request(server, body, path="/v1/refill-requests") == (200, first)
+
+
+class Rejected(FixtureProvider):
+    def generate(self, context):
+        raise TerminalFailure()
+
+
+class Copied(FixtureProvider):
+    """Return a charged batch that copies an example, so publication fails."""
+
+    def estimate(self, context):
+        return 100
+
+    def generate(self, context):
+        result = super().generate(context)
+        result["exercises"][0] = context["examples"][0]
+        result["usage"] = {
+            "input_tokens": 10,
+            "output_tokens": 10,
+            "gross_cost_microusd": 80,
+        }
+        return result
+
+
+def at(jobs, seconds):
+    jobs.clock = lambda: 1790888400 + seconds
+
+
+@pytest.mark.parametrize("provider", [Rejected(), Copied()], ids=["free", "charged"])
+def test_failed_refill_starts_a_new_round_after_a_growing_wait(jobs, provider):
+    value = checkpoint(jobs)
+    first = jobs.request_refill(value, "fixture")
+    assert jobs.run_once(provider) == first["job_id"]
+    assert jobs.get(first["job_id"])["state"] == "failed"
+    at(jobs, 3500)
+    assert jobs.request_refill(value, "fixture") == {
+        "status": "failed",
+        "job_id": first["job_id"],
+    }
+    restarted = Jobs(Store(jobs.store.path.parent), clock=lambda: 1790888400 + 3700)
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        replies = list(
+            pool.map(lambda _: restarted.request_refill(value, "fixture"), range(8))
+        )
+    assert all(reply == replies[0] for reply in replies)
+    second = replies[0]
+    assert second["status"] == "queued" and second["job_id"] != first["job_id"]
+    assert count(jobs) == 2
+    assert jobs.get(second["job_id"])["context"] == jobs.get(first["job_id"])["context"]
+    assert restarted.run_once(provider) == second["job_id"]
+    # The second failure waits two hours before a third round.
+    at(jobs, 3700 + 7000)
+    assert jobs.request_refill(value, "fixture")["job_id"] == second["job_id"]
+    at(jobs, 3700 + 7300)
+    third = jobs.request_refill(value, "fixture")
+    assert third["job_id"] not in (first["job_id"], second["job_id"])
+    assert jobs.run_once(FixtureProvider()) == third["job_id"]
+    assert jobs.get(third["job_id"])["state"] == "completed"
+    assert jobs.request_refill(value, "fixture") == {
+        "status": "awaiting_import",
+        "job_id": None,
+    }
+    with jobs.store.connect() as db:
+        spent = db.execute(
+            "select count(*),sum(net_actual) from generation_attempts where net_actual is not null"
+        ).fetchone()
+    assert spent == (3, 160 if isinstance(provider, Copied) else 0)
+
+
+def test_settled_failed_manual_job_no_longer_blocks_refills(jobs, payload):
+    manual = jobs.enqueue(payload)
+    with jobs.store.connect() as db:
+        db.execute(
+            "update generation_jobs set state='failed',attempts=1 where id=?",
+            (manual["id"],),
+        )
+        db.execute(
+            "insert into generation_attempts (job_id,attempt,month,state,gross_reserved,credit_reserved,net_reserved) values (?,1,'2026-09','calling',10,0,10)",
+            (manual["id"],),
+        )
+    # A failed job with an unrecorded charge still blocks.
+    assert jobs.request_refill(checkpoint(jobs), "fixture") == {
+        "status": "failed",
+        "job_id": manual["id"],
+    }
+    with jobs.store.connect() as db:
+        db.execute(
+            "update generation_attempts set state='settled',gross_actual=0,credit_actual=0,net_actual=0"
+        )
+    result = jobs.request_refill(checkpoint(jobs), "fixture")
+    assert result["status"] == "queued" and result["job_id"] != manual["id"]
+
+
+def test_failed_edit_no_longer_holds_back_refills(jobs, guided_skill):
+    skill_id, examples = guided_skill
+    edit = {
+        **jobs.definition(skill_id),
+        "request_id": uuid4().hex,
+        "description": "A description the fixture rejects.",
+    }
+    changed = jobs.edit_skill(edit, "fixture")
+    value = checkpoint(jobs, skill_id=skill_id)
+    assert jobs.request_refill(value, "fixture")["status"] == "awaiting_import"
+    assert jobs.run_once(FixtureProvider()) == changed["id"]
+    assert jobs.get(changed["id"])["state"] == "failed"
+    result = jobs.request_refill(value, "fixture")
+    assert result["status"] == "queued"
+    with jobs.store.connect() as db:
+        assert not db.execute(
+            "select 1 from skill_drafts where id=?", (skill_id,)
+        ).fetchone()
+    assert jobs.run_once(FixtureProvider()) == result["job_id"]
+    assert jobs.get(result["job_id"])["state"] == "completed"
+    assert jobs.definition(skill_id)["examples"] == examples
+
+
+def test_operator_release_records_the_charge_and_unblocks_refills(jobs, payload):
+    class Lost(FixtureProvider):
+        def estimate(self, context):
+            return 100
+
+        def generate(self, context):
+            raise RuntimeError("connection lost after the request was sent")
+
+    manual = jobs.enqueue(payload)
+    jobs.run_once(Lost())
+    assert jobs.get(manual["id"])["state"] == "needs_attention"
+    value = checkpoint(jobs)
+    assert jobs.request_refill(value, "fixture") == {
+        "status": "needs_attention",
+        "job_id": manual["id"],
+    }
+    for charge in (-1, 5000001, True, None):
+        with pytest.raises(SkillImportError):
+            jobs.release(manual["id"], charge)
+    marker = jobs.store.path.parent / ".paid-restore-pending"
+    marker.write_text("paused")
+    with pytest.raises(JobConflict):
+        jobs.release(manual["id"], 40)
+    marker.unlink()
+    history = jobs.history()
+    assert history["budget"]["reserved_microusd"] == 100
+    assert "refills are paused" in history["jobs"][0]["reason"]
+    assert jobs.release(manual["id"], 40) == {
+        "job_id": manual["id"],
+        "attempt": 1,
+        "provider_response_id": None,
+        "gross_microusd": 40,
+        "net_microusd": 40,
+    }
+    with pytest.raises(JobConflict):
+        jobs.release(manual["id"], 0)
+    history = jobs.history()
+    assert history["budget"]["reserved_microusd"] == 0
+    assert history["budget"]["estimated_spend_microusd"] == 40
+    assert (
+        history["jobs"][0]["reason"] == "Stopped after checking the provider's records."
+    )
+    result = jobs.request_refill(value, "fixture")
+    assert result["status"] == "queued" and result["job_id"] != manual["id"]
+
+
+def test_release_cli_is_separate_from_paid_options(jobs, payload, monkeypatch, capsys):
+    import sys
+
+    from learnrecur.companion.jobs import main
+
+    manual = jobs.enqueue(payload)
+    with jobs.store.connect() as db:
+        db.execute(
+            "update generation_jobs set state='needs_attention',attempts=1 where id=?",
+            (manual["id"],),
+        )
+        db.execute(
+            "insert into generation_attempts (job_id,attempt,month,state,gross_reserved,credit_reserved,net_reserved,response_id) values (?,1,'2026-10','calling',10,0,10,'resp_synthetic')",
+            (manual["id"],),
+        )
+    base = ["jobs", "--data-dir", str(jobs.store.path.parent)]
+    release = ["--release-job", manual["id"], "--confirmed-charge-microusd", "0"]
+    monkeypatch.setattr(sys, "argv", [*base, *release, "--provider", "openai"])
+    with pytest.raises(SystemExit) as failure:
+        main()
+    assert failure.value.code == 2
+    assert jobs.get(manual["id"])["state"] == "needs_attention"
+    monkeypatch.setattr(sys, "argv", [*base, *release])
+    main()
+    assert "resp_synthetic" in capsys.readouterr().out
+    assert jobs.get(manual["id"])["state"] == "failed"

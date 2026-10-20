@@ -248,7 +248,7 @@ def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
     assert request_body(fresh["context"])["instructions"].startswith(GUIDANCE)
 
 
-def test_tightening_budget_preserves_charges_holds_and_credits(jobs, payload):
+def test_changing_budget_preserves_charges_holds_and_credits(jobs, payload):
     jobs.configure_budget(1000000, 100, 1791000000)
     job = openai_job(jobs, payload)
     transport = Transport()
@@ -265,10 +265,19 @@ def test_tightening_budget_preserves_charges_holds_and_credits(jobs, payload):
     assert jobs.get(second["id"])["state"] == "waiting_budget"
     assert len(transport.calls) == 1
     assert jobs.get(job["id"])["state"] == "needs_attention"
+    # Raising the ceiling again keeps the uncertain hold and recorded spend.
+    jobs.configure_budget(5000000, 100, 1791000000)
+    with jobs.store.connect() as db:
+        assert db.execute("select * from generation_attempts").fetchall() == before
+        assert db.execute("select monthly_limit from generation_budget").fetchone() == (
+            5000000,
+        )
+    with pytest.raises(SkillImportError):
+        jobs.configure_budget(5000001, 100, 1791000000)
     with pytest.raises(JobConflict):
-        jobs.configure_budget(1000000, 100, 1791000000)
+        jobs.configure_budget(1000000, 200, 1791000000)
     with pytest.raises(JobConflict):
-        jobs.configure_budget(1, 200, 1791000000)
+        jobs.configure_budget(1000000, 100, 1792000000)
 
 
 @pytest.mark.parametrize("state", ["running", "provider_pending"])
@@ -599,6 +608,40 @@ def test_repeated_read_failure_keeps_response_id_for_manual_recovery(jobs, paylo
     assert [c[0] for c in transport.calls] == ["POST", "GET", "GET", "GET"]
     transport.failure = None
     assert jobs.reconcile(job["id"], "resp_test", provider)["state"] == "completed"
+
+
+def test_successful_poll_resets_read_failures_and_id_is_logged_first(
+    jobs, payload, capsys
+):
+    job = openai_job(jobs, payload)
+
+    class Polling(Transport):
+        steps = []
+
+        def __call__(self, method, path, body=None, trace=None):
+            if method == "GET":
+                step = self.steps.pop(0)
+                if step == "fail":
+                    self.calls.append((method, path, None, trace))
+                    raise ReadFailure()
+                if step == "pending":
+                    self.calls.append((method, path, None, trace))
+                    return reply(self.meta, status="in_progress", usage=None, output=[])
+            return super().__call__(method, path, body, trace)
+
+    transport = Polling(pending=True)
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.run_once(provider)
+    assert f"Job {job['id']} attempt 1 submitted as resp_test." in (
+        capsys.readouterr().out
+    )
+    transport.steps = ["fail", "fail", "pending", "fail", "fail", "pending", "done"]
+    for n in range(7):
+        assert jobs.get(job["id"])["state"] == "provider_pending"
+        jobs.clock = lambda n=n: 1790888410 + n * 30
+        jobs.run_once(provider)
+    assert jobs.get(job["id"])["state"] == "completed"
+    assert [c[0] for c in transport.calls] == ["POST"] + ["GET"] * 7
 
 
 def test_description_change_while_pending_records_cost_and_retires_output(
@@ -965,8 +1008,7 @@ def test_same_budget_can_be_reused_after_a_restart_without_resetting_spend(
     openai_job(jobs, payload)
     jobs.run_once(OpenAIProvider(SYNTHETIC_KEY, transport=Transport()))
     jobs.configure_budget(250000)
-    with pytest.raises(JobConflict):
-        jobs.configure_budget(5000000)
+    jobs.configure_budget(1000000)
     with jobs.store.connect() as db:
         assert db.execute("select net_actual from generation_attempts").fetchone() == (
             91,

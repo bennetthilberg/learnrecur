@@ -12,6 +12,9 @@ from learnrecur.companion.jobs import FixtureProvider, JobConflict, Jobs
 from learnrecur.companion.openai_provider import OpenAIProvider
 from learnrecur.companion.server import Store
 from learnrecur.companion.tests.test_openai_provider import SYNTHETIC_KEY, Transport
+from learnrecur.companion.tests.test_server import server
+
+__all__ = ["server"]
 
 FIXTURE = json.loads(
     (Path(__file__).resolve().parents[2] / "fixtures/spanish-import.json").read_text()
@@ -255,3 +258,81 @@ def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
     jobs.run_once(LargestBank())
     assert jobs.get(job["id"])["state"] == "completed"
     assert len(jobs.store.snapshot()["skills"]) == 2
+
+
+def discard(jobs, payload):
+    return jobs.discard_skill_request(
+        {"source_id": payload["source_id"], "request_id": payload["request_id"]}
+    )
+
+
+def drafts(jobs):
+    with jobs.store.connect() as db:
+        return db.execute("select count(*) from skill_drafts").fetchone()[0]
+
+
+@pytest.mark.parametrize("state", ["queued", "retry_wait", "waiting_budget"])
+def test_discarded_request_stops_before_any_call_and_frees_its_draft(jobs, state):
+    payload = definition(jobs)
+    job = jobs.create_skill(payload, "fixture")
+    with jobs.store.connect() as db:
+        db.execute("update generation_jobs set state=? where id=?", (state, job["id"]))
+    result = discard(jobs, payload)
+    assert result["id"] == job["id"] and result["state"] == "obsolete"
+    assert drafts(jobs) == 0
+    assert jobs.run_once(FixtureProvider()) is None
+    assert jobs.history()["jobs"][0]["reason"] == "The request was discarded."
+    # Repeating the discard or the original request returns the same stopped job.
+    assert discard(jobs, payload)["state"] == "obsolete"
+    assert jobs.create_skill(payload, "fixture")["state"] == "obsolete"
+    with jobs.store.connect() as db:
+        assert db.execute("select count(*) from generation_attempts").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("state", ["running", "provider_pending", "result_ready"])
+def test_request_in_progress_cannot_be_discarded(jobs, state):
+    payload = definition(jobs)
+    job = jobs.create_skill(payload, "fixture")
+    with jobs.store.connect() as db:
+        db.execute("update generation_jobs set state=? where id=?", (state, job["id"]))
+    with pytest.raises(JobConflict, match="in progress"):
+        discard(jobs, payload)
+    assert jobs.get(job["id"])["state"] == state
+    assert drafts(jobs) == 1
+
+
+def test_uncertain_request_keeps_its_hold_and_draft_when_discarded(jobs):
+    payload = definition(jobs)
+    job = jobs.create_skill(payload, "fixture")
+    with jobs.store.connect() as db:
+        db.execute(
+            "update generation_jobs set state='needs_attention' where id=?",
+            (job["id"],),
+        )
+    assert discard(jobs, payload)["state"] == "needs_attention"
+    assert drafts(jobs) == 1
+
+
+def test_discard_requires_this_companion_and_a_skill_request(jobs):
+    payload = definition(jobs)
+    jobs.create_skill(payload, "fixture")
+    with pytest.raises(JobConflict, match="companion changed"):
+        discard(jobs, {**payload, "source_id": "other"})
+    with pytest.raises(JobConflict, match="Unknown"):
+        discard(jobs, {**payload, "request_id": uuid4().hex})
+    with pytest.raises(SkillImportError):
+        jobs.discard_skill_request({"request_id": payload["request_id"]})
+    assert drafts(jobs) == 1
+
+
+def test_discard_endpoint_requires_authentication(server):
+    from learnrecur.companion.tests.test_server import request
+
+    jobs = Jobs(server.store)
+    payload = definition(jobs)
+    job = jobs.create_skill(payload, "fixture")
+    body = {"source_id": payload["source_id"], "request_id": payload["request_id"]}
+    assert request(server, body, token=None, path="/v1/skill-discards")[0] == 401
+    assert jobs.get(job["id"])["state"] == "queued"
+    status, result = request(server, body, path="/v1/skill-discards")
+    assert status == 200 and result["state"] == "obsolete"

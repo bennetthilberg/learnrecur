@@ -252,14 +252,15 @@ class Jobs:
             "The current exercise bank is full.": "The exercise bank is full.",
             "The companion is full.": "The companion has no room for another exercise bank.",
             "The companion has no room for this exercise bank.": "The companion has no room for this exercise bank.",
+            "Released after checking the provider.": "Stopped after checking the provider's records.",
         }
         if state == "needs_attention":
             if (
                 error
                 == "The OpenAI API balance is exhausted. Add API credits before another trial. Charge unconfirmed; reservation retained."
             ):
-                return "The provider balance is exhausted. The charge is unconfirmed; check it before starting another job."
-            return "The provider result or charge is unconfirmed. Check it before starting another job."
+                return "The provider balance is exhausted. The charge is unconfirmed, so refills are paused until it's checked."
+            return "The provider result or charge is unconfirmed, so refills are paused until it's checked."
         if state == "waiting_budget":
             return "The generation budget cannot cover another attempt. Cached review still works."
         if state == "waiting_capacity":
@@ -267,7 +268,11 @@ class Jobs:
                 "The companion's storage limit is reached. Cached review still works."
             )
         if state == "obsolete":
-            return "The skill changed before this job finished."
+            return (
+                error
+                if error == "The request was discarded."
+                else "The skill changed before this job finished."
+            )
         if state in ("failed", "retry_wait"):
             return known.get(error, "Generation failed. Check the companion logs.")
         return ""
@@ -506,6 +511,55 @@ class Jobs:
                 draft=True,
             )
 
+    def discard_skill_request(self, value):
+        """Stop a saved Add or Edit skill request before it makes a paid call."""
+        if (
+            not isinstance(value, dict)
+            or set(value) != {"source_id", "request_id"}
+            or not isinstance(value["request_id"], str)
+            or not re.fullmatch(r"[a-f0-9]{32}", value["request_id"])
+        ):
+            raise SkillImportError("Supply the skill request identity.")
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            source = db.execute(
+                "select value from metadata where key='source_id'"
+            ).fetchone()[0]
+            if value["source_id"] != source:
+                raise JobConflict(
+                    "The companion changed. Reconnect to the original server."
+                )
+            row = db.execute(
+                "select id,context,state from generation_jobs where request_id=?",
+                (value["request_id"],),
+            ).fetchone()
+            context = decode(row[1].encode()) if row else {}
+            if not context.get("new_skill"):
+                raise JobConflict("Unknown generation job.")
+            job_id, state = row[0], row[2]
+            # These states hold no lease, and their latest attempt (if any) is
+            # settled, so stopping them can't lose a charge.
+            if state in ("queued", "retry_wait", "waiting_budget", "waiting_capacity"):
+                db.execute(
+                    "update generation_jobs set state='obsolete',error='The request was discarded.' where id=?",
+                    (job_id,),
+                )
+                state = "obsolete"
+            elif state not in ("failed", "obsolete", "needs_attention"):
+                raise JobConflict("Generation is in progress. Check status again.")
+            if state != "needs_attention":
+                # Leave a newer draft from another request in place.
+                db.execute(
+                    "delete from skill_drafts where id=? and payload=?",
+                    (context["skill"]["id"], encode(context["skill"])),
+                )
+            return self._read(
+                db,
+                db.execute(
+                    "select * from generation_jobs where id=?", (job_id,)
+                ).fetchone(),
+            )
+
     def _enqueue(
         self,
         db,
@@ -643,7 +697,7 @@ class Jobs:
         checkpoint = {
             k: value[k] for k in ("source_id", "skill_id", "revision", "bank_sequence")
         }
-        request_id = "refill-" + hashlib.sha256(encode(checkpoint).encode()).hexdigest()
+        now = self.clock()
         with self.store.connect() if _db is None else nullcontext(_db) as db:
             if _db is None:
                 db.execute("begin immediate")
@@ -660,7 +714,9 @@ class Jobs:
                 raise JobConflict(
                     "Import the current skill revision before requesting a refill."
                 )
-            if db.execute("select 1 from skill_drafts where id=?", (key,)).fetchone():
+            if db.execute(
+                "select 1 from skill_drafts where id=?", (key,)
+            ).fetchone() and not self._drop_stopped_draft(db, key):
                 return {"status": "awaiting_import", "job_id": None}
             sequence = db.execute(
                 "select coalesce(max(sequence),0) from exercise_batches where skill_id=?",
@@ -670,11 +726,24 @@ class Jobs:
                 raise JobConflict("The imported bank checkpoint is unknown.")
             if value["bank_sequence"] < sequence:
                 return {"status": "awaiting_import", "job_id": None}
-            existing = db.execute(
-                "select id,state from generation_jobs where request_id=?", (request_id,)
-            ).fetchone()
-            if existing:
-                return {"status": existing[1], "job_id": existing[0]}
+            # Each round has its own stable ID. A new round starts only after
+            # the previous one failed with every charge recorded, and waits
+            # longer after each failure so a lasting fault can't fill the store.
+            rounds = 0
+            while True:
+                request_id = self._refill_request_id(checkpoint, rounds)
+                existing = db.execute(
+                    "select id,state,next_run from generation_jobs where request_id=?",
+                    (request_id,),
+                ).fetchone()
+                if not existing:
+                    break
+                if not self._settled_failure(db, existing[0], existing[1]):
+                    return {"status": existing[1], "job_id": existing[0]}
+                previous = existing
+                rounds += 1
+            if rounds and now < previous[2] + 3600 * min(2 ** (rounds - 1), 24):
+                return {"status": "failed", "job_id": previous[0]}
             # Any uncertain charge needs explicit recovery before automatic work.
             uncertain = db.execute(
                 "select id from generation_jobs where state='needs_attention' limit 1"
@@ -688,6 +757,7 @@ class Jobs:
                 if (
                     saved["id"] == key
                     and saved["bank"]["revision"] == value["revision"]
+                    and not self._settled_failure(db, job_id, state)
                 ):
                     return {"status": state, "job_id": job_id}
             examples = self._saved_examples(db, skill)
@@ -734,12 +804,42 @@ class Jobs:
                 examples,
                 provider,
                 encode(request),
-                self.clock(),
+                now,
             )
             return {"status": job["state"], "job_id": job["id"]}
 
+    @staticmethod
+    def _refill_request_id(checkpoint, rounds):
+        # Round 0 keeps the original ID so existing jobs still deduplicate.
+        identity = {**checkpoint, "round": rounds} if rounds else checkpoint
+        return "refill-" + hashlib.sha256(encode(identity).encode()).hexdigest()
+
+    @staticmethod
+    def _settled_failure(db, job_id, state):
+        return (
+            state == "failed"
+            and not db.execute(
+                "select 1 from generation_attempts where job_id=? and net_actual is null",
+                (job_id,),
+            ).fetchone()
+        )
+
+    @staticmethod
+    def _drop_stopped_draft(db, skill_id):
+        """Remove an edit draft once none of its jobs can still publish it."""
+        for (encoded,) in db.execute(
+            "select context from generation_jobs where state not in ('completed','failed','obsolete')"
+        ):
+            context = decode(encoded.encode())
+            if context.get("new_skill") and context["skill"]["id"] == skill_id:
+                return False
+        db.execute("delete from skill_drafts where id=?", (skill_id,))
+        return True
+
     def configure_budget(self, monthly_limit, credit_total=0, credit_expires=0):
-        # Tightening an allowance must not discard earlier spending or holds.
+        # The monthly limit can move within the $5 cap at any time; recorded
+        # spending and holds live in generation_attempts and stay unchanged.
+        # Credits change only before the first attempt.
         if (
             any(
                 type(n) is not int or not 0 <= n <= 5000000
@@ -758,17 +858,10 @@ class Jobs:
             ).fetchone()
             if current == (monthly_limit, credit_total, credit_expires):
                 return
-            tightening = (
-                monthly_limit <= current[0]
-                and (credit_total, credit_expires) == current[1:]
-            )
-            if (
-                not tightening
-                and db.execute("select count(*) from generation_attempts").fetchone()[0]
-            ):
-                raise JobConflict(
-                    "Configure this proof's budget before its first attempt."
-                )
+            if (credit_total, credit_expires) != current[1:] and db.execute(
+                "select count(*) from generation_attempts"
+            ).fetchone()[0]:
+                raise JobConflict("Configure credits before the first attempt.")
             db.execute(
                 "update generation_budget set monthly_limit=?,credit_total=?,credit_expires=? where id=1",
                 (monthly_limit, credit_total, credit_expires),
@@ -874,16 +967,16 @@ class Jobs:
                     continue
                 if attempts >= MAX_ATTEMPTS:
                     db.execute(
-                        "update generation_jobs set state='failed',error='Attempt limit reached.' where id=?",
-                        (job_id,),
+                        "update generation_jobs set state='failed',error='Attempt limit reached.',next_run=? where id=?",
+                        (now, job_id),
                     )
                     continue
                 try:
                     estimate = provider.estimate(context)
                 except SkillImportError:
                     db.execute(
-                        "update generation_jobs set state='failed',error='Saved provider settings cannot run.' where id=?",
-                        (job_id,),
+                        "update generation_jobs set state='failed',error='Saved provider settings cannot run.',next_run=? where id=?",
+                        (now, job_id),
                     )
                     continue
                 if type(estimate) is not int or not 0 <= estimate <= 5000000:
@@ -1090,7 +1183,8 @@ class Jobs:
             ).fetchone()
             if not response:
                 raise JobConflict("No saved provider response to retrieve.")
-            failures += int(read_failed)
+            # Only consecutive read failures count; a successful GET resets them.
+            failures = failures + 1 if read_failed else 0
             db.execute(
                 "update generation_attempts set poll_failures=? where job_id=? and attempt=?",
                 (failures, job_id, attempt),
@@ -1201,6 +1295,50 @@ class Jobs:
             self.failure(job_id, token, "uncertain")
         return self.get(job_id)
 
+    def release(self, job_id, gross_microusd):
+        """Close an uncertain attempt with the charge the operator confirmed.
+
+        Use this only after checking the provider's records, when the response
+        failed, was cancelled, or never started, so reconcile() can't settle it.
+        """
+        if type(gross_microusd) is not int or not 0 <= gross_microusd <= 5000000:
+            raise SkillImportError("Use a confirmed charge of at most $5.")
+        folder = self.store.path.parent
+        if any(
+            (folder / name).exists()
+            for name in (".restore-pending", ".paid-restore-pending")
+        ):
+            raise JobConflict(
+                "Release jobs on the original host, then export another handoff."
+            )
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            row = db.execute(
+                "select state,attempts from generation_jobs where id=?", (job_id,)
+            ).fetchone()
+            if not row or row[0] != "needs_attention" or not row[1]:
+                raise JobConflict("Only a job that needs attention can be released.")
+            reserved_credit, response = db.execute(
+                "select credit_reserved,response_id from generation_attempts where job_id=? and attempt=?",
+                (job_id, row[1]),
+            ).fetchone()
+            credit = min(gross_microusd, reserved_credit)
+            db.execute(
+                "update generation_attempts set state='settled',gross_actual=?,credit_actual=?,net_actual=? where job_id=? and attempt=?",
+                (gross_microusd, credit, gross_microusd - credit, job_id, row[1]),
+            )
+            db.execute(
+                "update generation_jobs set state='failed',error='Released after checking the provider.',next_run=? where id=?",
+                (self.clock(), job_id),
+            )
+        return {
+            "job_id": job_id,
+            "attempt": row[1],
+            "provider_response_id": response,
+            "gross_microusd": gross_microusd,
+            "net_microusd": gross_microusd - credit,
+        }
+
     def failure(self, job_id, token, kind):
         with self.store.connect() as db:
             db.execute("begin immediate")
@@ -1307,11 +1445,12 @@ class Jobs:
                 db.execute("rollback to publish_batch")
                 db.execute("release publish_batch")
                 db.execute(
-                    "update generation_jobs set state='failed',error=? where id=?",
+                    "update generation_jobs set state='failed',error=?,next_run=? where id=?",
                     (
                         str(error)
                         if isinstance(error, SkillImportError)
                         else "Invalid generated exercise batch.",
+                        self.clock(),
                         job_id,
                     ),
                 )
@@ -1368,6 +1507,14 @@ class Jobs:
                 attempt = self.get(job_id)["attempts"]
                 response = provider.submit(
                     copy.deepcopy(context), identity(job_id, attempt)
+                )
+                # Log the ID before saving it, so a lost write can still be
+                # recovered with --reconcile-job.
+                from learnrecur.companion.openai_provider import response_id
+
+                print(
+                    f"Job {job_id} attempt {attempt} submitted as {response_id(response)}.",
+                    flush=True,
                 )
                 self.submitted(job_id, token, response)
                 self._openai_result(provider, job_id, token, context, attempt, response)
@@ -1484,8 +1631,34 @@ def main():
     parser.add_argument("--reconcile-job")
     parser.add_argument("--response-id")
     parser.add_argument("--monthly-limit-microusd", type=int)
+    parser.add_argument("--release-job")
+    parser.add_argument("--confirmed-charge-microusd", type=int)
     args = parser.parse_args()
     jobs = Jobs(Store(args.data_dir))
+    if args.release_job or args.confirmed_charge_microusd is not None:
+        if (
+            not args.release_job
+            or args.confirmed_charge_microusd is None
+            or args.reconcile_job
+            or args.response_id
+            or args.provider != "fixture"
+            or args.key_file
+            or args.allow_paid_generation
+        ):
+            parser.error(
+                "Release needs only a job and the charge confirmed in provider records."
+            )
+        try:
+            released = jobs.release(args.release_job, args.confirmed_charge_microusd)
+        except SkillImportError as error:
+            parser.error(str(error))
+        print(
+            "Released job {job_id} attempt {attempt} (response "
+            "{provider_response_id}) with a confirmed charge of "
+            "{gross_microusd} microusd.".format(**released),
+            flush=True,
+        )
+        return
     if args.monthly_limit_microusd is not None:
         jobs.configure_budget(args.monthly_limit_microusd)
     provider = FixtureProvider()

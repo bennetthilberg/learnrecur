@@ -100,3 +100,25 @@ def test_reconciliation_uses_only_the_recovery_command(deployment, monkeypatch):
     assert "worker" not in args
     assert (deployment.state / "companion/.paid-restore-pending").exists()
     assert "sk-" not in str(run.call_args)
+
+
+def test_release_records_a_confirmed_charge_without_key_or_network(
+    deployment, monkeypatch
+):
+    run = Mock()
+    monkeypatch.setattr("learnrecur.deploy.manage.subprocess.run", run)
+    deployment.release_generation("synthetic-job", 0)
+    args = run.call_args.args[0]
+    assert args[args.index("--network") + 1] == "none"
+    assert args[-4:] == [
+        "--release-job",
+        "synthetic-job",
+        "--confirmed-charge-microusd",
+        "0",
+    ]
+    assert "openai" not in str(args) and "worker" not in args
+    run.reset_mock()
+    for charge in (None, -1, 5000001):
+        with pytest.raises(ValueError):
+            deployment.release_generation("synthetic-job", charge)
+    run.assert_not_called()
