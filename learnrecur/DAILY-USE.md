@@ -1,6 +1,6 @@
 # Daily-use trial
 
-The trial started on October 8, 2026 with three Spanish skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Each skill has one native card and a locally cached exercise bank. Paid refills are enabled again under the existing $1 monthly ceiling until the October 31 cutoff below.
+The trial started on October 8, 2026 with three Spanish skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Each skill has one native card and a locally cached exercise bank. Paid refills run under a $1 monthly ceiling, described below.
 
 ## Use the app
 
@@ -10,15 +10,13 @@ The pinned app opens its separate profile under `~/.local/share/learnrecur/daily
 
 If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, check that Tailscale is connected in the menu bar, then quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
 
-## Spending and end date
+## Spending
 
-The user approved up to $1 in new estimated generation spending on October 18 and enabled refills through the end of October. The worker uses GPT-6 Luna with `xhigh` reasoning. The two new skills cost an estimated $0.001039. No provider credits were assumed.
+On October 20, the user made the backend's $1 monthly ceiling the permanent spending control and removed the October 31 cutoff. The ceiling resets at the start of each UTC month, which is 6 or 7 p.m. in Chicago on the last day of the month. Refills keep running across that reset with no manual step. The worker uses GPT-6 Luna with `xhigh` reasoning. No provider credits are assumed.
 
-The existing $1 backend monthly ceiling was not reset. Recorded October spending was $0.005515 when refills resumed, leaving $0.994485 available with no unresolved reservations. This includes all earlier October usage, so it is stricter than the new allowance. Jobs reserve their maximum estimate before calling the provider. Estimates are not a provider-enforced billing cap.
+October spending was $0.006244 on October 20, with no reservations held. Jobs reserve their maximum estimated cost before calling the provider. When the month's reservations and spending reach the ceiling, new jobs wait for the next month while cached review continues. These estimates come from saved prices; they're not a provider-enforced billing cap. The prepaid OpenAI balance is the hard limit.
 
-The VPS cutoff is **23:59 UTC on October 31, 2026**, or **6:59 p.m. in Chicago**. Stopping before the UTC month changes prevents the monthly budget reset from granting another allowance. The boot check also enforces the deadline after a missed run. The cutoff stops the worker and moves its key into protected server storage outside the mounted directory. Sync and companion remain available. Generation after this cutoff needs new authorization.
-
-To end generation early, stop the worker under the deployment lock and move its key out of the mounted directory before backup recovery could restart it. The private handoff records the paths. Starting the cutoff service before the deadline only checks the date; it does not end the trial early. Do not reset accounting or unpause a restored deployment to continue this trial.
+The cutoff's systemd timer and boot check on the VPS are disabled, not deleted. To stop paid generation, stop the worker under the deployment lock and move its key out of the mounted directory before backup recovery could restart it. The private handoff records the paths. Don't reset accounting or unpause a restored deployment to get around the ceiling.
 
 ## What was checked
 
@@ -54,4 +52,4 @@ On October 15, sync recovery preserved all 21 review records and uploaded three 
 
 Assess actual review friction, prompt clarity, por/para ambiguity, variation, naturalness, and coverage of all three regular verb endings. Check that report-and-skip uses an eligible backup without rating, sync and restart preserve reviews, and backups remain fresh.
 
-Check that automatic refills arrive as banks run low, and monitor generation spending before the cutoff. Keep observed failures separate from guesses, and use those results to choose the next small change.
+Check that automatic refills arrive as banks run low, and check monthly generation spending in Generation history. Keep observed failures separate from guesses, and use those results to choose the next small change.
