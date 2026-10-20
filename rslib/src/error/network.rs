@@ -223,6 +223,8 @@ impl From<HttpError> for AnkiError {
             .and_then(|source| source.downcast_ref::<reqwest::Error>())
         {
             reqwest_error.into()
+        } else if err.code == StatusCode::UNPROCESSABLE_ENTITY {
+            AnkiError::server_message(err.context)
         } else if err.code == StatusCode::REQUEST_TIMEOUT {
             NetworkError {
                 info: String::new(),
