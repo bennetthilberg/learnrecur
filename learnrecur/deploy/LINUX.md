@@ -46,6 +46,24 @@ ssh -N -L 45331:127.0.0.1:45331 -L 45321:127.0.0.1:45321 server
 
 The LearnRecur profile uses `http://127.0.0.1:45331/` for native sync and `http://127.0.0.1:45321` for the companion. Supply the companion token through its existing launch environment. Use a fresh synthetic LearnRecur profile for the first VPS test. A tunnel disconnect leaves cached review available. This does not use an Anki profile or AnkiWeb account.
 
+## Reach the host from other networks
+
+The tunnel only needs an SSH address. Either of these works, and the Mac side doesn't change except for the address:
+
+- **Tailscale (used by the hosted deployment).** Install [Tailscale](https://tailscale.com/kb/1031/install-linux) on the VPS and the Mac, and sign both in to the same account. The Mac then reaches the VPS at its Tailscale address (`100.x.y.z`) from any network, including networks that block outbound port 22. The VPS needs no inbound rule for Tailscale. In the Tailscale admin console, disable key expiry for the VPS and the Mac; otherwise each device signs out after 180 days and sync stops until someone signs it back in. On the VPS, run `sudo tailscale set --auto-update=true` so Tailscale keeps itself patched.
+- **Key-only SSH from any address.** Allow inbound TCP 22 from any source in the cloud firewall. Keep password and root login disabled. This adds no dependency, but some campus and public networks block outbound SSH, and the open port attracts constant scanning.
+
+With Tailscale, keep the public SSH rule in the firewall but set it to deny. If Tailscale stops working, open it for your current address only. On Azure:
+
+```sh
+az network nsg rule update -g RESOURCE_GROUP --nsg-name NSG_NAME -n ssh-from-mac \
+  --access Allow --source-address-prefixes "$(curl -s https://api.ipify.org)/32"
+```
+
+Close it again afterward by running the same command with `--access Deny`. Before closing it, check that SSH works through the Tailscale address. The Azure serial console is the last resort if both paths fail.
+
+The VPS's SSH host key stays the same whichever address you use. Add the Tailscale address to `known_hosts` under the existing key, rather than accepting a new key on first connection.
+
 
 ## Enable OpenAI generation
 
