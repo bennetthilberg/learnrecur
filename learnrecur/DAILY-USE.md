@@ -6,9 +6,9 @@ The trial started on October 8, 2026 with three Spanish skills: regular -ar pret
 
 Open `~/Desktop/LearnRecur Daily.app`, choose **Daily Spanish**, and press **Study Now**. Solve each exercise, reveal the answer, and rate your recall normally. Review what is due each day; don't force extra reviews to exercise the system. Use **Report and skip** for an incorrect, ambiguous, or out-of-scope exercise.
 
-The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code connects to the existing Azure services through an SSH tunnel before opening the window. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and are outside this trial. Nothing reads or changes personal Anki profiles.
+The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and are outside this trial. Nothing reads or changes personal Anki profiles.
 
-If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
+If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, check that Tailscale is connected in the menu bar, then quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
 
 ## Spending and end date
 
