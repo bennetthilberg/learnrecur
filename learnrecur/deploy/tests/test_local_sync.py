@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 import pytest
 
 from anki.collection import Collection, media_paths_from_col_path
-from anki.errors import BackendError
+from anki.errors import BackendError, InvalidInput
 from anki.learnrecur_skill_import import DECK_NAME, import_snapshot
 from anki.learnrecur_skills import prepare_skill_answer, select_skill_review
 from anki.scheduler.v3 import CardAnswer
@@ -386,7 +386,7 @@ def test_incoming_identity_collision_preserves_both_profiles(
             b.get_card(native_id).note().fields,
         )
         sync(a, auth)
-        with pytest.raises(Exception, match="identity collision"):
+        with pytest.raises(BackendError, match="same ID"):
             b.sync_collection(auth, False)
         assert (
             a.get_card(native_id).note().guid,
@@ -423,6 +423,8 @@ def test_remote_deletion_collision_preserves_unsynced_skill(
         a.add_skill_notes(
             [AddNoteRequest(ordinary, a.decks.id("Ordinary"))], [native_id]
         )
+        # Only the reused ID matters here. Without a trusted identity, A can delete it.
+        a.db.execute("delete from learnrecur_skill_identities")
         a.remove_notes([ordinary.id])
         sync(a, auth)
         rate(b)
@@ -431,15 +433,16 @@ def test_remote_deletion_collision_preserves_unsynced_skill(
             model.pop("learnrecur")
             b.models.update_dict(model)
         before = (b.get_card(native_id).note().fields, records(b))
-        with pytest.raises(Exception, match="remote skill deletion"):
+        with pytest.raises(BackendError, match="same ID as a skill") as error:
             b.sync_collection(auth, False)
+        assert "choose Upload" in str(error.value)
         assert b.card_count() == 1
         assert (b.get_card(native_id).note().fields, records(b)) == before
 
 
-@pytest.mark.parametrize("delete", ["note", "deck"])
+@pytest.mark.parametrize("delete", ["note", "card", "deck", "notetype"])
 @pytest.mark.parametrize("import_after_bootstrap", [False, True])
-def test_remote_skill_deletion_stops_without_deleting_server_copy(
+def test_skill_deletion_is_refused_before_it_can_stop_sync(
     server, snapshot, tmp_path, delete, import_after_bootstrap
 ):
     with collections(tmp_path) as (a, b):
@@ -456,17 +459,79 @@ def test_remote_skill_deletion_stops_without_deleting_server_copy(
             "select * from learnrecur_skill_identities"
         )
         assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 1
+        before = (a.get_note(nid).fields, a.undo_status().undo)
         time.sleep(0.01)  # Native change detection uses millisecond timestamps.
-        if delete == "note":
-            a.remove_notes([nid])
-        else:
-            a.decks.remove([a.decks.id(DECK_NAME)])
-        with pytest.raises(Exception):
-            a.sync_collection(auth, False)
-        # Download into this disposable profile to inspect the committed server state.
-        full_sync(a, auth, False)
+        with pytest.raises(InvalidInput, match="Skills can't be deleted yet"):
+            if delete == "note":
+                a.remove_notes([nid])
+            elif delete == "card":
+                a.remove_cards_and_orphaned_notes(a.find_cards(""))
+            elif delete == "deck":
+                a.decks.remove([a.decks.id(DECK_NAME)])
+            else:
+                a.models.remove(a.get_note(nid).mid)
+        assert (a.get_note(nid).fields, a.undo_status().undo) == before
+        assert a.db.scalar("select count(*) from graves") == 0
+        sync(a, auth)
+        sync(b, auth)
         assert a.card_count() == b.card_count() == 1
         assert a.get_note(nid).fields == b.get_note(nid).fields
+
+
+def test_server_explains_refused_skill_deletion(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        # An older build could delete a skill and save native graves for it.
+        a.db.execute("delete from learnrecur_skill_identities")
+        a.remove_notes([nid])
+        with pytest.raises(BackendError, match="deleted on this device") as error:
+            a.sync_collection(auth, False)
+        # The server's reason reaches the client instead of the Check Database text.
+        assert "choose Download" in str(error.value)
+        assert "Check Database" not in str(error.value)
+        # The documented recovery restores the skill from the server.
+        full_sync(a, auth, False)
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 1
+        assert a.get_note(nid).fields == b.get_note(nid).fields
+
+
+@pytest.mark.parametrize("deck", ["filtered", "emptied"])
+def test_deleting_a_deck_that_no_longer_holds_skills_syncs(
+    server, snapshot, tmp_path, deck
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        cid = a.find_cards("")[0]
+        if deck == "filtered":
+            did = a.decks.new_filtered("Synthetic cram")
+            filtered = a.decks.get(did)
+            filtered["terms"][0][0] = "deck:*"
+            a.decks.save(filtered)
+            a.sched.rebuild_filtered_deck(did)
+            assert a.get_card(cid).did == did
+            sync(a, auth)
+            sync(b, auth)
+            assert b.get_card(cid).did == did
+            home = a.decks.id(DECK_NAME)
+        else:
+            did = a.decks.id(DECK_NAME)
+            home = a.decks.id("Elsewhere")
+            a.set_deck([cid], home)
+        time.sleep(0.01)
+        # The deck grave can arrive before the card's new deck.
+        a.decks.remove([did])
+        sync(a, auth)
+        sync(b, auth)
+        for col in (a, b):
+            assert col.card_count() == 1
+            assert col.decks.get(did, default=False) is None
+            card = col.get_card(cid)
+            assert (card.did, card.odid) == (home, 0)
 
 
 @pytest.mark.parametrize("delete", ["note", "deck"])
@@ -776,7 +841,30 @@ def test_revision_sync_preserves_newer_offline_tag_edits(
         assert a.get_card(cid).note().tags == tags
 
 
-def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_path):
+@pytest.mark.parametrize("field", ["Title", "Description"])
+def test_skill_field_edit_on_one_device_syncs(server, snapshot, tmp_path, field):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        time.sleep(0.01)
+        note = a.get_note(nid)
+        note[field] += " (typo fixed)"
+        a.update_note(note)
+        sync(a, auth)
+        sync(b, auth)
+        assert b.get_note(nid).fields == note.fields
+        # The other device can edit it back once it has the change.
+        time.sleep(0.01)
+        note = b.get_note(nid)
+        note[field] = note[field].removesuffix(" (typo fixed)")
+        b.update_note(note)
+        sync(b, auth)
+        sync(a, auth)
+        assert a.get_note(nid).fields == note.fields
+
+
+def test_skill_edits_on_two_devices_stop_sync(server, snapshot, tmp_path):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)
         auth = bootstrap(a, b, server)
@@ -785,20 +873,50 @@ def test_conflicting_content_at_same_revision_stops_sync(server, snapshot, tmp_p
         sync(a, auth)
         sync(b, auth)
         cid = rate(b)
+        time.sleep(0.01)
+        note = a.get_card(cid).note()
+        note["Description"] = "Synthetic wording from A"
+        a.update_note(note)
+        sync(a, auth)
         note = b.get_card(cid).note()
-        note["Description"] = "Conflicting local wording"
+        note["Description"] = "Conflicting wording from B"
         b.update_note(note)
         before = (b.get_card(cid).note().fields, records(b))
-        with pytest.raises(Exception):
+        with pytest.raises(
+            BackendError, match="on this device and on another"
+        ) as error:
             b.sync_collection(auth, False)
+        assert "force changes in one direction" in str(error.value)
         assert (b.get_card(cid).note().fields, records(b)) == before
-        assert a.get_card(cid).note()["Description"] != note["Description"]
         # Inspect the server copy without accepting a replacement in the edited profile.
         full_sync(a, auth, False)
-        assert (
-            a.get_card(cid).note()["Description"] == latest["skills"][0]["description"]
-        )
+        assert a.get_card(cid).note()["Description"] == "Synthetic wording from A"
         assert records(a) == []  # The failed transaction did not copy B's rating.
+
+
+def test_newer_local_revision_uploads_when_remote_tags_win(server, snapshot, tmp_path):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        cid = a.find_cards("")[0]
+        auth = bootstrap(a, b, server)
+        latest = revised_snapshot(tmp_path)
+        assert import_snapshot(a, latest).updated == 1
+        note = b.get_card(cid).note()
+        note.tags = ["from-b"]
+        b.update_note(note)
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        b.db.execute("update col set mod=mod+60000")
+        sync(b, auth)
+        # B's tags are newer, but A's revision is newer. A must still upload it.
+        sync(a, auth)
+        sync(b, auth)
+        for col in (a, b):
+            note = col.get_card(cid).note()
+            assert note.tags == ["from-b"]
+            assert json.loads(note["LearnRecurSkill"])["revision"] == 2
+        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+        full_sync(b, auth, False)
+        assert json.loads(b.get_card(cid).note()["LearnRecurSkill"])["revision"] == 2
 
 
 def generated_snapshot(tmp_path):

@@ -117,8 +117,15 @@ impl IoMonitor {
                 .header(CONTENT_TYPE, "application/octet-stream")
                 .body(Body::wrap_stream(request_body_stream))
                 .send()
-                .await?
-                .error_for_status()?;
+                .await?;
+            if resp.status() == StatusCode::UNPROCESSABLE_ENTITY {
+                let message = resp.text().await?;
+                return Err(HttpError::new_without_source(
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    message,
+                ));
+            }
+            let resp = resp.error_for_status()?;
             map_redirect_to_error(&resp)?;
             let response_total = resp
                 .headers()

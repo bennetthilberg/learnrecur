@@ -3,12 +3,17 @@
 
 use std::path::PathBuf;
 
+use axum::http::StatusCode;
 use tracing::info;
 
 use crate::collection::Collection;
 use crate::collection::CollectionBuilder;
 use crate::error;
+use crate::error::AnkiError;
+use crate::error::SyncError;
+use crate::error::SyncErrorKind;
 use crate::sync::collection::start::ServerSyncState;
+use crate::sync::error::HttpError;
 use crate::sync::error::HttpResult;
 use crate::sync::error::OrHttpErr;
 use crate::sync::http_server::media_manager::ServerMediaManager;
@@ -61,7 +66,21 @@ impl User {
                 self.col = None;
                 self.sync_state = None;
             })
-            .or_bad_request("op failed in sync_state")
+            .map_err(|err| match err {
+                // LearnRecur refusals explain how to recover; send that text to the client.
+                AnkiError::SyncError {
+                    source:
+                        SyncError {
+                            kind: SyncErrorKind::ServerMessage,
+                            info,
+                        },
+                } => HttpError::new_without_source(StatusCode::UNPROCESSABLE_ENTITY, info),
+                err => HttpError {
+                    code: StatusCode::BAD_REQUEST,
+                    context: "op failed in sync_state".into(),
+                    source: Some(Box::new(err)),
+                },
+            })
     }
 
     pub(crate) fn abort_stateful_sync_if_active(&mut self) {

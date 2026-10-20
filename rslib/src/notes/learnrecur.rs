@@ -263,6 +263,17 @@ impl Collection {
         })
     }
 
+    /// True for a skill note whose identity came from the companion or sync.
+    pub(crate) fn is_trusted_skill_note(&self, nid: NoteId) -> Result<bool> {
+        let Some(note) = self.storage.get_note(nid)? else {
+            return Ok(false);
+        };
+        Ok(self
+            .storage
+            .skill_identity_for_note(nid)?
+            .is_some_and(|identity| identity.guid == note.guid))
+    }
+
     pub(crate) fn validate_skill_bank_append(older: &[String], newer: &[String]) -> Result<()> {
         let old: serde_json::Value =
             serde_json::from_str(&older[5]).or_invalid("invalid old bank")?;

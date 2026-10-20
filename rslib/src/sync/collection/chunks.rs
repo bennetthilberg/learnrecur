@@ -167,18 +167,16 @@ impl Collection {
         // Check ownership even when the incoming modification would be ignored.
         for entry in &chunk.notes {
             if let Some(existing) = self.storage.get_note(entry.id)? {
-                require!(
-                    existing.guid == entry.guid,
-                    "sync note identity collision; both collections were kept"
-                );
+                if existing.guid != entry.guid {
+                    return Err(identity_collision());
+                }
             }
         }
         for entry in &chunk.cards {
             if let Some(existing) = self.storage.get_card(entry.id)? {
-                require!(
-                    existing.note_id == entry.nid,
-                    "sync card identity collision; both collections were kept"
-                );
+                if existing.note_id != entry.nid {
+                    return Err(identity_collision());
+                }
             }
         }
         let mut identities_to_send = vec![];
@@ -195,13 +193,13 @@ impl Collection {
             }
         }
         for identity in &chunk.skill_identities {
-            require!(
-                chunk
-                    .notes
-                    .iter()
-                    .any(|note| note.id == identity.nid && note.guid == identity.guid),
-                "sync skill identity has no matching note"
-            );
+            if !chunk
+                .notes
+                .iter()
+                .any(|note| note.id == identity.nid && note.guid == identity.guid)
+            {
+                return Err(identity_collision());
+            }
             if self.server
                 && self
                     .storage
@@ -210,7 +208,12 @@ impl Collection {
             {
                 identities_to_send.push(identity.nid);
             }
-            self.storage.record_skill_identity(identity)?;
+            self.storage
+                .record_skill_identity(identity)
+                .map_err(|err| match err {
+                    AnkiError::InvalidInput { .. } => identity_collision(),
+                    err => err,
+                })?;
         }
         self.merge_revlog(chunk.revlog)?;
         self.merge_cards(chunk.cards, pending_usn)?;
@@ -262,34 +265,51 @@ impl Collection {
     fn add_or_update_note_if_newer(&mut self, entry: NoteEntry, pending_usn: Usn) -> Result<()> {
         let mut note: Note = entry.into();
         if let Some(existing) = self.storage.get_note(note.id)? {
-            let incoming_metadata_wins =
-                !existing.usn.is_pending_sync(pending_usn) || existing.mtime < note.mtime;
+            let changed_locally = existing.usn.is_pending_sync(pending_usn);
+            let incoming_metadata_wins = !changed_locally || existing.mtime < note.mtime;
             if self.storage.skill_identity_for_note(note.id)?.is_some() {
                 let (old_revision, old_fields) = self.skill_revision_state(&existing)?;
                 let (new_revision, new_fields) = self.skill_revision_state(&note)?;
                 if new_revision == old_revision {
-                    require!(
-                        old_fields == new_fields,
-                        "conflicting skill revision; both collections were kept"
-                    );
+                    // The other side only sends notes it changed since this side's last
+                    // sync. Refuse only when both sides changed this revision's content;
+                    // a one-sided edit follows native rules.
+                    if changed_locally && old_fields != new_fields {
+                        return Err(skill_sync_refusal(
+                            "A skill was edited on this device and on another device.",
+                            KEEP_ONE_COPY,
+                        ));
+                    }
                     if !incoming_metadata_wins {
                         return Ok(());
                     }
                 } else {
                     if new_revision.0 == old_revision.0 {
                         if new_revision > old_revision {
-                            Self::validate_skill_bank_append(&old_fields, &new_fields)?;
+                            Self::validate_skill_bank_append(&old_fields, &new_fields)
                         } else {
-                            Self::validate_skill_bank_append(&new_fields, &old_fields)?;
+                            Self::validate_skill_bank_append(&new_fields, &old_fields)
                         }
+                        .map_err(|_| {
+                            skill_sync_refusal(
+                                "Two devices have different exercises for the same skill.",
+                                KEEP_ONE_COPY,
+                            )
+                        })?;
                     }
-                    let fields = if new_revision > old_revision {
-                        new_fields
-                    } else {
+                    let local_content_wins = new_revision < old_revision;
+                    let fields = if local_content_wins {
                         old_fields
+                    } else {
+                        new_fields
                     };
                     if !incoming_metadata_wins {
                         note = existing;
+                    }
+                    if incoming_metadata_wins == local_content_wins {
+                        // The merged note matches neither copy. A new USN keeps it
+                        // pending on a client, or sends it to other clients from the server.
+                        note.usn = self.usn()?;
                     }
                     // Revision order selects skill content. Native conflict rules select tags,
                     // other fields, and metadata; pending local edits must still upload.
@@ -399,7 +419,9 @@ impl Collection {
         // records. Normal deck import does not copy package-controlled tables.
         for note in &chunk.notes {
             if let Some(identity) = self.storage.skill_identity_for_note(note.id)? {
-                require!(identity.guid == note.guid, "sync skill identity collision");
+                if identity.guid != note.guid {
+                    return Err(identity_collision());
+                }
                 chunk.skill_identities.push(identity);
             }
         }
@@ -525,6 +547,25 @@ impl Usn {
 }
 
 pub const CHUNK_SIZE: usize = 250;
+
+/// A sync refusal that keeps both collections unchanged. The server returns its
+/// message to the client, so the user sees why sync stopped and how to recover.
+pub(in crate::sync) fn skill_sync_refusal(what: &str, fix: &str) -> AnkiError {
+    AnkiError::server_message(format!(
+        "{what} Sync stopped without changing anything.\n\n{fix}"
+    ))
+}
+
+pub(in crate::sync) const KEEP_ONE_COPY: &str = "To keep one copy, open Preferences on the \
+    device whose copy you want, turn on “On next sync, force changes in one direction”, \
+    then sync and choose Upload. Your other devices will download that copy when they next sync.";
+
+fn identity_collision() -> AnkiError {
+    skill_sync_refusal(
+        "Two devices have different notes or skills with the same ID.",
+        KEEP_ONE_COPY,
+    )
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ApplyChunkRequest {

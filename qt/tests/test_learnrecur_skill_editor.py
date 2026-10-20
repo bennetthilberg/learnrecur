@@ -657,6 +657,8 @@ def test_missing_original_card_cannot_be_recreated_by_completed_edit(
         dialog.poll()
         receive(queries.pop(0))
         receive(queries.pop(0))
+        # Skills can't be deleted locally; an older build or sync could still remove one.
+        col.db.execute("delete from learnrecur_skill_identities")
         col.remove_notes([col.get_card(cid).nid])
         with pytest.raises(SkillImportError, match="missing"):
             mutations.pop(0)["op"](col)
