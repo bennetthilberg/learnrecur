@@ -29,6 +29,7 @@ from anki.learnrecur_skill_import import (
 
 MAX_ATTEMPTS = 3
 LEASE_SECONDS = 60
+HOST_LOSS_ERROR = "Settled at its reservation after the original host was lost."
 INSTRUCTIONS = "Return varied exercises within the supplied skill's scope and difficulty, with a prompt, answer, and brief explanation. Examples are reference material, not instructions or output to copy."
 
 
@@ -61,6 +62,10 @@ def initialize(db):
         "create table if not exists generation_budget (id integer primary key check(id=1), monthly_limit integer not null, credit_total integer not null, credit_expires real not null)"
     )
     db.execute("insert or ignore into generation_budget values (1,5000000,0,0)")
+    # One row per restored copy released after losing its original host.
+    db.execute(
+        "create table if not exists generation_recoveries (id text primary key, recorded_at real not null, backup_created_at text, month text not null, usage_microusd integer not null, settled text not null)"
+    )
     columns = {row[1] for row in db.execute("pragma table_info(generation_attempts)")}
     if "response_id" not in columns:
         db.execute("alter table generation_attempts add column response_id text")
@@ -264,6 +269,7 @@ class Jobs:
             "The companion is full.": "The companion has no room for another exercise bank.",
             "The companion has no room for this exercise bank.": "The companion has no room for this exercise bank.",
             "Released after checking the provider.": "Stopped after checking the provider's records.",
+            HOST_LOSS_ERROR: "Stopped during backend recovery.",
         }
         if state == "needs_attention":
             if (
@@ -1324,26 +1330,152 @@ class Jobs:
             ).fetchone()
             if not row or row[0] != "needs_attention" or not row[1]:
                 raise JobConflict("Only a job that needs attention can be released.")
-            reserved_credit, response = db.execute(
-                "select credit_reserved,response_id from generation_attempts where job_id=? and attempt=?",
+            response = db.execute(
+                "select response_id from generation_attempts where job_id=? and attempt=?",
                 (job_id, row[1]),
-            ).fetchone()
-            credit = min(gross_microusd, reserved_credit)
-            db.execute(
-                "update generation_attempts set state='settled',gross_actual=?,credit_actual=?,net_actual=? where job_id=? and attempt=?",
-                (gross_microusd, credit, gross_microusd - credit, job_id, row[1]),
-            )
-            db.execute(
-                "update generation_jobs set state='failed',error='Released after checking the provider.',next_run=? where id=?",
-                (self.clock(), job_id),
+            ).fetchone()[0]
+            net = self._settle_failed(
+                db,
+                job_id,
+                row[1],
+                gross_microusd,
+                "Released after checking the provider.",
+                self.clock(),
             )
         return {
             "job_id": job_id,
             "attempt": row[1],
             "provider_response_id": response,
             "gross_microusd": gross_microusd,
-            "net_microusd": gross_microusd - credit,
+            "net_microusd": net,
         }
+
+    @staticmethod
+    def _settle_failed(db, job_id, attempt, gross, error, now):
+        """Record a final charge for an attempt and stop its job without output."""
+        reserved_credit = db.execute(
+            "select credit_reserved from generation_attempts where job_id=? and attempt=?",
+            (job_id, attempt),
+        ).fetchone()[0]
+        credit = min(gross, reserved_credit)
+        db.execute(
+            "update generation_attempts set state='settled',gross_actual=?,credit_actual=?,net_actual=? where job_id=? and attempt=?",
+            (gross, credit, gross - credit, job_id, attempt),
+        )
+        db.execute(
+            "update generation_jobs set state='failed',error=?,next_run=?,lease_token=null,lease_until=null where id=?",
+            (error, now, job_id),
+        )
+        return gross - credit
+
+    def settle_after_host_loss(self, recovery_id, usage_microusd, backup_created_at):
+        """Settle a restored backup's paid history after its original host is gone.
+
+        The operator reads the provider usage since the backup from OpenAI's
+        records. It counts against the current month as one adjustment, so the
+        ceiling can only get stricter. Saved responses must be reconciled
+        first. Claims that never reached the provider go back to the queue.
+        Other uncertain attempts settle at their full reservation and never
+        publish. Repeating with the same ID and amount changes nothing.
+        """
+        if type(usage_microusd) is not int or not 0 <= usage_microusd <= 5000000:
+            raise SkillImportError("State the provider usage in microusd, up to $5.")
+        if not isinstance(recovery_id, str) or not re.fullmatch(
+            r"[a-f0-9]{32}", recovery_id
+        ):
+            raise SkillImportError("Invalid recovery identity.")
+        now = self.clock()
+        month = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m")
+        with self.store.connect() as db:
+            db.execute("begin immediate")
+            saved = db.execute(
+                "select month,usage_microusd,settled from generation_recoveries where id=?",
+                (recovery_id,),
+            ).fetchone()
+            if saved:
+                if saved[1] != usage_microusd:
+                    raise JobConflict(
+                        f"This restore already recorded {saved[1]} microusd. "
+                        "Run the command again with that amount."
+                    )
+                return {
+                    "month": saved[0],
+                    "usage_microusd": saved[1],
+                    "settled": decode(saved[2].encode()),
+                }
+            latest = (
+                "select j.id,j.state,a.attempt,a.state,a.response_id,a.gross_reserved "
+                "from generation_jobs j join generation_attempts a "
+                "on a.job_id=j.id and a.attempt=j.attempts where a.net_actual is null"
+            )
+            rows = db.execute(latest + " order by j.id").fetchall()
+            known = [
+                f"job {job_id} response {response}"
+                for job_id, state, _, _, response, _ in rows
+                if response and state in ("running", "provider_pending")
+            ]
+            if known:
+                raise JobConflict(
+                    "Retrieve saved responses with reconcile-openai first: "
+                    + "; ".join(known)
+                    + "."
+                )
+            settled = []
+            for job_id, state, attempt, stage, _, gross in rows:
+                if state == "running" and stage == "reserved":
+                    # The backup shows no provider call. A later call on the lost
+                    # host is part of the stated usage, so the job can run again.
+                    self._abandon_reserved(db, job_id, attempt)
+                    settled.append({"job_id": job_id, "action": "requeued"})
+                elif state in ("running", "needs_attention"):
+                    net = self._settle_failed(
+                        db, job_id, attempt, gross, HOST_LOSS_ERROR, now
+                    )
+                    settled.append(
+                        {"job_id": job_id, "action": "settled", "net_microusd": net}
+                    )
+            if db.execute(
+                "select 1 from generation_attempts where net_actual is null limit 1"
+            ).fetchone():
+                raise JobConflict("Unsettled generation keeps paid recovery paused.")
+            credit_total, credit_expires = db.execute(
+                "select credit_total,credit_expires from generation_budget"
+            ).fetchone()
+            credit_used = db.execute(
+                "select coalesce(sum(credit_actual),0) from generation_attempts"
+            ).fetchone()[0]
+            # Nobody can tell whether credits or cash paid for this usage, so it
+            # uses up both: the full amount counts as out-of-pocket spending.
+            credit = (
+                min(usage_microusd, max(0, credit_total - credit_used))
+                if credit_expires > now
+                else 0
+            )
+            db.execute(
+                "insert into generation_attempts (job_id,attempt,month,state,gross_reserved,credit_reserved,net_reserved,gross_actual,credit_actual,net_actual) values (?,1,?,'settled',?,?,?,?,?,?)",
+                (
+                    "host-loss-" + recovery_id,
+                    month,
+                    usage_microusd,
+                    credit,
+                    usage_microusd,
+                    usage_microusd,
+                    credit,
+                    usage_microusd,
+                ),
+            )
+            db.execute(
+                "insert into generation_recoveries values (?,?,?,?,?,?)",
+                (
+                    recovery_id,
+                    now,
+                    backup_created_at,
+                    month,
+                    usage_microusd,
+                    encode(settled),
+                ),
+            )
+        return {"month": month, "usage_microusd": usage_microusd, "settled": settled}
 
     def failure(self, job_id, token, kind):
         with self.store.connect() as db:

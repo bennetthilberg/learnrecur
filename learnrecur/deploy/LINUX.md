@@ -157,7 +157,7 @@ The command runs without the key or network access and can run while services ar
 
 If usage and the complete result were already saved but publication was interrupted, run `publish-ready` through the manager while services are stopped. It publishes only saved `result_ready` jobs, without a provider key or network access. Repeating it adds no duplicate batch and leaves both restore markers in place.
 
-An ordinary backup cannot release the paid pause. Looking up its saved response IDs cannot recover requests it never recorded. If the original state survives, use the final handoff below. Otherwise, keep paid generation paused; there is no force option.
+An ordinary backup can't release the paid pause by itself. Looking up its saved response IDs can't recover requests it never recorded. If the original state survives, use the [final handoff](#recover-paid-generation-from-the-original-host). If the original host is lost, follow [Recover paid generation after losing the host](#recover-paid-generation-after-losing-the-host).
 
 For a fixture-only restore, stop the restored services, run the manager's `allow-fixture-worker` command, then `start-worker`. The acknowledgement refuses any saved OpenAI job, including completed jobs. It permits the queued fixture job to finish once without changing its ID.
 
@@ -198,6 +198,34 @@ The acknowledgement means the retired source will stay retired and this replacem
 Release the pause before running commands that change the restored companion database, including provider configuration. An altered database or uncheckpointed journal refuses release. Keep that destination for inspection and restore a fresh final snapshot. If you need to reconcile more source responses, do so on the retired source and export again. This deliberately favors preserving complete history over merging two writable copies.
 
 After release, start sync and companion, check the restored cards and media through a fresh client, and only then start an authorized worker. Configure automatic backups for the replacement. Never reactivate the retired source or another copy of the handoff archive.
+
+## Recover paid generation after losing the host
+
+Use this only when the original host is gone for good: deleted, unrecoverable, or shut down with no copy that could start again. If it can still run, use the final handoff instead.
+
+A backup can't know about provider calls made after it was taken, so you look them up in OpenAI's records and the command records what you found.
+
+1. If the lost host's OpenAI key might still work, revoke it and save a new one, as in [Enable OpenAI generation](#enable-openai-generation).
+2. Restore the newest backup into a fresh state directory, as in [Restore on another host](#restore-on-another-host). Leave every service stopped. Restoring needs the image that made the backup; if that image predates this command, run the remaining steps with a newer image.
+3. Run `inspect-generation`. Note `backup_created_at`. If it's empty, the backup was restored by an older image; use the archive's creation time instead.
+4. For each job with a `response_id` and no actual cost, run `reconcile-openai`. The release refuses while a running or pending job still has a saved response.
+5. In the OpenAI dashboard, add up the project's cost from the backup time until now, in millionths of a dollar. For example, $0.0123 is `12300`. Use `0` if nothing ran.
+6. Release the pause:
+
+   ```sh
+   python3 -m learnrecur.deploy.manage \
+     --state /srv/learnrecur/restored --secrets "$LEARNRECUR_SECRETS" \
+     --image "$LEARNRECUR_IMAGE" --project learnrecur-restored release-paid-after-loss \
+     --post-backup-usage-microusd 12300 --confirm-original-host-lost
+   ```
+
+7. Start sync and companion, check the restored cards and media through a fresh client, then run `start-worker` once provider configuration and spending authorization are in place.
+
+The command records your amount as one settled charge in the current UTC month, with a timestamped entry in the companion database, so the monthly ceiling includes it. If the period crosses into a new month, the whole amount still counts against the current month. That can only make the ceiling stricter. Jobs the backup shows as claimed but never sent go back to the queue. Jobs with an uncertain call, or that needed attention, stop without publishing, and their full reservation counts as spent. Some usage may count twice this way, but never too little. Then it removes both restore markers. It makes no provider call, needs no key or network, and starts nothing.
+
+It refuses without the confirmation or an amount, while services run, on a copy that isn't paused, on a final-handoff restore, and on a retired store. Each restore records its amount once: rerunning after an interruption finishes the release, and a different amount is refused. `inspect-generation` lists the release under `host_loss_releases`.
+
+Anything the lost host did after the backup is gone from this copy, including reviews and exercise banks. A client that already fetched a newer bank from the lost host is ahead of this copy, so this copy refuses that skill's refill requests.
 
 ## Check the setup before a VPS
 

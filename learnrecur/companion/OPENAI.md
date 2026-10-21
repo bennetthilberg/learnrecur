@@ -83,7 +83,7 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --release-job JOB_ID --confirmed-charge-microusd 0
 ```
 
-Release needs no key or network access. It only accepts a job in `needs_attention`. It settles the attempt at that charge, marks the job failed, and prints the job, attempt, response ID, and charge. Generation history shows that the job stopped after a provider check. Refills resume for every skill once no other job needs attention. Release is refused while a restore marker is present; release on the original host and export another handoff.
+Release needs no key or network access. It only accepts a job in `needs_attention`. It settles the attempt at that charge, marks the job failed, and prints the job, attempt, response ID, and charge. Generation history shows that the job stopped after a provider check. Refills resume for every skill once no other job needs attention. Release is refused while a restore marker is present; release on the original host and export another handoff. If the original host is lost, [the host-loss release](../deploy/LINUX.md#recover-paid-generation-after-losing-the-host) settles these jobs at their full reservation instead.
 
 Usage records include input and output tokens. The worker prices ordinary and cached input separately; reasoning tokens are already included in the output count. Refused, incomplete, malformed, obsolete, and rejected batches still record known usage and cost. Unexpected models, tiers, missing usage, or invalid token totals hold the reservation instead of claiming a known bill.
 
