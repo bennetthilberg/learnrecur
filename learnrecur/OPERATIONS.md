@@ -27,14 +27,14 @@ The October 18 and 20 upgrades used these steps; [DAILY-USE.md](DAILY-USE.md#cur
 1. **Build the ARM image on the Mac.** Use a clean checkout of the merged commit and the build command in [Prepare the host](deploy/LINUX.md#prepare-the-host). Apple Silicon builds the `arm64` image the VM needs; CI's x86 image won't run there. Save it with `docker image save` and keep a compressed copy in `~/.local/share/learnrecur/backend-images`.
 2. **Run the restore check locally** with that image, using `learnrecur.deploy.check_restore` as in [Check the setup before a VPS](deploy/LINUX.md#check-the-setup-before-a-vps). Stop here if it fails.
 3. **Transfer** the image archive and a `git archive` of the same commit to a private staging folder on the VM over Tailscale. Load the image with `docker image load` and check that its architecture is `arm64`.
-4. **Take a pre-upgrade off-host backup.** Check that no upload is pending, run `sudo systemctl start learnrecur-backup.service`, and confirm the result is `ok`.
+4. **Quit the Mac app, then take a pre-upgrade off-host backup.** With the app closed, no client can sync while you compare rows below. Check that no upload is pending, run `sudo systemctl start learnrecur-backup.service`, and confirm the result is `ok`.
 5. **Stop backups, then the services.** Stop `learnrecur-backup.timer`, `learnrecur-backup-check.timer`, and `learnrecur-backup-recover.service` so nothing restarts the containers mid-upgrade. Then stop all three containers with the manager's `stop` command, which holds the deployment lock while it runs. Confirm that nothing is running.
 6. **Fingerprint the rows.** Open both databases read-only and hash every row of the native `notes`, `cards`, and `revlog` tables and the companion's `skills`, `skill_revisions`, `identities`, `exercise_batches`, `generation_jobs`, `generation_attempts`, and `generation_budget` tables. Save each table's row count, hash, and column list.
 7. **Swap the source.** Move `/srv/learnrecur/repo` to a dated folder under `/srv/learnrecur/releases/`, unpack the new source in its place, and make the `learnrecur` user its owner. Leave the old image loaded.
 8. **Update `backup.json`** so `image` names the new image. Each backup records the image needed to restore it, so this must match what's running.
-9. **Start with the worker.** Run the manager's `start-worker` with the new image; `start` alone leaves the worker stopped. Confirm that sync, companion, and worker are running.
-10. **Compare fingerprints** using the saved column lists. An upgrade can add columns, so compare only the original ones. Every count and hash must match.
-11. **Restart the backup timers** and the recover service.
+9. **Start without the worker.** Run the manager's `start` with the new image. It starts sync and the companion, which applies any database migration, and leaves the worker stopped. Confirm that only those two are running.
+10. **Compare fingerprints** using the saved column lists, before anything else writes. An upgrade can add columns, so compare only the original ones. Every count and hash must match. A running worker would change the job tables, so it must stay stopped until this passes.
+11. **Start the worker and restart backups.** Run the manager's `start-worker`, confirm that sync, companion, and worker are running, then restart the backup timers and the recover service.
 12. **Keep the previous source and image** while any backup you might restore still names the old image.
 
 Then update the Mac app from the same commit, since the app and sync server must match.
