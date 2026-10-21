@@ -6,9 +6,50 @@ The trial started on October 8, 2026 with three Spanish skills: regular -ar pret
 
 Open `~/Desktop/LearnRecur Daily.app`, choose **Daily Spanish**, and press **Study Now**. Solve each exercise, reveal the answer, and rate your recall normally. Review what is due each day; don't force extra reviews to exercise the system. Use **Report and skip** for an incorrect, ambiguous, or out-of-scope exercise.
 
-The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and are outside this trial. Nothing reads or changes personal Anki profiles.
+The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code, described in [Build, install, and update the app](#build-install-and-update-the-app), connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and are outside this trial. Nothing reads or changes personal Anki profiles.
 
 If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, check that Tailscale is connected in the menu bar, then quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
+
+## Build, install, and update the app
+
+The Daily app is the packaged LearnRecur app with its own name and bundle ID, plus a startup module that runs before Qt. The module opens the Daily profile, forwards the sync and companion ports over SSH, and writes the app's output to a private log. Both pieces live in `qt/tools/learnrecur_daily/`: `startup.py` is the module, and `install.py` builds and installs the app. They sit next to the other tools that turn the packaged app into a variant, like `prepare_anki_compatibility_app.py`, and their tests run with the Qt suite.
+
+The install doesn't copy anything private into the bundle. The bundle gets a copy of `startup.py` and a small settings file with the paths of the configuration directory, SSH key, and `known_hosts` file. Those files stay outside the bundle. The configuration directory holds:
+
+- `ssh-hosts`: SSH destinations, one per line, tried in order. Lines starting with `#` are comments. With no hosts, the app opens offline.
+- `companion-token`: the companion's bearer token.
+- `profile-ready.json`: the profile folder (`profile`) and the companion's `source_id`. The profile folder's name is the profile the app opens.
+- `desktop/`: the LearnRecur base folder with its `.learnrecur-data` marker.
+
+The app also keeps `launcher.lock`, `launcher.log`, `desktop.pid`, and `app.log` there. `app.log` holds the app's own output, including Python and Qt messages. It's private (mode 600) and moves to `app.log.1` once it passes 2 MiB, so the pair stays near 4 MiB. `launcher.log` holds the connection helper's SSH messages and isn't size-limited.
+
+To build and install, quit the Daily app and run these from the repository root:
+
+```sh
+./ninja installer:package
+out/pyenv/bin/python qt/tools/learnrecur_daily/install.py \
+  --config ~/.local/share/learnrecur/daily-use/2026-10-08 \
+  --app ~/Desktop/"LearnRecur Daily.app" \
+  --ssh-key ~/.ssh/learnrecur/azure_ed25519 \
+  --known-hosts ~/.ssh/learnrecur/known_hosts \
+  --dry-run
+```
+
+The dry run checks everything and changes nothing. Run the same command without `--dry-run` to install. Updating is the same two steps after pulling new code.
+
+The installer refuses to start if the app is open, if its connection helper holds the lock, or if the collection still has a write-ahead log. It also refuses to replace an app with a different bundle ID and rejects Anki data folders. Before replacing anything, it creates `<config>/installs/<UTC time>/` with `native-before.json` (the notes, cards, and review log), `collection-before.anki2`, and `install.json`. It clones the package, sets the name, bundle ID, and next `CFBundleVersion`, writes the startup files and `app.py`, signs the result ad hoc, and verifies it. Then it moves the old app to `previous.app` in that folder, moves the new one into place, and verifies the signature again. The path and bundle ID stay the same, so the Dock entry keeps working.
+
+The default bundle ID matches the current app, and the default ports are 45351 for sync and 45352 for the companion. For a test install next to the real app, use a separate synthetic configuration directory and destination, and pass different `--bundle-id`, `--name`, and `--local-ports` values. `--local-ports` changes only the forwarding and the companion URL; the profile's sync server setting must use the same sync port.
+
+To roll back, quit the app and swap the previous app back in:
+
+```sh
+backup=~/.local/share/learnrecur/daily-use/2026-10-08/installs/<UTC time>
+mv ~/Desktop/"LearnRecur Daily.app" "$backup/rolled-back.app"
+mv "$backup/previous.app" ~/Desktop/"LearnRecur Daily.app"
+```
+
+The collection normally needs no rollback, since reviews stay in the profile and sync. Restore `collection-before.anki2` only if the collection itself is damaged; that discards every review since the install that hasn't synced.
 
 ## Spending
 
