@@ -1,0 +1,20 @@
+[Unit]
+Description=Send a LearnRecur health check ping (%i)
+Wants=network-online.target
+After=network-online.target
+# Without a URL file, skip the ping instead of failing.
+ConditionPathExists=/etc/learnrecur/healthcheck-url
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+LoadCredential=url:/etc/learnrecur/healthcheck-url
+# Pass the URL to curl on standard input so it never appears in a command
+# line or the journal. The instance chooses the ping: success or fail.
+ExecStart=/bin/sh -c 'case %i in success) suffix= ;; fail) suffix=/fail ;; *) echo "Unknown ping type." >&2; exit 2 ;; esac; url=$$(cat "$$CREDENTIALS_DIRECTORY/url") || exit 1; case "$$url" in https://*|http://*) ;; *) echo "The health check URL file must contain one http or https URL." >&2; exit 1 ;; esac; echo "url = $$url$$suffix" | curl -fsS -o /dev/null -m 10 --retry 3 -K -'
+TimeoutStartSec=2min
+UMask=0077
+ProtectHome=yes
+PrivateDevices=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
