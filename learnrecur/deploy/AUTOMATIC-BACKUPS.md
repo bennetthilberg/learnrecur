@@ -46,7 +46,7 @@ sudo -u learnrecur /srv/learnrecur/backup-venv/bin/python \
   -m learnrecur.deploy.scheduled_backup --config /srv/learnrecur/backup.json init
 ```
 
-Install the five files in `learnrecur/deploy/systemd/` under `/etc/systemd/system/`, owned by root. Check them with `systemd-analyze verify`, then enable both timers and the boot recovery service:
+Install everything in `learnrecur/deploy/systemd/` under `/etc/systemd/system/`, owned by root. That's six unit files plus two drop-in directories, `learnrecur-backup.service.d/` and `learnrecur-backup-check.service.d/`, which connect the backup units to [failure alerts](#failure-alerts). Check them with `systemd-analyze verify`, then enable both timers and the boot recovery service:
 
 ```sh
 sudo systemctl daemon-reload
@@ -54,7 +54,41 @@ sudo systemctl enable --now learnrecur-backup.timer learnrecur-backup-check.time
   learnrecur-backup-recover.service
 ```
 
-The daily timer runs at 06:00 UTC, with up to 15 minutes of jitter. `Persistent=true` catches a missed daily run after reboot. The hourly check reports a failed run or a snapshot older than 36 hours as a failed systemd service. Status contains only backup names, sizes, hashes, image, timestamps, and exception class names. It contains no deck content or credentials. These checks are local to the VPS; no email, external uptime monitor, or notification delivery is configured. A powered-off VM cannot report its own failure.
+The daily timer runs at 06:00 UTC, with up to 15 minutes of jitter. `Persistent=true` catches a missed daily run after reboot. The hourly check reports a failed run or a snapshot older than 36 hours as a failed systemd service. Status contains only backup names, sizes, hashes, image, timestamps, and exception class names. It contains no deck content or credentials. [Failure alerts](#failure-alerts) turn these results into email.
+
+## Failure alerts
+
+Two independent paths send email, so a dead VM can't hide its own failure.
+
+The first is a dead man's switch on [Healthchecks.io](https://healthchecks.io), which is free for this use. A drop-in on `learnrecur-backup.service` starts `learnrecur-healthcheck@success.service` after each successful backup and `learnrecur-healthcheck@fail.service` after a failed one. A failed hourly freshness check also starts the `fail` ping. Successful freshness checks don't ping, because that would hide missing backups. The ping unit runs `curl -fsS -m 10 --retry 3` against the URL, or the URL plus `/fail`. If the daily success ping doesn't arrive, Healthchecks.io emails you. That covers a failed backup, a stopped timer, a broken network, and a VM that's off.
+
+The URL acts as a password for the check, so it lives in `/etc/learnrecur/healthcheck-url`, owned by root with mode `600`. That keeps it out of the repository, the backups, the `learnrecur` user, and the containers. systemd passes it to the ping unit as a credential, and the unit hands it to curl on standard input, so the URL never appears in a command line or the journal. Without the file, the ping unit is skipped and nothing fails.
+
+In Healthchecks.io, create a check with the cron schedule `0 6 * * *`, time zone UTC, and a one-hour grace period. That leaves room for the timer's 15 minutes of jitter. Then install its ping URL from a shell on the VPS. The `read -rs` prompt keeps the URL out of your shell history:
+
+```sh
+read -rs URL && printf '%s\n' "$URL" | sudo install -o root -g root -m 600 /dev/stdin /etc/learnrecur/healthcheck-url; unset URL
+```
+
+Test both pings. The check should go up, then down with an email, then up again:
+
+```sh
+sudo systemctl start learnrecur-healthcheck@success.service
+sudo systemctl start learnrecur-healthcheck@fail.service
+sudo systemctl start learnrecur-healthcheck@success.service
+sudo journalctl -u 'learnrecur-healthcheck@*' --since '10 min ago'
+```
+
+A failed ping leaves the ping unit failed with curl's error in the journal. To turn alerts off, delete the URL file.
+
+The second path is Azure Monitor, using only free features: activity log and Resource Health alert rules, and up to 1,000 action group emails a month. All of these live in `learnrecur-rg`:
+
+- `learnrecur-alerts` is the action group that emails the owner.
+- `learnrecur-vm-health` fires when Resource Health reports the VM as unavailable or degraded.
+- `learnrecur-vm-stopped` fires when the VM is powered off, deallocated, or deleted.
+- `learnrecur-monthly` is a $5 monthly cost budget on the resource group. It emails at 80% and 100% of actual cost and at 100% of forecast cost. It counts usage before student credits, so it warns about rising usage rather than a bill. It covers only `learnrecur-rg`, because other projects share the subscription's credits.
+
+Neither path checks the services themselves. A crashed sync server, companion, or worker, or a full disk, sends no email unless it makes a backup or freshness check fail.
 
 ## Upload, retry, and retention
 
