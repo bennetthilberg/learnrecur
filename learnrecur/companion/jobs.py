@@ -1368,15 +1368,19 @@ class Jobs:
         )
         return gross - credit
 
-    def settle_after_host_loss(self, recovery_id, usage_microusd, backup_created_at):
+    def settle_after_host_loss(
+        self, recovery_id, usage_microusd, backup_created_at, unretrievable=()
+    ):
         """Settle a restored backup's paid history after its original host is gone.
 
         The operator reads the provider usage since the backup from OpenAI's
         records. It counts against the current month as one adjustment, so the
         ceiling can only get stricter. Saved responses must be reconciled
-        first. Claims that never reached the provider go back to the queue.
-        Other uncertain attempts settle at their full reservation and never
-        publish. Repeating with the same ID and amount changes nothing.
+        first, unless the operator names a job whose response OpenAI no longer
+        has. Claims that never reached the provider go back to the queue.
+        Other uncertain attempts, and named unretrievable ones, settle at their
+        full reservation and never publish. Repeating with the same ID and
+        amount changes nothing.
         """
         if type(usage_microusd) is not int or not 0 <= usage_microusd <= 5000000:
             raise SkillImportError("State the provider usage in microusd, up to $5.")
@@ -1409,20 +1413,48 @@ class Jobs:
                 "on a.job_id=j.id and a.attempt=j.attempts where a.net_actual is null"
             )
             rows = db.execute(latest + " order by j.id").fetchall()
-            known = [
-                f"job {job_id} response {response}"
+            saved_responses = {
+                job_id: response
                 for job_id, state, _, _, response, _ in rows
                 if response and state in ("running", "provider_pending")
+            }
+            unretrievable = set(unretrievable)
+            if unretrievable - set(saved_responses):
+                raise JobConflict(
+                    "Only a running or pending job with a saved response can be "
+                    "settled as unretrievable: "
+                    + ", ".join(sorted(unretrievable - set(saved_responses)))
+                    + ". Nothing changed."
+                )
+            known = [
+                f"job {job_id} response {response}"
+                for job_id, response in saved_responses.items()
+                if job_id not in unretrievable
             ]
             if known:
                 raise JobConflict(
                     "Retrieve saved responses with reconcile-openai first: "
                     + "; ".join(known)
-                    + "."
+                    + ". If OpenAI no longer has a response, check its cost on "
+                    "the dashboard, then add --settle-unretrievable-job JOB_ID."
                 )
             settled = []
             for job_id, state, attempt, stage, _, gross in rows:
-                if state == "running" and stage == "reserved":
+                if job_id in unretrievable:
+                    # The operator checked that OpenAI can't return it. Count the
+                    # full hold and never publish, since the output is unknown.
+                    net = self._settle_failed(
+                        db, job_id, attempt, gross, HOST_LOSS_ERROR, now
+                    )
+                    settled.append(
+                        {
+                            "job_id": job_id,
+                            "action": "settled_unretrievable",
+                            "response_id": saved_responses[job_id],
+                            "net_microusd": net,
+                        }
+                    )
+                elif state == "running" and stage == "reserved":
                     # The backup shows no provider call. A later call on the lost
                     # host is part of the stated usage, so the job can run again.
                     self._abandon_reserved(db, job_id, attempt)

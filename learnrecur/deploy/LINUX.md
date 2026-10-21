@@ -208,7 +208,7 @@ A backup can't know about provider calls made after it was taken, so you look th
 1. If the lost host's OpenAI key might still work, revoke it and save a new one, as in [Enable OpenAI generation](#enable-openai-generation).
 2. Restore the newest backup into a fresh state directory, as in [Restore on another host](#restore-on-another-host). Leave every service stopped. Restoring needs the image that made the backup; if that image predates this command, run the remaining steps with a newer image.
 3. Run `inspect-generation`. Note `backup_created_at`. If it's empty, the backup was restored by an older image; use the archive's creation time instead.
-4. For each job with a `response_id` and no actual cost, run `reconcile-openai`. The release refuses while a running or pending job still has a saved response.
+4. For each job with a `response_id` and no actual cost, run `reconcile-openai`. The release refuses while a running or pending job still has a saved response. If OpenAI no longer has a response, for example because it expired, confirm that in the OpenAI dashboard. Then add `--settle-unretrievable-job JOB_ID` for that job in step 6. The option is repeatable and refuses any job that isn't waiting on a saved response.
 5. In the OpenAI dashboard, add up the project's cost from the backup time until now, in millionths of a dollar. For example, $0.0123 is `12300`. Use `0` if nothing ran.
 6. Release the pause:
 
@@ -221,7 +221,7 @@ A backup can't know about provider calls made after it was taken, so you look th
 
 7. Start sync and companion, check the restored cards and media through a fresh client, then run `start-worker` once provider configuration and spending authorization are in place.
 
-The command records your amount as one settled charge in the current UTC month, with a timestamped entry in the companion database, so the monthly ceiling includes it. If the period crosses into a new month, the whole amount still counts against the current month. That can only make the ceiling stricter. Jobs the backup shows as claimed but never sent go back to the queue. Jobs with an uncertain call, or that needed attention, stop without publishing, and their full reservation counts as spent. Some usage may count twice this way, but never too little. Then it removes both restore markers. It makes no provider call, needs no key or network, and starts nothing.
+The command records your amount as one settled charge in the current UTC month, with a timestamped entry in the companion database, so the monthly ceiling includes it. If the period crosses into a new month, the whole amount still counts against the current month. That can only make the ceiling stricter. Jobs the backup shows as claimed but never sent go back to the queue. Jobs with an uncertain call, that needed attention, or that you named as unretrievable stop without publishing, and their full reservation counts as spent. Some usage may count twice this way, but never too little. Then it removes both restore markers. It makes no provider call, needs no key or network, and starts nothing.
 
 It refuses without the confirmation or an amount, while services run, on a copy that isn't paused, on a final-handoff restore, and on a retired store. Each restore records its amount once: rerunning after an interruption finishes the release, and a different amount is refused. `inspect-generation` lists the release under `host_loss_releases`.
 

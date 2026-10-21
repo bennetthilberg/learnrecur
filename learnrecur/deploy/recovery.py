@@ -207,8 +207,15 @@ def paid_pause(root):
     return restore_id, created
 
 
-def check_loss_release(usage_microusd, confirm_original_host_lost):
+def check_loss_release(usage_microusd, confirm_original_host_lost, unretrievable=()):
     # The tool can't see the lost host or the provider, so the operator vouches.
+    if len(unretrievable) > 100 or any(
+        not isinstance(job_id, str) or not re.fullmatch(r"[a-f0-9]{32}", job_id)
+        for job_id in unretrievable
+    ):
+        raise RecoveryRefused(
+            "Pass each job ID from inspect-generation to --settle-unretrievable-job."
+        )
     if confirm_original_host_lost is not True:
         raise RecoveryRefused(
             "Confirm that the original host is gone for good with "
@@ -222,7 +229,12 @@ def check_loss_release(usage_microusd, confirm_original_host_lost):
 
 
 def release_paid_after_loss(
-    root, usage_microusd, confirm_original_host_lost, *, clock=time.time
+    root,
+    usage_microusd,
+    confirm_original_host_lost,
+    *,
+    unretrievable=(),
+    clock=time.time,
 ):
     """Resume paid generation on an ordinary restore whose source is gone."""
     from learnrecur.companion.jobs import JobConflict, Jobs
@@ -235,7 +247,7 @@ def release_paid_after_loss(
             require_active(root / name)
         except ValueError as error:
             raise RecoveryRefused(str(error)) from None
-    check_loss_release(usage_microusd, confirm_original_host_lost)
+    check_loss_release(usage_microusd, confirm_original_host_lost, unretrievable)
     if (root / RECEIPT).exists():
         raise RecoveryRefused(
             "This copy came from a final handoff. Use allow-paid-worker instead."
@@ -246,7 +258,7 @@ def release_paid_after_loss(
     restore_id, created = paid_pause(root)
     try:
         result = Jobs(Store(companion), clock=clock).settle_after_host_loss(
-            restore_id, usage_microusd, created
+            restore_id, usage_microusd, created, unretrievable
         )
     except JobConflict as error:
         raise RecoveryRefused(str(error)) from None

@@ -421,9 +421,9 @@ class Deployment:
             check=True,
         )
 
-    def release_paid_after_loss(self, usage, confirmed):
+    def release_paid_after_loss(self, usage, confirmed, unretrievable=()):
         """Resume paid generation on a restored copy whose original host is gone."""
-        check_loss_release(usage, confirmed)
+        check_loss_release(usage, confirmed, unretrievable)
         validate_root(self.state)
         self.verify_containers()
         if self.running():
@@ -437,6 +437,11 @@ class Deployment:
             "--post-backup-usage-microusd",
             str(usage),
             "--confirm-original-host-lost",
+            *(
+                argument
+                for job_id in unretrievable
+                for argument in ("--settle-unretrievable-job", job_id)
+            ),
         )
 
     def release_generation(self, job_id, charge):
@@ -518,6 +523,7 @@ def main():
     parser.add_argument("--confirm-sole-active-host", action="store_true")
     parser.add_argument("--post-backup-usage-microusd", type=int)
     parser.add_argument("--confirm-original-host-lost", action="store_true")
+    parser.add_argument("--settle-unretrievable-job", action="append", default=[])
     args = parser.parse_args()
     try:
         deployment = Deployment(args.state, args.secrets, args.image, args.project)
@@ -589,7 +595,9 @@ def main():
                 )
             elif args.command == "release-paid-after-loss":
                 deployment.release_paid_after_loss(
-                    args.post_backup_usage_microusd, args.confirm_original_host_lost
+                    args.post_backup_usage_microusd,
+                    args.confirm_original_host_lost,
+                    args.settle_unretrievable_job,
                 )
             else:
                 raise ValueError(

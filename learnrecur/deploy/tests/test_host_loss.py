@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 
 from learnrecur.companion.jobs import HOST_LOSS_ERROR, JobConflict, Jobs
-from learnrecur.companion.openai_provider import OpenAIProvider
+from learnrecur.companion.openai_provider import OpenAIProvider, UncertainResponse
 from learnrecur.companion.server import Store
 from learnrecur.companion.tests.test_openai_provider import SYNTHETIC_KEY, Transport
 from learnrecur.deploy import backup
@@ -282,3 +282,85 @@ def test_manager_refuses_while_running_and_never_starts_the_worker(state, tmp_pa
         "--confirm-original-host-lost",
     ]
     deployment.compose.assert_not_called()
+    deployment.release_paid_after_loss(0, True, ["a" * 32])
+    assert deployment.helper.call_args.args[-2:] == (
+        "--settle-unretrievable-job",
+        "a" * 32,
+    )
+    with pytest.raises(RecoveryRefused, match="job ID"):
+        deployment.release_paid_after_loss(0, True, ["not-a-job"])
+
+
+def unretrievable(state, tmp_path):
+    """Restore a pending paid job whose saved response OpenAI no longer has."""
+    pending = job(Jobs(Store(state / "companion")), "expired")
+    Jobs(Store(state / "companion")).run_once(
+        OpenAIProvider(SYNTHETIC_KEY, transport=Transport(pending=True))
+    )
+    target = restore(state, tmp_path)
+    gone = Transport()
+    gone.failure = UncertainResponse
+    restored = Jobs(Store(target / "companion"))
+    with pytest.raises(UncertainResponse):
+        restored.reconcile(
+            pending["id"], "resp_test", OpenAIProvider(SYNTHETIC_KEY, transport=gone)
+        )
+    assert restored.get(pending["id"])["state"] == "provider_pending"
+    return target, restored, pending["id"]
+
+
+def test_unretrievable_response_blocks_until_named(state, tmp_path):
+    target, restored, job_id = unretrievable(state, tmp_path)
+    before = tables(target / "companion/skills.sqlite3")
+    with pytest.raises(RecoveryRefused, match="--settle-unretrievable-job"):
+        release_paid_after_loss(target, 0, True, clock=clock)
+    # Naming a job that isn't waiting on a saved response settles nothing.
+    other = job(restored, "queued")["id"]
+    before = tables(target / "companion/skills.sqlite3")
+    for names in ([other], [job_id, other], ["f" * 32]):
+        with pytest.raises(RecoveryRefused, match="Nothing changed"):
+            release_paid_after_loss(target, 0, True, unretrievable=names, clock=clock)
+    assert tables(target / "companion/skills.sqlite3") == before
+    assert paused(target) == [True, True]
+
+
+def test_named_unretrievable_response_settles_at_full_hold_once(
+    state, tmp_path, monkeypatch
+):
+    target, restored, job_id = unretrievable(state, tmp_path)
+    bank = restored.store.snapshot().get("bank_updates")
+    original = Path.unlink
+
+    def interrupted(path, *args, **kwargs):
+        if path.name == PAID_PAUSE:
+            raise OSError("interrupted")
+        return original(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(Path, "unlink", interrupted)
+        with pytest.raises(OSError):
+            release_paid_after_loss(
+                target, 300, True, unretrievable=[job_id], clock=clock
+            )
+    assert (target / "companion" / PAID_PAUSE).exists()
+    result = release_paid_after_loss(
+        target, 300, True, unretrievable=[job_id], clock=clock
+    )
+    assert paused(target) == [False, False]
+    assert result["settled"][0]["action"] == "settled_unretrievable"
+    assert result["settled"][0]["response_id"] == "resp_test"
+    assert restored.get(job_id)["state"] == "failed"
+    with restored.store.connect() as db:
+        assert db.execute(
+            "select state,gross_reserved,net_actual,gross_reserved=net_actual from generation_attempts where job_id=?",
+            (job_id,),
+        ).fetchone()[3]
+        logged = db.execute("select settled from generation_recoveries").fetchall()
+    assert len(logged) == 1 and job_id in logged[0][0]
+    assert adjustments(target) == [("2030-01", 300, 300)]
+    # No batch was published from the unknown output.
+    assert restored.store.snapshot().get("bank_updates") == bank
+    transport = Transport()
+    restored.run_once(OpenAIProvider(SYNTHETIC_KEY, transport=transport))
+    assert restored.get(job_id)["state"] == "failed"
+    assert transport.calls == []

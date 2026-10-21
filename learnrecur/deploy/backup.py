@@ -425,6 +425,9 @@ def main():
         if command == "release-paid-after-loss":
             child.add_argument("--post-backup-usage-microusd", type=int)
             child.add_argument("--confirm-original-host-lost", action="store_true")
+            child.add_argument(
+                "--settle-unretrievable-job", action="append", default=[]
+            )
     args = parser.parse_args()
     from learnrecur.deploy.recovery import RecoveryRefused
 
@@ -458,6 +461,7 @@ def main():
                 args.root,
                 args.post_backup_usage_microusd,
                 args.confirm_original_host_lost,
+                unretrievable=args.settle_unretrievable_job,
             )
             print(
                 f"Recorded {result['usage_microusd']} microusd against "
