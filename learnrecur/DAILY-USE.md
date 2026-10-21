@@ -21,7 +21,7 @@ The install doesn't copy anything private into the bundle. The bundle gets a cop
 - `profile-ready.json`: the profile folder (`profile`) and the companion's `source_id`. The profile folder's name is the profile the app opens.
 - `desktop/`: the LearnRecur base folder with its `.learnrecur-data` marker.
 
-The app also keeps `launcher.lock`, `launcher.log`, `desktop.pid`, and `app.log` there. `app.log` holds the app's own output, including Python and Qt messages. It's private (mode 600) and moves to `app.log.1` once it passes 2 MiB, so the pair stays near 4 MiB. `launcher.log` holds the connection helper's SSH messages and isn't size-limited.
+The app also keeps `install.lock`, `launcher.lock`, `launcher.log`, `desktop.pid`, and `app.log` there. While the app runs, it holds `install.lock`, so the installer refuses to run, and a launch during installation refuses to start. `app.log` holds the app's own output, including Python and Qt messages. It's private (mode 600) and moves to `app.log.1` once it passes 2 MiB, so the pair stays near 4 MiB. `launcher.log` holds the connection helper's SSH messages and isn't size-limited.
 
 To build and install, quit the Daily app and run these from the repository root:
 
