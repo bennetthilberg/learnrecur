@@ -144,6 +144,17 @@ python3 -m learnrecur.deploy.manage \
 
 Reconciliation retrieves that response through GET, checks its saved model and request identity, and records known usage without reserving or submitting another call. It can also finish a saved pending response after restoration. It leaves both restore markers in place. Missing usage or an unavailable response retains the hold.
 
+On the active host, a job can stay in `needs_attention` when its response failed without usage or its POST never returned an ID. That job pauses refills for every skill. Check the OpenAI dashboard first, then record the charge it shows:
+
+```sh
+python3 -m learnrecur.deploy.manage \
+  --state /srv/learnrecur/state --secrets "$LEARNRECUR_SECRETS" \
+  --image "$LEARNRECUR_IMAGE" --project learnrecur release-generation \
+  --job-id SAVED_JOB_ID --confirmed-charge-microusd 0
+```
+
+The command runs without the key or network access and can run while services are up. It refuses restored copies that still have a restore marker. [OpenAI setup](../companion/OPENAI.md#recovery-and-charges) describes what it records.
+
 If usage and the complete result were already saved but publication was interrupted, run `publish-ready` through the manager while services are stopped. It publishes only saved `result_ready` jobs, without a provider key or network access. Repeating it adds no duplicate batch and leaves both restore markers in place.
 
 An ordinary backup cannot release the paid pause. Looking up its saved response IDs cannot recover requests it never recorded. If the original state survives, use the final handoff below. Otherwise, keep paid generation paused; there is no force option.

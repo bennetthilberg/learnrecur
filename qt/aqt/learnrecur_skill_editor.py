@@ -84,7 +84,20 @@ ERRORS = {
     "The skill changed. Import its latest revision before editing.",
     "This skill has pending changes. Resume the saved request first.",
     "This skill is no longer available.",
+    "Generation is in progress. Check status again.",
 }
+# The companion stops these before any paid call, or keeps an uncertain hold.
+DISCARDABLE = (
+    "queued",
+    "retry_wait",
+    "waiting_budget",
+    "waiting_capacity",
+    "needs_attention",
+)
+
+
+class CompanionRejected(SkillImportError):
+    """The companion answered with an error, so it saved nothing."""
 
 
 def validate_definition(value):
@@ -149,15 +162,19 @@ def companion_request(connection, route, payload=None):
                     if len(data) > MAX_BYTES:
                         raise SkillImportError("The companion response is too large.")
                 if response.status_code == 401:
-                    raise SkillImportError("The companion token was rejected.")
+                    raise CompanionRejected("The companion token was rejected.")
                 if response.status_code == 404:
-                    raise SkillImportError(
+                    raise CompanionRejected(
                         "Update the companion before using the skill editor."
                     )
                 value = decode(bytes(data))
                 if response.status_code != 200:
                     error = value.get("error") if isinstance(value, dict) else None
-                    raise SkillImportError(
+                    raise (
+                        CompanionRejected
+                        if 400 <= response.status_code < 500
+                        else SkillImportError
+                    )(
                         error
                         if isinstance(error, str) and error in ERRORS
                         else "The companion could not accept the request. Retry later."
@@ -175,7 +192,26 @@ def request_job(connection, payload, job_id=None):
         if job_id
         else ("/v1/skill-edits" if "skill_id" in payload else "/v1/skill-drafts")
     )
-    value = companion_request(connection, route, None if job_id else payload)
+    return checked_job(
+        companion_request(connection, route, None if job_id else payload),
+        payload,
+        job_id,
+    )
+
+
+def discard_request(connection, payload, job_id):
+    return checked_job(
+        companion_request(
+            connection,
+            "/v1/skill-discards",
+            {key: payload[key] for key in ("source_id", "request_id")},
+        ),
+        payload,
+        job_id,
+    )
+
+
+def checked_job(value, payload, job_id):
     if (
         not isinstance(value, dict)
         or not isinstance(value.get("id"), str)
@@ -820,6 +856,11 @@ class SkillEditor(QDialog):
         self.new_button.setAutoDefault(False)
         self.new_button.clicked.connect(self.new_skill)
         self.new_button.hide()
+        self.discard_button = QPushButton("Discard")
+        footer.addWidget(self.discard_button)
+        self.discard_button.setAutoDefault(False)
+        self.discard_button.clicked.connect(self.discard)
+        self.discard_button.hide()
         self.preview_button = QPushButton("Preview exercises…")
         self.preview_button.setAutoDefault(False)
         self.preview_button.clicked.connect(self.preview)
@@ -983,6 +1024,9 @@ class SkillEditor(QDialog):
                 )
                 self.action.setText("Retry")
                 self.action.setEnabled(True)
+                if self.pending is not None and self.job_id is None:
+                    # Only a definite rejection shows that no job exists.
+                    self.discard_button.setVisible(isinstance(error, CompanionRejected))
                 self.changed()
                 if self.editing and self.original is None:
                     self.action.setEnabled(True)
@@ -1069,6 +1113,7 @@ class SkillEditor(QDialog):
         self.job_id = job["id"]
         state = job["state"]
         self.message("")
+        self.discard_button.setVisible(state in DISCARDABLE)
         if state == "completed":
             self.timer.stop()
             self.processing("Adding…")
@@ -1090,6 +1135,31 @@ class SkillEditor(QDialog):
         else:
             self.processing("Generating…")
             self.timer.start()
+
+    def discard(self):
+        if not self.active() or self.pending is None:
+            return
+        self.timer.stop()
+        if self.busy:
+            QTimer.singleShot(200, self.discard)
+            return
+        if self.job_id is None:
+            self.new_skill()
+            return
+        pending = self.pending
+
+        def stopped(job):
+            if self.pending is not pending:
+                return
+            if job["state"] in ("failed", "obsolete", "needs_attention"):
+                self.new_skill()
+            else:
+                self.received_job(job)
+
+        self.processing("Discarding…")
+        self.query(
+            lambda: discard_request(self.connection, pending, self.job_id), stopped
+        )
 
     def generated(self, snapshot):
         self.snapshot = snapshot
@@ -1154,10 +1224,11 @@ class SkillEditor(QDialog):
             old.deleteLater()
         self.new_button.hide()
         self.new_button.setEnabled(True)
+        self.discard_button.hide()
         self.preview_button.hide()
         if was_added:
             self.footer.removeItem(self.footer_gap)
-            self.footer.insertItem(3, self.footer_gap)
+            self.footer.insertItem(self.footer.indexOf(self.action), self.footer_gap)
             self.setMinimumSize(640, 500)
             self.setGeometry(self.entry_geometry)
         self.setWindowTitle("Edit skill" if self.editing else "Add skill")
@@ -1170,6 +1241,10 @@ class SkillEditor(QDialog):
             self.formatting_preferences.clear()
             self.examples.clear()
             self.refresh_examples()
+        if self.editing and self.original is None:
+            # A resumed edit has no loaded definition to compare against.
+            self.load_definition()
+            return
         self.freeze(False)
         self.changed()
         self.title.setFocus()
@@ -1268,7 +1343,14 @@ def _edit_saved_skill(browser):
         notes = browser.selected_notes()
         if len(notes) != 1:
             raise SkillImportError("Select one imported skill.")
-        dialog = SkillEditor(mw, selected_skill(mw.col, notes[0]))
+        target = selected_skill(mw.col, notes[0])
+        pending = mw.pm.profile.get(PENDING_KEY)
+        if isinstance(pending, dict) and pending.get("skill_id") != target["skill_id"]:
+            raise SkillImportError(
+                "Another skill is still being saved. "
+                "Open Tools > Add skill… to finish or discard it."
+            )
+        dialog = SkillEditor(mw, target)
     except SkillImportError as error:
         showWarning(str(error), parent=browser)
         return

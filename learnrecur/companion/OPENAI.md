@@ -52,7 +52,7 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --provider openai --allow-paid-generation --monthly-limit-microusd 250000
 ```
 
-Use the same companion folder for server and worker. `250000` means a $0.25 monthly estimated out-of-pocket allowance for this disposable store. The flag cannot reset recorded spend. Repeating the same budget is safe; changing it after attempts begin is refused. Use this flag only after that spending has been approved. Stop the worker with Ctrl+C after the job completes. `--once` performs one worker step, which may leave a background response pending; subsequent steps retrieve it.
+Use the same companion folder for server and worker. `250000` means a $0.25 monthly estimated out-of-pocket allowance for this disposable store. The flag cannot reset recorded spend. You can raise or lower it at any time up to $5; recorded spending and held reservations stay as they are. Credits can change only before the first attempt. Use this flag only after that spending has been approved. Stop the worker with Ctrl+C after the job completes. `--once` performs one worker step, which may leave a background response pending; subsequent steps retrieve it.
 
 Read the job through authenticated `GET /v1/generation-jobs/<job_id>`. It includes state, usage, response ID when known, and the client request ID. Fetch the snapshot and inspect all three exercises for correct answers, clear prompts, the same narrow skill and difficulty, useful variation, and brief explanations. Only then import through **Tools > Import skills…** in a disposable LearnRecur profile and check native reveal, ratings, undo, restart, and offline review.
 
@@ -60,7 +60,7 @@ Read the job through authenticated `GET /v1/generation-jobs/<job_id>`. It includ
 
 Requests use `background=true` and `store=true`, so OpenAI stores the supplied text and response for retrieval. [Background mode](https://developers.openai.com/api/docs/guides/background) explains polling and retention behavior. Only synthetic skills and examples are used in this trial.
 
-After acceptance, the worker commits the response ID to the attempt before processing output. `provider_pending` means the response can be fetched. A restart retrieves that same ID with GET and does not submit another generation. Concurrent workers cannot poll under the same claim. A missing, expired, or mismatched response stops with the reservation held. Transient GET failures retry at most three times; they never create another paid request.
+After acceptance, the worker commits the response ID to the attempt before processing output. `provider_pending` means the response can be fetched. A restart retrieves that same ID with GET and does not submit another generation. Concurrent workers cannot poll under the same claim. A missing, expired, or mismatched response stops with the reservation held. Three GET failures in a row stop with the reservation held; a successful GET resets the count. Retrieval never creates another paid request. The worker logs each response ID as soon as the POST returns, before saving it, so a lost database write can still be reconciled.
 
 If a POST loses its reply before its response ID is saved, the attempt becomes `needs_attention`. Its reservation remains held across restarts and month changes. HTTP validation/authentication rejections stop without generation; rate-limit rejections allow at most three delayed attempts. Timeouts, server errors, and unexpected redirects are uncertain. There are no hidden transport retries, proxy settings, or redirect handling.
 
@@ -73,7 +73,17 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --reconcile-job JOB_ID --response-id RESPONSE_ID
 ```
 
-Reconciliation uses GET only. The response must match the saved job, attempt, model, and tier. It cannot settle an unrelated request or release an unknown charge by guessing zero. If no matching response can be found, keep the database and reservation intact. There is no automatic retry or operator override that declares an unknown attempt free.
+Reconciliation uses GET only. The response must match the saved job, attempt, model, and tier. It cannot settle an unrelated request or release an unknown charge by guessing zero. If no matching response can be found, keep the database and reservation intact. Nothing declares an unknown attempt free automatically.
+
+Some responses finish without usage, such as a failed or cancelled response or one stopped by `credit_balance_exhausted`. Reconciliation can't settle those, and an attempt that never reached OpenAI has no response to retrieve. Find the request in the OpenAI dashboard by its response ID or client request ID. Then record the charge you see there, in millionths of a dollar:
+
+```sh
+PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
+  --data-dir out/learnrecur/openai-companion \
+  --release-job JOB_ID --confirmed-charge-microusd 0
+```
+
+Release needs no key or network access. It only accepts a job in `needs_attention`. It settles the attempt at that charge, marks the job failed, and prints the job, attempt, response ID, and charge. Generation history shows that the job stopped after a provider check. Refills resume for every skill once no other job needs attention. Release is refused while a restore marker is present; release on the original host and export another handoff.
 
 Usage records include input and output tokens. The worker prices ordinary and cached input separately; reasoning tokens are already included in the output count. Refused, incomplete, malformed, obsolete, and rejected batches still record known usage and cost. Unexpected models, tiers, missing usage, or invalid token totals hold the reservation instead of claiming a known bill.
 

@@ -473,6 +473,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/v1/exercise-reports",
                     "/v1/skill-drafts",
                     "/v1/skill-edits",
+                    "/v1/skill-discards",
                 )
             )
             and not job_get
@@ -507,6 +508,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = Jobs(self.server.store).edit_skill(
                         payload, self.server.refill_provider
                     )
+                elif self.path == "/v1/skill-discards":
+                    result = Jobs(self.server.store).discard_skill_request(payload)
                 elif self.path == "/v1/exercise-reports":
                     from learnrecur.companion.reports import Reports
 

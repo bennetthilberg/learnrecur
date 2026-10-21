@@ -798,3 +798,185 @@ def test_completed_edit_recovers_after_another_client_publishes_new_revision(
         if reopened:
             reopened.reject()
         col.close()
+
+
+def settle(query):
+    try:
+        value = query["op"](None)
+    except Exception as error:
+        query["failure"](error)
+    else:
+        query["success"](value)
+
+
+def submit_new(dialog, server, queries):
+    dialog.title.setText("Spanish preterite")
+    dialog.description.setPlainText(payload(server)["description"])
+    dialog.perform_action()
+    receive(queries.pop(0))
+
+
+def job_count(server):
+    with server.store.connect() as db:
+        return db.execute("select count(*) from generation_jobs").fetchone()[0]
+
+
+def test_rejected_request_can_be_discarded_but_a_lost_reply_cannot(
+    app, server, monkeypatch
+):
+    queries, _ = queues(monkeypatch)
+    mw = window(server)
+    server.refill_provider = None
+    dialog = ui.SkillEditor(mw)
+    try:
+        submit_new(dialog, server, queries)
+        settle(queries.pop(0))
+        assert dialog.status.text() == "Generation is not enabled on this server."
+        assert not dialog.discard_button.isHidden()
+        # A connection failure can't show whether the companion saved the job.
+        real = ui.companion_request
+
+        def unreachable(*args):
+            raise SkillImportError("Could not reach the companion.")
+
+        monkeypatch.setattr(ui, "companion_request", unreachable)
+        dialog.perform_action()
+        settle(queries.pop(0))
+        assert dialog.discard_button.isHidden()
+        monkeypatch.setattr(ui, "companion_request", real)
+        dialog.perform_action()
+        settle(queries.pop(0))
+        dialog.discard_button.click()
+        assert dialog.pending is None and ui.PENDING_KEY not in mw.pm.profile
+        assert dialog.title.isEnabled() and dialog.title.text() == "Spanish preterite"
+        assert dialog.action.text() == "Add skill" and dialog.action.isEnabled()
+        assert dialog.discard_button.isHidden() and not queries
+        assert job_count(server) == 0
+    finally:
+        dialog.reject()
+
+
+@pytest.mark.parametrize("state", ["queued", "waiting_budget", "needs_attention"])
+def test_stuck_request_can_be_discarded_without_another_call(
+    app, server, monkeypatch, state
+):
+    queries, mutations = queues(monkeypatch)
+    mw = window(server)
+    dialog = ui.SkillEditor(mw)
+    try:
+        submit_new(dialog, server, queries)
+        settle(queries.pop(0))
+        job_id = dialog.job_id
+        with server.store.connect() as db:
+            db.execute("update generation_jobs set state=? where id=?", (state, job_id))
+        dialog.poll()
+        settle(queries.pop(0))
+        assert not dialog.discard_button.isHidden()
+        dialog.discard_button.click()
+        assert not dialog.timer.isActive()
+        settle(queries.pop(0))
+        assert dialog.pending is None and ui.PENDING_KEY not in mw.pm.profile
+        assert dialog.title.isEnabled() and dialog.title.text() == "Spanish preterite"
+        assert dialog.discard_button.isHidden()
+        expected = "needs_attention" if state == "needs_attention" else "obsolete"
+        assert jobs(server).get(job_id)["state"] == expected
+        run_fixture(server)
+        assert jobs(server).get(job_id)["attempts"] == 0
+        assert not queries and not mutations
+    finally:
+        dialog.reject()
+
+
+def test_discard_waits_for_a_call_already_in_progress(app, server, monkeypatch):
+    queries, _ = queues(monkeypatch)
+    mw = window(server)
+    dialog = ui.SkillEditor(mw)
+    try:
+        submit_new(dialog, server, queries)
+        settle(queries.pop(0))
+        saved = mw.pm.profile[ui.PENDING_KEY]
+        with server.store.connect() as db:
+            db.execute(
+                "update generation_jobs set state='running' where id=?",
+                (dialog.job_id,),
+            )
+        dialog.discard_button.click()
+        settle(queries.pop(0))
+        assert dialog.status.text() == "Generation is in progress. Check status again."
+        assert dialog.pending == saved and mw.pm.profile[ui.PENDING_KEY] == saved
+        assert jobs(server).get(dialog.job_id)["state"] == "running"
+        assert not dialog.title.isEnabled()
+    finally:
+        dialog.reject()
+
+
+def test_discarding_a_resumed_edit_reloads_the_saved_skill(
+    app, server, monkeypatch, tmp_path
+):
+    queries, mutations = queues(monkeypatch)
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    ui.import_snapshot(col, server.store.snapshot())
+    cid = rate_skill(col)
+    mw = window(server, col=col)
+    target = ui.selected_skill(col, col.get_card(cid).nid)
+    dialog = ui.SkillEditor(mw, target)
+    reopened = None
+    try:
+        app.processEvents()
+        receive(queries.pop(0))
+        revise(dialog)
+        dialog.perform_action()
+        receive(queries.pop(0))
+        settle(queries.pop(0))
+        job_id = dialog.job_id
+        dialog.reject()
+        with server.store.connect() as db:
+            db.execute(
+                "update generation_jobs set state='waiting_budget' where id=?",
+                (job_id,),
+            )
+        reopened = ui.SkillEditor(mw)
+        app.processEvents()
+        settle(queries.pop(0))
+        reopened.discard_button.click()
+        settle(queries.pop(0))
+        assert jobs(server).get(job_id)["state"] == "obsolete"
+        settle(queries.pop(0))  # Loads the published definition.
+        skill = server.store.snapshot()["skills"][0]
+        assert reopened.description.toPlainText() == skill["description"]
+        assert reopened.title.isEnabled() and not reopened.action.isEnabled()
+        revise(reopened)
+        assert reopened.action.text() == "Save changes" and reopened.action.isEnabled()
+        assert not mutations
+    finally:
+        dialog.reject()
+        if reopened:
+            reopened.reject()
+        col.close()
+
+
+def test_edit_menu_explains_another_saved_request(app, server, monkeypatch):
+    queues(monkeypatch)
+    saved = payload(server)
+    mw = window(server, profile={ui.PENDING_KEY: saved})
+    target = {
+        "source_id": saved["source_id"],
+        "skill_id": "other-skill",
+        "base_revision": 1,
+    }
+    monkeypatch.setattr(ui, "selected_skill", lambda col, nid: target)
+    warnings = []
+    monkeypatch.setattr(ui, "showWarning", lambda text, **_: warnings.append(text))
+    browser = SimpleNamespace(mw=mw, selected_notes=lambda: [1])
+    ui._edit_saved_skill(browser)
+    assert warnings == [
+        "Another skill is still being saved. "
+        "Open Tools > Add skill… to finish or discard it."
+    ]
+    assert getattr(mw, "_learnrecur_skill_editor", None) is None
+    # The same skill's saved edit still resumes.
+    mw.pm.profile[ui.PENDING_KEY] = {**saved, **target}
+    monkeypatch.setattr(ui, "SkillEditor", lambda mw, editing: MagicMock())
+    mw.garbage_collect_on_dialog_finish = MagicMock()
+    ui._edit_saved_skill(browser)
+    assert len(warnings) == 1 and mw._learnrecur_skill_editor is not None
