@@ -240,6 +240,14 @@ def test_refuses_while_launcher_lock_is_held(setup, capsys):
     assert setup.backups() == []
 
 
+def test_refuses_while_app_holds_install_lock(setup, capsys):
+    with (setup.config / "install.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_SH)
+        refuse(setup, capsys, "running")
+    assert not setup.app.exists()
+    assert setup.backups() == []
+
+
 def test_refuses_open_collection(setup, capsys):
     Path(f"{setup.collection}-wal").write_bytes(b"")
     refuse(setup, capsys, "write-ahead log")

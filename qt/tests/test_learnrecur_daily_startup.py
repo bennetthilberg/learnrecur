@@ -52,6 +52,8 @@ class Helper:
         *,
         existing: bool = False,
         authenticated: bool = True,
+        both_ports: bool = True,
+        sync_ok: bool = True,
         hosts: tuple[str, ...] = HOSTS,
     ) -> None:
         if hosts:
@@ -59,6 +61,8 @@ class Helper:
         self.tunnels: list[subprocess.Popen] = []
         monkeypatch.setattr(daily, "occupied", lambda: existing)
         monkeypatch.setattr(daily, "connected", lambda: authenticated)
+        monkeypatch.setattr(daily, "fully_occupied", lambda: existing and both_ports)
+        monkeypatch.setattr(daily, "sync_reachable", lambda: sync_ok)
         monkeypatch.setattr(daily, "start_tunnel", self.start)
         self.control, child = socket.socketpair()
         self.control.settimeout(12)
@@ -134,6 +138,21 @@ def test_existing_authenticated_tunnel_is_not_owned(root, monkeypatch, helpers):
 
 def test_foreign_service_is_refused(root, monkeypatch, helpers):
     helper = run_helper(root, monkeypatch, helpers, existing=True, authenticated=False)
+    assert helper.control.recv(64) == b"error\n"
+    helper.quit()
+    assert helper.tunnels == []
+
+
+def test_partial_forwarding_is_refused(root, monkeypatch, helpers):
+    # Only one port answers, so it can't be our own two-port tunnel.
+    helper = run_helper(root, monkeypatch, helpers, existing=True, both_ports=False)
+    assert helper.control.recv(64) == b"error\n"
+    helper.quit()
+    assert helper.tunnels == []
+
+
+def test_foreign_sync_port_is_refused(root, monkeypatch, helpers):
+    helper = run_helper(root, monkeypatch, helpers, existing=True, sync_ok=False)
     assert helper.control.recv(64) == b"error\n"
     helper.quit()
     assert helper.tunnels == []
@@ -396,3 +415,59 @@ def test_helper_entry_point_reads_bundle_settings(tmp_path, python):
     assert process.wait(timeout=20) == 0
     assert (config / "launcher.log").exists()
     assert not (bundle / "__pycache__").exists()
+
+
+def test_daily_storage_overrides_command_line_storage(root):
+    from aqt import parseArgs
+
+    base = root / "desktop"
+    arguments = daily.app_arguments(
+        ["-b", "/elsewhere", "--profile=Other", "-psn_0_12345", "deck.apkg"],
+        base,
+        "Synthetic Daily",
+    )
+    opts, args = parseArgs(["LearnRecur", *arguments])
+    assert opts.base == str(base)
+    assert opts.profile == "Synthetic Daily"
+    assert args == ["deck.apkg"]
+
+
+def test_startup_refuses_during_installation(root, monkeypatch):
+    write_config(root)
+    monkeypatch.setattr(daily, "redirect_output", lambda path: None)
+    with (root / daily.INSTALL_LOCK).open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        with patch.object(daily.subprocess, "Popen") as start:
+            with pytest.raises(RuntimeError, match="being updated"):
+                with daily.startup():
+                    pass
+            start.assert_not_called()
+
+
+def test_running_app_blocks_installation(root, monkeypatch):
+    write_config(root)
+
+    class FakeHelper:
+        def __init__(self, args, **kwargs):
+            self.control = socket.socket(fileno=os.dup(kwargs["pass_fds"][0]))
+            self.control.sendall(b"ready\n")
+
+        def wait(self, timeout):
+            self.control.close()
+            return 0
+
+    monkeypatch.setattr(daily, "redirect_output", lambda path: None)
+    monkeypatch.setattr(daily.subprocess, "Popen", FakeHelper)
+    monkeypatch.setattr(daily.sys, "argv", ["LearnRecur"])
+
+    def installer_can_lock() -> bool:
+        with (root / daily.INSTALL_LOCK).open("a") as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return False
+            return True
+
+    with daily.startup():
+        assert not installer_can_lock()
+    assert installer_can_lock()

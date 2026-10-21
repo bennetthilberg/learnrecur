@@ -17,7 +17,9 @@ The configuration directory contains:
 - `desktop/`: the LearnRecur base folder, with its `.learnrecur-data` marker.
 
 The helper keeps `launcher.lock` and `launcher.log` there, and the app writes
-`desktop.pid` and its own output to `app.log`.
+`desktop.pid` and its own output to `app.log`. A running app holds a shared lock
+on `install.lock`, and the installer takes it exclusively, so neither can start
+while the other is running.
 """
 
 from __future__ import annotations
@@ -47,6 +49,7 @@ STABLE_SECONDS = 30
 APP_LOG_LIMIT = 2 * 1024 * 1024
 APP_LOG_CHECK_SECONDS = 30
 STORAGE_MARKER = "learnrecur-data-v1\n"
+INSTALL_LOCK = "install.lock"
 
 # Set by configure() from the bundle's settings file.
 ROOT: Path = Path()
@@ -76,12 +79,37 @@ def configure(path: Path = SETTINGS) -> None:
     PORTS = (ports[0], ports[1])
 
 
-def occupied() -> bool:
+def ports_open() -> list[bool]:
     result = []
     for port in PORTS:
         with socket.socket() as connection:
             result.append(connection.connect_ex(("127.0.0.1", port)) == 0)
-    return any(result)
+    return result
+
+
+def occupied() -> bool:
+    return any(ports_open())
+
+
+def fully_occupied() -> bool:
+    return all(ports_open())
+
+
+def sync_reachable() -> bool:
+    """Check that the sync port answers like the sync server's health endpoint."""
+    connection = http.client.HTTPConnection("127.0.0.1", PORTS[0], timeout=1)
+    try:
+        connection.request("GET", "/health")
+        return connection.getresponse().status == 200
+    except (OSError, http.client.HTTPException):
+        return False
+    finally:
+        connection.close()
+
+
+def reusable() -> bool:
+    """Reuse existing forwarding only when both ports reach our own services."""
+    return fully_occupied() and connected() and sync_reachable()
 
 
 def connected() -> bool:
@@ -174,7 +202,7 @@ def supervise(control: socket.socket, log: IO[bytes]) -> None:
             return
         try:
             existing = occupied()
-            if existing and not connected():
+            if existing and not reusable():
                 control.sendall(b"error\n")
                 return
             offline = not existing and not ssh_hosts()
@@ -295,6 +323,32 @@ def redirect_output(
     threading.Thread(target=watch, name="LearnRecur Daily log", daemon=True).start()
 
 
+def app_arguments(arguments: list[str], base: Path, profile: str) -> list[str]:
+    """Pass through the app's arguments, with Daily storage taking precedence.
+
+    `argparse` keeps the last value of a repeated option, so the fixed storage
+    options go last. Mac process serial numbers (`-psn_...`) would otherwise
+    parse as a profile name, so they are dropped.
+    """
+    passed = [arg for arg in arguments if not arg.startswith("-psn")]
+    return [*passed, "-b", str(base), "-p", profile]
+
+
+def hold_install_lock() -> IO[str]:
+    """Take a shared lock the app keeps open, so the installer can't run meanwhile."""
+    path = ROOT / INSTALL_LOCK
+    lock = path.open("a")
+    try:
+        path.chmod(0o600)
+        fcntl.flock(lock, fcntl.LOCK_SH | fcntl.LOCK_NB)
+    except BlockingIOError as err:
+        lock.close()
+        raise RuntimeError(
+            "LearnRecur Daily is being updated. Open it again when the update finishes."
+        ) from err
+    return lock
+
+
 def profile_name() -> str:
     folder = json.loads((ROOT / "profile-ready.json").read_text())["profile"]
     name = Path(folder).name
@@ -316,6 +370,7 @@ def startup() -> Iterator[None]:
             "QTWEBENGINE_CHROMIUM_FLAGS",
         ):
             os.environ.pop(name, None)
+    lock = hold_install_lock()
     parent, child = socket.socketpair()
     process = None
     try:
@@ -347,7 +402,7 @@ def startup() -> Iterator[None]:
             LEARNRECUR_COMPANION_URL="http://127.0.0.1:%d" % PORTS[1],
             LEARNRECUR_COMPANION_TOKEN=(ROOT / "companion-token").read_text().strip(),
         )
-        sys.argv = [sys.argv[0], "-b", str(base), "-p", profile, *sys.argv[1:]]
+        sys.argv = [sys.argv[0], *app_arguments(sys.argv[1:], base, profile)]
         if state == b"ready":
             (ROOT / "desktop.pid").write_text(str(os.getpid()))
         yield
@@ -360,6 +415,7 @@ def startup() -> Iterator[None]:
             except subprocess.TimeoutExpired:
                 # Do not terminate an unknown process or a tunnel we don't own.
                 pass
+        lock.close()
 
 
 if __name__ == "__main__":

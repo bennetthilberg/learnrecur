@@ -30,7 +30,7 @@ import sqlite3
 import subprocess
 import sys
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -284,16 +284,22 @@ def check_not_running(plan: Plan) -> None:
 
 @contextmanager
 def launcher_lock(plan: Plan, dry_run: bool) -> Iterator[None]:
-    """Hold the lock the app's connection helper takes, so the app can't start mid-swap."""
-    path = plan.config / "launcher.lock"
-    if dry_run and not path.exists():
-        yield
-        return
-    with path.open("r" if dry_run else "a") as lock:
-        try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as err:
-            raise InstallError("The Daily app is running. Quit it first.") from err
+    """Hold the app's locks, so the app can't start mid-swap.
+
+    A running app holds a shared lock on `install.lock` for its whole life, and
+    its connection helper holds `launcher.lock`. Holding both exclusively makes
+    a launch during installation refuse to start.
+    """
+    with ExitStack() as stack:
+        for name in ("install.lock", "launcher.lock"):
+            path = plan.config / name
+            if dry_run and not path.exists():
+                continue
+            lock = stack.enter_context(path.open("r" if dry_run else "a"))
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError as err:
+                raise InstallError("The Daily app is running. Quit it first.") from err
         yield
 
 
