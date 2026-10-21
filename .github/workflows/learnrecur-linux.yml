@@ -43,3 +43,20 @@ jobs:
           retention-days: 7
           compression-level: 0
           if-no-files-found: error
+  rust:
+    name: Rust tests
+    if: github.repository == 'bennetthilberg/learnrecur'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: ./.github/actions/setup-anki
+      - run: git submodule update --init ftl/core-repo ftl/qt-repo
+      # The build expects a prebuilt cargo-nextest when CI is set.
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
+        with:
+          tool: cargo-nextest@0.9.99
+      # Runs the tests in every workspace crate, not just rslib.
+      # Tests that need the network stay off because ONLINE_TESTS isn't set.
+      - name: Run the Rust test suite
+        run: ./ninja check:rust_test
