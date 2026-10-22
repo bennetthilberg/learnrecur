@@ -83,9 +83,9 @@ python3 -m learnrecur.deploy.manage \
   --image "$LEARNRECUR_IMAGE" start-worker
 ```
 
-The command checks key permissions and sets the database allowance before enabling OpenAI refills. It saves the provider choice in private `secrets/generation.json`, so later starts keep the same choice. Lowering a limit preserves all spending and held reservations. Increasing it or changing credits after attempts have begun is refused. No credits are assumed; apply only verified provider credits with an expiry before the first attempt. The companion queues OpenAI jobs; the worker uses the existing [GPT-6 Luna adapter](../companion/OPENAI.md) with `xhigh` reasoning. Ratings and answer reveals still use the local bank.
+The command checks key permissions and sets the database allowance before enabling OpenAI refills. It saves the provider choice in private `secrets/generation.json`, so later starts keep the same choice. Changing the limit, up to $5, preserves all spending and held reservations. Changing credits after attempts have begun is refused. No credits are assumed; apply only verified provider credits with an expiry before the first attempt. The companion queues OpenAI jobs; the worker uses the existing [GPT-6 Luna adapter](../companion/OPENAI.md) with `xhigh` reasoning. Ratings and answer reveals still use the local bank.
 
-The allowance is an estimated monthly cap, not a provider invoice cap. A single trial's authorization does not renew each month. Stop the worker when the trial ends. `stop` stops all three services; `start` brings back sync and companion without restarting the stopped worker. Docker keeps it stopped across host reboots. Protect the key separately from backups, and revoke it through OpenAI if the host is lost.
+The allowance is an estimated monthly cap, not a provider invoice cap. It applies again each UTC month, so run the worker only while the user has authorized that monthly spending. [OPERATIONS.md](../OPERATIONS.md#spending) describes the current ceiling and how to stop paid generation. `stop` stops all three services; `start` brings back sync and companion without restarting the stopped worker. Docker keeps it stopped across host reboots. Protect the key separately from backups, and revoke it through OpenAI if the host is lost.
 
 ## Back up both stores
 
@@ -253,7 +253,7 @@ The two running services used about 24 MiB of RAM. After reboot, about 566 MiB o
 
 The subscription's spending limit remains enabled. Student credits expire August 4, 2027. Expected out-of-pocket hosting is $0 while credits remain. With the [published free VM and disk allowances](https://azure.microsoft.com/en-us/free/students), the standard IPv4 address uses about $3.65/month in credits at $0.005/hour, before traffic or other charges. Confirm actual billed usage once Azure reports it. Credit balance is shared with unrelated resources and is recorded privately in the ignored deployment metadata. Renew eligibility, stop, or move before the credit or free allowance ends; do not upgrade to pay-as-you-go without authorization.
 
-This checks private SSH access, fixture generation, restart, and complete cross-host recovery. The hosted OpenAI trial is recorded below. Automatic off-host backups, retention, release of paid generation after restoring old state, and public HTTPS remain ahead.
+This checks private SSH access, fixture generation, restart, and complete cross-host recovery. The hosted OpenAI trial is recorded below. Automatic off-host backups and retention were added on October 3; see [Automatic backend backups](AUTOMATIC-BACKUPS.md). Paid recovery after restoration is covered in the recovery sections above. Public HTTPS isn't set up; remote access uses Tailscale.
 
 ## Hosted OpenAI trial
 
