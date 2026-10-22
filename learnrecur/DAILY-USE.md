@@ -1,12 +1,14 @@
-# Daily-use trial
+# Daily use
 
-The trial started on October 8, 2026 with three Spanish skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Each skill has one native card and a locally cached exercise bank. Paid refills run under a $1 monthly ceiling, described below.
+LearnRecur Daily is the Mac app the user studies with every day, backed by the hosted sync server and companion. Treat both as production. The app has five Spanish grammar skills, each with one native card and a locally cached exercise bank. Paid refills run under a $1 monthly ceiling, described below. [OPERATIONS.md](OPERATIONS.md) covers routine updates, backups, alerts, and access; this page has the app's setup and its history.
+
+Daily use started as a trial on October 8, 2026 with three skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Later sections keep the trial's records.
 
 ## Use the app
 
 Open `~/Desktop/LearnRecur Daily.app`, choose **Daily Spanish**, and press **Study Now**. Solve each exercise, reveal the answer, and rate your recall normally. Review what is due each day; don't force extra reviews to exercise the system. Use **Report and skip** for an incorrect, ambiguous, or out-of-scope exercise.
 
-The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code, described in [Build, install, and update the app](#build-install-and-update-the-app), connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and are outside this trial. Nothing reads or changes personal Anki profiles.
+The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code, described in [Build, install, and update the app](#build-install-and-update-the-app), connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and aren't part of daily use. Nothing reads or changes personal Anki profiles.
 
 If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, check that Tailscale is connected in the menu bar, then quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
 
@@ -67,7 +69,7 @@ All ten examples came from *Complete Spanish Step-by-Step*, with small adaptatio
 
 Native sync, normal quit, and restart preserved every card, note, and review exactly. All three trial cards were new and unrated at setup. No generated answers were shown in that preview, and no test ratings or reports were submitted on these cards. A restart during backup showed a network error; retrying sync after service recovery succeeded, and a subsequent launch was clean.
 
-The retrieved password-manager key decrypted a current backup and passed every manifest hash. A fresh encrypted backup containing the trial restored on the separate Mac Linux host with three unrated cards, nine exercises, saved examples, jobs, and accounting. Both restore pauses remained, no restored service started, and no provider call ran during restoration. Daily backups and hourly freshness checks were configured on the VPS. The original October 15 cutoff stopped generation successfully; the October 18 renewal uses the same cutoff mechanism with a new date. No external failure notification is configured.
+The retrieved password-manager key decrypted a current backup and passed every manifest hash. A fresh encrypted backup containing the trial restored on the separate Mac Linux host with three unrated cards, nine exercises, saved examples, jobs, and accounting. Both restore pauses remained, no restored service started, and no provider call ran during restoration. Daily backups and hourly freshness checks were configured on the VPS. The original October 15 cutoff stopped generation successfully; the October 18 renewal uses the same cutoff mechanism with a new date. No external failure notification was configured then; [failure alerts](deploy/AUTOMATIC-BACKUPS.md#failure-alerts) were added on October 20.
 
 Definitions, source references, provider responses, keys, collections, receipts, and the operational handoff stay outside Git under `~/.local/share/learnrecur/daily-use/2026-10-08`. Start with `HANDOFF.md` there before resuming operational work. The matching image archive is under `~/.local/share/learnrecur/backend-images`.
 

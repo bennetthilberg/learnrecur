@@ -10,7 +10,7 @@ The goal is short, trustworthy practice of material the learner has already lear
 
 The app keeps Anki's review flow and scheduling controls. The user solves an exercise, reveals the answer and a brief explanation, and rates their own recall. Their rating goes through Anki's normal review code, which sets the next review date and records the result. Exercises are generated in the background and saved locally for review. Users can also study ordinary decks, so vocabulary and skill practice fit in the same app.
 
-Read [ROADMAP.md](ROADMAP.md) before starting work. It records the product decisions, order of work, what has been checked, and the next task. Keep implementation plans there and working rules here.
+Read [ROADMAP.md](ROADMAP.md) before starting work. It records the product decisions, order of work, what has been checked, and the next task. Keep implementation plans there and working rules here. For anything that touches the running app or server, follow [learnrecur/OPERATIONS.md](learnrecur/OPERATIONS.md).
 
 ## Repository structure
 
