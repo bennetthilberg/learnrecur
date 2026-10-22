@@ -216,8 +216,11 @@ def restore_archive(archive_path: Path, destination: Path, revision: str):
         (stage / "companion/.restore-pending").write_text(
             "Inspect restored jobs before resuming.\n"
         )
+        from learnrecur.deploy.recovery import pause_marker
+
+        # The restore ID lets a release after host loss record usage only once.
         (stage / "companion/.paid-restore-pending").write_text(
-            "Paid calls after this backup may be missing. Keep paid generation paused.\n"
+            pause_marker(manifest.get("created_at"))
         )
         # Reserve the destination exclusively. An interrupted publication has
         # no root marker and cannot be launched as a complete deployment.
@@ -308,7 +311,16 @@ def inspect_generation(root):
         attempts = db.execute(
             "select a.job_id,a.attempt,j.state,a.state,a.response_id,a.net_reserved,a.net_actual from generation_attempts a join generation_jobs j on j.id=a.job_id order by a.job_id,a.attempt"
         ).fetchall()
-    from learnrecur.deploy.recovery import RECEIPT
+        recoveries = (
+            db.execute(
+                "select id,recorded_at,backup_created_at,month,usage_microusd from generation_recoveries order by recorded_at"
+            ).fetchall()
+            if db.execute(
+                "select 1 from sqlite_master where name='generation_recoveries'"
+            ).fetchone()
+            else []
+        )
+    from learnrecur.deploy.recovery import RECEIPT, pause_details
 
     receipt = safe_path(root / RECEIPT)
     handoff_id = (
@@ -316,8 +328,24 @@ def inspect_generation(root):
     )
     return {
         "handoff_id": handoff_id,
+        "backup_created_at": pause_details(root)[1],
         "restore_paused": (root / "companion/.restore-pending").exists(),
         "paid_restore_paused": (root / "companion/.paid-restore-pending").exists(),
+        "host_loss_releases": [
+            dict(
+                zip(
+                    (
+                        "restore_id",
+                        "recorded_at",
+                        "backup_created_at",
+                        "month",
+                        "usage_microusd",
+                    ),
+                    row,
+                )
+            )
+            for row in recoveries
+        ],
         "budget": dict(
             zip(("monthly_limit", "credit_total", "credit_expires"), budget)
         ),
@@ -342,7 +370,7 @@ def inspect_generation(root):
             )
             for row in attempts
         ],
-        "recovery": "Retrieve known responses without resubmitting. A backup cannot account for calls made later; keep paid generation paused until that history is recovered.",
+        "recovery": "Retrieve known responses without resubmitting. A backup cannot account for calls made later. Recover that history with a final handoff, or, if the original host is lost, check OpenAI usage since backup_created_at and run release-paid-after-loss.",
     }
 
 
@@ -373,6 +401,7 @@ def main():
         "retire-source",
         "create-handoff",
         "allow-paid-worker",
+        "release-paid-after-loss",
     ):
         child = commands.add_parser(command)
         child.add_argument("--root", type=Path, required=True)
@@ -393,7 +422,15 @@ def main():
             child.add_argument(
                 "--confirm-sole-active-host", action="store_true", required=True
             )
+        if command == "release-paid-after-loss":
+            child.add_argument("--post-backup-usage-microusd", type=int)
+            child.add_argument("--confirm-original-host-lost", action="store_true")
+            child.add_argument(
+                "--settle-unretrievable-job", action="append", default=[]
+            )
     args = parser.parse_args()
+    from learnrecur.deploy.recovery import RecoveryRefused
+
     try:
         if args.command in ("create", "create-handoff"):
             create(
@@ -417,8 +454,33 @@ def main():
             from learnrecur.deploy.recovery import allow_paid_worker
 
             allow_paid_worker(args.root, args.handoff_id, args.confirm_sole_active_host)
+        elif args.command == "release-paid-after-loss":
+            from learnrecur.deploy.recovery import release_paid_after_loss
+
+            result = release_paid_after_loss(
+                args.root,
+                args.post_backup_usage_microusd,
+                args.confirm_original_host_lost,
+                unretrievable=args.settle_unretrievable_job,
+            )
+            print(
+                f"Recorded {result['usage_microusd']} microusd against "
+                f"{result['month']}. Paid generation is no longer paused. "
+                "The worker is still stopped; start it when you're ready."
+            )
+            for item in result["settled"]:
+                print(
+                    f"Job {item['job_id']}: "
+                    + (
+                        "queued again; it never reached the provider."
+                        if item["action"] == "requeued"
+                        else f"stopped; {item['net_microusd']} microusd recorded."
+                    )
+                )
         else:
             print(json.dumps(inspect_generation(args.root), indent=2))
+    except RecoveryRefused as error:
+        parser.exit(1, f"{error}\n")
     except (
         ValueError,
         OSError,

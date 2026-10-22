@@ -17,6 +17,7 @@ from pathlib import Path
 
 from learnrecur.companion.credentials import load_key
 from learnrecur.deploy.backup import MARKER, STORES, VERSION, safe_path, validate_root
+from learnrecur.deploy.recovery import RecoveryRefused, check_loss_release
 
 COMPOSE = Path(__file__).with_name("compose.yaml")
 SERVICES = {"sync", "companion", "worker"}
@@ -420,6 +421,29 @@ class Deployment:
             check=True,
         )
 
+    def release_paid_after_loss(self, usage, confirmed, unretrievable=()):
+        """Resume paid generation on a restored copy whose original host is gone."""
+        check_loss_release(usage, confirmed, unretrievable)
+        validate_root(self.state)
+        self.verify_containers()
+        if self.running():
+            raise RecoveryRefused("Stop the restored deployment first.")
+        # No key or network. This starts nothing, so the worker stays stopped.
+        self.helper(
+            [(self.state, "/state", False)],
+            "release-paid-after-loss",
+            "--root",
+            "/state",
+            "--post-backup-usage-microusd",
+            str(usage),
+            "--confirm-original-host-lost",
+            *(
+                argument
+                for job_id in unretrievable
+                for argument in ("--settle-unretrievable-job", job_id)
+            ),
+        )
+
     def release_generation(self, job_id, charge):
         """Close a needs_attention job with the charge read from provider records."""
         validate_root(self.state)
@@ -485,6 +509,7 @@ def main():
             "release-generation",
             "handoff-backup",
             "allow-paid-worker",
+            "release-paid-after-loss",
         ),
     )
     parser.add_argument("--archive", type=Path)
@@ -496,6 +521,9 @@ def main():
     parser.add_argument("--confirmed-charge-microusd", type=int)
     parser.add_argument("--handoff-id")
     parser.add_argument("--confirm-sole-active-host", action="store_true")
+    parser.add_argument("--post-backup-usage-microusd", type=int)
+    parser.add_argument("--confirm-original-host-lost", action="store_true")
+    parser.add_argument("--settle-unretrievable-job", action="append", default=[])
     args = parser.parse_args()
     try:
         deployment = Deployment(args.state, args.secrets, args.image, args.project)
@@ -565,10 +593,18 @@ def main():
                 deployment.release_generation(
                     args.job_id, args.confirmed_charge_microusd
                 )
+            elif args.command == "release-paid-after-loss":
+                deployment.release_paid_after_loss(
+                    args.post_backup_usage_microusd,
+                    args.confirm_original_host_lost,
+                    args.settle_unretrievable_job,
+                )
             else:
                 raise ValueError(
                     "Supply the archive and recipient or identity options."
                 )
+    except RecoveryRefused as error:
+        parser.exit(1, f"Deployment operation refused: {error}\n")
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"Deployment operation failed: {type(error).__name__}.\n")
 

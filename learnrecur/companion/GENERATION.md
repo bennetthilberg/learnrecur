@@ -74,7 +74,7 @@ There is no automatic resolver for an uncertain POST without a saved response ID
 
 ## Cost records
 
-`generation_budget` stores the monthly out-of-pocket limit, available promotional credit, and its expiry. `generation_attempts` records each attempt's month, gross estimate, reserved credit, net reservation, and actual costs when known. Amounts use integer millionths of a US dollar: `5000000` is $5.
+`generation_budget` stores the monthly out-of-pocket limit, available promotional credit, and its expiry. `generation_attempts` records each attempt's month, gross estimate, reserved credit, net reservation, and actual costs when known. Amounts use integer millionths of a US dollar: `5000000` is $5. A [release after losing the host](../deploy/LINUX.md#recover-paid-generation-after-losing-the-host) adds one settled row whose job ID starts with `host-loss-` and has no job of its own. It holds the usage the operator found in OpenAI's records, and `generation_recoveries` logs when and why it was added.
 
 Claims reserve estimated cost after available, unexpired credits. Concurrent claims account for existing reservations. The budget and credit expiry are checked again immediately before a call. If the available budget cannot cover it, no call is made. A reservation made before midnight moves to the month in which the call starts. Actual usage settles the reservation; a failed or obsolete batch still keeps any known cost. Uncertain attempts retain their reservation across month changes.
 
