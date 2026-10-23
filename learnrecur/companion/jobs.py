@@ -23,6 +23,7 @@ from anki.learnrecur_skill_import import (
     _text,
     decode,
     encode,
+    validate_blanks,
     validate_exercise,
     validate_snapshot,
 )
@@ -1574,7 +1575,18 @@ class Jobs:
                 for index, exercise in enumerate(exercises):
                     if not isinstance(exercise, dict) or exercise["prompt"] in examples:
                         raise SkillImportError("Invalid or copied example exercise.")
+                    blanks = exercise.pop("blanks", [])
                     validate_exercise(exercise)
+                    # Blanks are presentation only. When they don't match the
+                    # prompt, publish the exercise without them, and review
+                    # shows the answer below it as before.
+                    if blanks:
+                        try:
+                            exercise["blanks"] = validate_blanks(
+                                exercise["prompt"], blanks
+                            )
+                        except SkillImportError:
+                            pass
                     exercise["id"] = f"job-{job_id}-{index}"
                 skill = context["skill"]
                 sequence = db.execute(

@@ -21,6 +21,8 @@ from uuid import uuid4
 
 from anki.learnrecur_limits import StorageLimits
 from anki.learnrecur_skill_import import (
+    MAX_BLANK_BYTES,
+    MAX_BLANKS,
     MAX_BYTES,
     SkillImportError,
     decode,
@@ -253,6 +255,7 @@ class Store:
                         "context",
                     )
                 },
+                "blanks": ["\\" * MAX_BLANK_BYTES] * MAX_BLANKS,
             }
             for index in range(count)
         ]

@@ -182,7 +182,7 @@ def test_private_import_plan_round_trips_preferences_and_example_parts(server, p
     )
 
 
-def test_storage_reservation_covers_all_five_text_fields():
+def test_storage_reservation_covers_all_text_fields_and_blanks():
     reserved = Store.reserved_exercises(3)
     assert set(reserved[0]) == {
         "id",
@@ -191,5 +191,7 @@ def test_storage_reservation_covers_all_five_text_fields():
         "context",
         "answer",
         "explanation",
+        "blanks",
     }
-    assert len(json.dumps(reserved)) > 3 * 5 * 8192
+    assert reserved[0]["blanks"] == ["\\" * 512] * 16
+    assert len(json.dumps(reserved)) > 3 * (5 * 8192 + 16 * 512) * 2

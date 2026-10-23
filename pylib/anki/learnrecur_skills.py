@@ -39,6 +39,9 @@ class Exercise:
     ordinal: int
     instruction: str = ""
     context: str = ""
+    # One fill per prompt blank. Empty when absent or invalid, so the answer
+    # renders below the exercise as it always has.
+    blanks: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,7 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
             raise ValueError()
         exercises = []
         ids = set()
+        from anki.learnrecur_skill_import import SkillImportError, validate_blanks
         from anki.learnrecur_skill_import import _text as validate_text
 
         for ordinal, item in enumerate(raw["exercises"]):
@@ -94,6 +98,14 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
                 raise ValueError()
             for key in ("instruction", "context"):
                 validate_text(item.get(key, ""), optional=True)
+            blanks: tuple[str, ...] = ()
+            if "blanks" in item:
+                try:
+                    blanks = tuple(
+                        validate_blanks(_text(item["prompt"]), item["blanks"])
+                    )
+                except SkillImportError:
+                    pass  # Never fill some blanks and leave others empty.
             exercise = Exercise(
                 *(
                     _text(item[key])
@@ -102,6 +114,7 @@ def _bank(card: Card) -> tuple[str, str, list[Exercise], set[str]] | None:
                 ordinal,
                 item.get("instruction", ""),
                 item.get("context", ""),
+                blanks,
             )
             if exercise.id in ids:
                 raise ValueError()
@@ -270,31 +283,47 @@ EXERCISE_CSS = """
 .lr-context { font-size: .85em; margin-top: .65em; color: #555; }
 .nightMode .lr-context { color: #bbb; }
 .lr-answer { display: block; font-weight: bold; }
+.lr-fill { font-weight: bold; padding: 0 .15em; border-bottom: 1px solid; }
+.lr-fill { border-bottom-color: color-mix(in srgb, currentColor 45%, transparent); }
 .lr-explanation { margin-top: .65em; font-weight: normal; }
 """
 
 
 def exercise_html(exercise: Exercise) -> tuple[str, str]:
     """Render supported text parts; generated text never supplies markup."""
+    from anki.learnrecur_skill_import import BLANK
 
     def plain_text(text: str) -> str:
         # Brackets must not become native typed-answer or media instructions.
         return html.escape(text).replace("[", "&#91;").replace("\n", "<br>")
 
-    question = "".join(
-        f'<div class="lr-{key}">{plain_text(text)}</div>'
-        for key, text in (
-            ("instruction", exercise.instruction),
-            ("prompt", exercise.prompt),
-            ("context", exercise.context),
+    def parts(prompt: str) -> str:
+        return "".join(
+            f'<div class="lr-{key}">{text}</div>'
+            for key, text in (
+                ("instruction", plain_text(exercise.instruction)),
+                ("prompt", prompt),
+                ("context", plain_text(exercise.context)),
+            )
+            if text
         )
-        if text
+
+    question = parts(plain_text(exercise.prompt))
+    explanation = (
+        f'<div class="lr-explanation">{plain_text(exercise.explanation)}</div>'
     )
+    pieces = BLANK.split(exercise.prompt)
+    if exercise.blanks and len(pieces) == len(exercise.blanks) + 1:
+        # Each fill takes its blank's place, so the sentence reads as answered.
+        filled = plain_text(pieces[0]) + "".join(
+            f'<strong class="lr-fill">{plain_text(fill)}</strong>{plain_text(rest)}'
+            for fill, rest in zip(exercise.blanks, pieces[1:])
+        )
+        return question, f'{parts(filled)}<hr id="answer">{explanation}'
     answer = plain_text(exercise.answer)
-    explanation = plain_text(exercise.explanation)
     return question, (
         f'{question}<hr id="answer"><strong class="lr-answer">{answer}</strong>'
-        f'<div class="lr-explanation">{explanation}</div>'
+        f"{explanation}"
     )
 
 

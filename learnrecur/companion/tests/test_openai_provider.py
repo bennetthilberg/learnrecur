@@ -180,7 +180,7 @@ def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
     body = transport.calls[0][2]
     assert body["instructions"] == job["context"]["instructions"]
     assert body["instructions"].startswith(GUIDANCE)
-    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 4
+    assert job["context"]["instructions_version"] == GUIDANCE_VERSION == 5
     assert json.loads(body["input"])["examples"] == examples
     assert (
         json.loads(body["input"])["skill"]["formatting_preferences"]
@@ -190,12 +190,12 @@ def test_all_generation_paths_submit_saved_prompt_guidance(jobs, path):
     assert (
         set(schema["properties"])
         == set(schema["required"])
-        == {"instruction", "prompt", "context", "answer", "explanation"}
+        == {"instruction", "prompt", "context", "answer", "explanation", "blanks"}
     )
 
 
 @pytest.mark.parametrize("stage", ["queued", "retry", "pending"])
-@pytest.mark.parametrize("version", [1, 2, 3])
+@pytest.mark.parametrize("version", [1, 2, 3, 4])
 def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
     jobs, payload, stage, version
 ):
@@ -240,11 +240,16 @@ def test_legacy_guidance_survives_restart_retry_and_response_retrieval(
             schema = call[2]["text"]["format"]["schema"]["properties"]["exercises"][
                 "items"
             ]
-            assert set(schema["properties"]) == {"prompt", "answer", "explanation"}
+            assert set(schema["properties"]) == {
+                "prompt",
+                "answer",
+                "explanation",
+                *(("instruction", "context") if version == 4 else ()),
+            }
     fresh = restored.enqueue(
         {**payload, "request_id": "new-guidance", "provider": "openai"}
     )
-    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 4
+    assert fresh["context"]["instructions_version"] == GUIDANCE_VERSION == 5
     assert request_body(fresh["context"])["instructions"].startswith(GUIDANCE)
 
 
