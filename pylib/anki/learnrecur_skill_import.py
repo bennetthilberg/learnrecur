@@ -82,6 +82,26 @@ def _text(value: object, limit: int = 8192, *, optional: bool = False) -> str:
     return value
 
 
+# Each unbroken run of three or more underscores in a prompt is one blank.
+BLANK = re.compile(r"_{3,}")
+MAX_BLANKS = 16
+MAX_BLANK_BYTES = 512
+
+
+def validate_blanks(prompt: str, blanks: object) -> list[str]:
+    """Check one fill per prompt blank, in order, each short and on one line."""
+    if (
+        not isinstance(blanks, list)
+        or not 1 <= len(blanks) <= MAX_BLANKS
+        or len(blanks) != len(BLANK.findall(prompt))
+    ):
+        raise SkillImportError("An exercise's blanks don't match its prompt.")
+    for fill in blanks:
+        if "\n" in _text(fill, MAX_BLANK_BYTES) or "\t" in fill:
+            raise SkillImportError("An exercise's blanks don't match its prompt.")
+    return blanks
+
+
 def validate_exercise(value: object, *, cached: bool = False) -> None:
     required = {"prompt", "answer", "explanation"}
     if cached:
@@ -89,7 +109,7 @@ def validate_exercise(value: object, *, cached: bool = False) -> None:
     if (
         not isinstance(value, dict)
         or not required <= set(value)
-        or set(value) - required - {"instruction", "context"}
+        or set(value) - required - {"instruction", "context", "blanks"}
     ):
         raise SkillImportError("Invalid exercise fields.")
     for key in required:
@@ -97,6 +117,8 @@ def validate_exercise(value: object, *, cached: bool = False) -> None:
     for key in ("instruction", "context"):
         if key in value:
             _text(value[key], optional=True)
+    if "blanks" in value:
+        validate_blanks(value["prompt"], value["blanks"])
 
 
 def validate_skills(value: object) -> list[dict]:

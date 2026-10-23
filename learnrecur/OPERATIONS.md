@@ -37,7 +37,7 @@ The October 18 and 20 upgrades used these steps; [DAILY-USE.md](DAILY-USE.md#cur
 11. **Start the worker and restart backups.** Run the manager's `start-worker`, confirm that sync, companion, and worker are running, then restart the backup timers and the recover service.
 12. **Keep the previous source and image** while any backup you might restore still names the old image.
 
-Then update the Mac app from the same commit, since the app and sync server must match.
+Then update the Mac app from the same commit, since the app and sync server must match. The exception is a release that adds exercise fields, such as `blanks` in instruction version 5. For those, update the Mac app first, because an older app refuses snapshots with fields it doesn't know. [Exercise presentation](PRESENTATION.md#saved-data-and-rollout) says which releases need this order.
 
 Rolling back hasn't been needed or tested. It means stopping the services, putting the previous source back, pointing `backup.json` at the old image, and starting again. If the upgrade changed the database schema, check that the old code accepts the new databases before relying on that.
 

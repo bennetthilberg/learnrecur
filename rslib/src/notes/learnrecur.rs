@@ -399,3 +399,62 @@ impl Collection {
         Ok(((revision, sequence), fields))
     }
 }
+
+#[cfg(test)]
+mod test {
+    use serde_json::json;
+    use serde_json::Value;
+
+    use super::*;
+
+    fn fields(bank: &Value) -> Vec<String> {
+        let mut fields = vec!["field".to_string(); 5];
+        fields.push(bank.to_string());
+        fields.push(json!({"source_id": "source", "skill_id": "skill"}).to_string());
+        fields
+    }
+
+    fn exercise(id: &str, blanks: Option<Value>) -> Value {
+        let mut exercise = json!({
+            "id": id,
+            "prompt": "Ayer yo ______ con Ana.",
+            "answer": "hablé",
+            "explanation": "Replace -ar with -é.",
+        });
+        if let Some(blanks) = blanks {
+            exercise["blanks"] = blanks;
+        }
+        exercise
+    }
+
+    fn appended(base: &[Value], batch: &[Value]) -> Value {
+        json!({
+            "version": 1,
+            "skill_id": "skill",
+            "revision": 1,
+            "exercises": base.iter().chain(batch).collect::<Vec<_>>(),
+            "base_skill": {"bank": {"exercises": base}},
+            "bank_updates": [{"exercises": batch}],
+            "bank_sequence": 1,
+        })
+    }
+
+    #[test]
+    fn bank_append_carries_blanks_but_cannot_rewrite_them() {
+        let base = [exercise("a", Some(json!(["hablé"])))];
+        let older = json!({
+            "version": 1, "skill_id": "skill", "revision": 1, "exercises": base,
+        });
+        let batch = [exercise("b", Some(json!(["hablé"]))), exercise("c", None)];
+        Collection::validate_skill_bank_append(&fields(&older), &fields(&appended(&base, &batch)))
+            .unwrap();
+        // A refill only adds exercises. Changing an existing fill is a conflict,
+        // the same as changing its answer.
+        let rewritten = [exercise("a", Some(json!(["trabajé"])))];
+        assert!(Collection::validate_skill_bank_append(
+            &fields(&older),
+            &fields(&appended(&rewritten, &batch)),
+        )
+        .is_err());
+    }
+}

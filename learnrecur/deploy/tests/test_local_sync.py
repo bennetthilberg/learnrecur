@@ -1119,6 +1119,52 @@ def test_later_bank_sequence_survives_stale_offline_bank(server, snapshot, tmp_p
         assert import_snapshot(b, first).existing == 1
 
 
+def test_refill_with_blanks_reaches_a_client_with_a_stale_offline_bank(
+    server, snapshot, tmp_path
+):
+    from learnrecur.companion.jobs import FixtureProvider, Jobs
+
+    class Blanks(FixtureProvider):
+        def generate(self, context):
+            result = super().generate(context)
+            for exercise in result["exercises"]:
+                exercise["blanks"] = [exercise["answer"]]
+            return result
+
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        store = Store(tmp_path / "companion")
+        jobs = Jobs(store)
+        jobs.enqueue(
+            {
+                "request_id": "blank-bank",
+                "skill_id": "spanish-ar-preterite-yo",
+                "revision": 1,
+                "count": 3,
+            }
+        )
+        jobs.run_once(Blanks())
+        latest = store.snapshot()
+        import_snapshot(a, latest)
+        sync(a, auth)
+        cid = a.find_cards("")[0]
+        # The stale offline edit makes sync choose between the two banks.
+        b.db.execute("update notes set mod=mod+60,usn=-1 where id=?", cid)
+        sync(b, auth)
+        sync(a, auth)
+        assert a.get_card(cid).note().fields == b.get_card(cid).note().fields
+        bank = json.loads(b.get_card(cid).note()["LearnRecurSkill"])
+        generated = bank["bank_updates"][0]["exercises"]
+        assert [e["blanks"] for e in generated] == [[e["answer"]] for e in generated]
+        for _ in range(3):
+            rate(b)
+        exercise = select_skill_review(b.get_card(cid)).exercise
+        assert exercise.id.startswith("job-")
+        assert exercise.blanks == (exercise.answer,)
+        assert import_snapshot(b, latest).existing == 1
+
+
 def test_refill_sync_refuses_rewriting_existing_exercises(server, snapshot, tmp_path):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)

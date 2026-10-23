@@ -11,7 +11,7 @@ import re
 from datetime import date
 from fractions import Fraction
 
-from anki.learnrecur_skill_import import SkillImportError, decode, encode
+from anki.learnrecur_skill_import import MAX_BLANKS, SkillImportError, decode, encode
 from learnrecur.companion.jobs import RetryableFailure, TerminalFailure
 
 NAME = "openai-responses-v1"
@@ -37,7 +37,7 @@ PRICE_FIELDS = (
     "cache_write_usd_per_million",
     "output_usd_per_million",
 )
-GUIDANCE_VERSION = 4
+GUIDANCE_VERSION = 5
 GUIDANCE = (
     "Generate short exercises for retention practice of an already learned skill. "
     "Test precisely the supplied rule or procedure at comparable difficulty. "
@@ -76,6 +76,14 @@ GUIDANCE = (
     "wording without unrelated vocabulary or background detail. Avoid decorative "
     "headings, repeated labels, and extra commentary. "
     "Apply these layout defaults even if reference examples use a different layout. "
+    "Use underscore blanks only in the prompt. In blanks, list the exact text "
+    "that fills each blank, in order, with one entry per unbroken run of "
+    "underscores. Each entry is only the missing word, number, or phrase as it "
+    "reads in the completed prompt, without the surrounding words. Use an empty "
+    "list when the prompt has no blanks. "
+    "The answer must still stand alone: for a fill-in-the-blank exercise, give the "
+    "same fills in order. The app shows the fills in place of the blanks, so the "
+    "completed prompt must read correctly. "
     "Check each prompt on its own, without the skill or examples, and revise it "
     "if another reasonable answer fits or required information is missing. "
     "Check your answers and stay within the skill's stated exclusions."
@@ -144,13 +152,21 @@ def saved_config(context):
 
 def request_body(context):
     config = saved_config(context)
+    version = context.get("instructions_version", 1)
     fields = ["prompt", "answer", "explanation"]
-    if context.get("instructions_version", 1) >= 4:
+    if version >= 4:
         fields += ["instruction", "context"]
+    properties = {key: {"type": "string"} for key in fields}
+    if version >= 5:
+        properties["blanks"] = {
+            "type": "array",
+            "items": {"type": "string"},
+            "maxItems": MAX_BLANKS,
+        }
     exercise = {
         "type": "object",
-        "properties": {key: {"type": "string"} for key in fields},
-        "required": fields,
+        "properties": properties,
+        "required": list(properties),
         "additionalProperties": False,
     }
     skill = context["skill"]

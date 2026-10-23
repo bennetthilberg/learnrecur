@@ -217,7 +217,7 @@ def test_creation_rejects_full_snapshot_before_reserving_or_calling(jobs):
 def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
     jobs.store.configure_limits(max_snapshot_bytes=1024 * 1024)
     # Leave enough space for exactly one worst-case initial bank.
-    jobs.store.import_batch({"skills": [large_skill(16)]})
+    jobs.store.import_batch({"skills": [large_skill(15)]})
     payloads = [definition(jobs), definition(jobs)]
 
     def create(payload):
