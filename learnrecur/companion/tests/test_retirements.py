@@ -122,6 +122,22 @@ def test_refills_reports_and_edits_are_refused_after_retirement(jobs):
     assert jobs.get(other["job_id"])["state"] == "completed"
 
 
+def test_reports_for_a_retired_skill_get_a_distinct_refusal(jobs):
+    from learnrecur.companion.reports import Reports
+    from learnrecur.companion.retirements import RETIRED_ERROR
+    from learnrecur.companion.tests.test_reports import value as report_value
+
+    store = jobs.store
+    report = report_value(store)
+    Retirements(store).receive(retirement(store, report["skill_id"]))
+    with pytest.raises(JobConflict) as error:
+        Reports(store).receive(report, "fixture")
+    # The client treats exactly this message as final for that one report.
+    assert str(error.value) == RETIRED_ERROR
+    with store.connect() as db:
+        assert db.execute("select count(*) from exercise_reports").fetchone()[0] == 0
+
+
 def test_waiting_jobs_become_obsolete_and_spending_is_kept(jobs):
     store = jobs.store
     first = jobs.request_refill(checkpoint(store), "fixture")

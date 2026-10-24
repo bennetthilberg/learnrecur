@@ -784,6 +784,43 @@ def test_undo_after_delivery_withdraws_the_retirement(server, tmp_path):
         assert import_snapshot(b, companion.store.snapshot()).existing == 1
 
 
+@pytest.mark.parametrize("delivered", [False, True])
+def test_full_download_that_restores_a_skill_withdraws_its_retirement(
+    server, tmp_path, delivered
+):
+    with live_companion(tmp_path) as companion, collections(tmp_path) as (a, b):
+        import_snapshot(a, companion.store.snapshot())
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        if delivered:
+            assert deliver_retirements(a, companion)[0]["status"] == "retired"
+        # A forced Download brings back the server's copy, which still has it.
+        full_sync(a, auth, False)
+        assert a.card_count() == 1
+        assert markers(a) == []
+        assert outbox(a) == [[nid, 0, 2]]
+        (receipt,) = deliver_retirements(a, companion)
+        assert (receipt["status"], receipt["active"]) == ("active", False)
+        assert len(companion.store.snapshot()["skills"]) == 1
+        # Refills for the restored skill still work.
+        checkpoint = {
+            "source_id": companion.store.snapshot()["source_id"],
+            "skill_id": companion.store.snapshot()["skills"][0]["id"],
+            "revision": 1,
+            "bank_sequence": 0,
+            "remaining": 2,
+        }
+        assert post(companion, "/v1/refill-requests", checkpoint)[0] == 200
+        # A download that keeps the deletion leaves the request active.
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        sync(a, auth)
+        full_sync(a, auth, False)
+        assert markers(a) != [] and outbox(a) == [[nid, 1, 3]]
+
+
 @pytest.mark.parametrize("deck", ["filtered", "emptied"])
 def test_deleting_a_deck_that_no_longer_holds_skills_syncs(
     server, snapshot, tmp_path, deck

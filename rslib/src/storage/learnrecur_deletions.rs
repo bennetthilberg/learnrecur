@@ -152,6 +152,25 @@ impl SqliteStorage {
         Ok(())
     }
 
+    /// After a full download, a skill this client deleted may be back with its
+    /// trusted identity and no marker. Withdraw its request with a newer
+    /// version, so the companion doesn't retire a skill that can still be
+    /// reviewed, whether or not the earlier version was delivered.
+    pub(crate) fn withdraw_restored_retirements(&self) -> Result<()> {
+        self.db.execute(
+            "update learnrecur_retirement_outbox set active=0,version=version+1
+            where active=1
+            and not exists(select 1 from learnrecur_skill_deletions d
+                where d.nid=learnrecur_retirement_outbox.nid)
+            and exists(select 1 from learnrecur_skill_identities i
+                join notes n on n.id=i.nid and n.guid=i.guid
+                where i.nid=learnrecur_retirement_outbox.nid
+                and i.guid=learnrecur_retirement_outbox.guid)",
+            [],
+        )?;
+        Ok(())
+    }
+
     pub(crate) fn retirement_outbox(&self) -> Result<Vec<SkillRetirement>> {
         self.db
             .prepare(

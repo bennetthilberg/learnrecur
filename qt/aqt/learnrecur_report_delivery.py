@@ -22,6 +22,8 @@ def send_reports(values, connection):
         "/v1/exercise-reports",
         "report_id",
         {"report_id", "version", "active", "status", "job_id"},
+        # A deleted skill can't take reports. Other refusals still retry.
+        final_refusal=lambda status, error: status == 409 and error == SKILL_DELETED,
     )
 
 
@@ -32,11 +34,32 @@ def send_retirements(values, connection):
         "/v1/skill-retirements",
         "retirement_id",
         {"retirement_id", "version", "active", "status"},
-        final_refusals=True,
+        final_refusal=lambda status, _error: status in (400, 409),
     )
 
 
-def _send(values, connection, path, key, fields, *, final_refusals=False):
+# Match the companion's RETIRED_ERROR.
+SKILL_DELETED = "The skill was deleted."
+
+
+def _read(response):
+    data = bytearray()
+    for chunk in response.iter_content(4096):
+        data.extend(chunk)
+        if len(data) > 4096:
+            raise SkillImportError("The companion receipt is too large.")
+    return bytes(data)
+
+
+def _error(response):
+    try:
+        value = decode(_read(response))
+    except (SkillImportError, ValueError):
+        return ""
+    return value.get("error", "") if isinstance(value, dict) else ""
+
+
+def _send(values, connection, path, key, fields, *, final_refusal):
     url, token = connection
     receipts = []
     try:
@@ -51,31 +74,26 @@ def _send(values, connection, path, key, fields, *, final_refusals=False):
                     allow_redirects=False,
                     stream=True,
                 ) as response:
-                    if final_refusals and response.status_code in (400, 409):
+                    if response.status_code != 200:
+                        if not final_refusal(response.status_code, _error(response)):
+                            raise SkillImportError(
+                                "The companion could not accept a request."
+                            )
                         # Retrying can't change the answer. Count the request as
                         # handled, so it doesn't hold up later ones.
-                        print("LearnRecur: the companion refused a skill retirement.")
+                        print("LearnRecur: the companion refused a request.")
                         receipts.append(
                             {
                                 key: value[key],
                                 "version": value["version"],
                                 "active": value["active"],
                                 "status": "refused",
+                                **({"job_id": None} if "job_id" in fields else {}),
                             }
                         )
                         continue
-                    if response.status_code != 200:
-                        raise SkillImportError(
-                            "The companion could not accept a request."
-                        )
-                    data = bytearray()
-                    for chunk in response.iter_content(4096):
-                        data.extend(chunk)
-                        if len(data) > 4096:
-                            raise SkillImportError(
-                                "The companion receipt is too large."
-                            )
-                result = decode(bytes(data))
+                    data = _read(response)
+                result = decode(data)
                 if (
                     not isinstance(result, dict)
                     or set(result) != fields

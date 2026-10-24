@@ -47,8 +47,9 @@ impl Collection {
         col.storage.replace_skill_reports(&reports)?;
         col.storage.replace_report_outbox(&report_outbox)?;
         // Retirement requests are this client's too. Deletion markers are synced
-        // and come from the downloaded collection.
+        // and come from the downloaded collection, which may have the skill back.
         col.storage.replace_retirement_outbox(&retirements)?;
+        col.storage.withdraw_restored_retirements()?;
         col.storage.db.execute_batch("update col set ls=mod")?;
         col.close(None)?;
         atomic_rename(temp_file, &col_path, true)?;

@@ -156,3 +156,73 @@ def test_reviewer_delete_note_removes_a_skill_like_any_note(
         ]
     finally:
         col.close()
+
+
+def test_report_for_a_retired_skill_does_not_block_other_reports(server, tmp_path):
+    import copy
+
+    from anki.learnrecur_reports import acknowledge_reports, pending_reports
+    from anki.learnrecur_skills import report_skill_review, select_skill_review
+    from learnrecur.companion.retirements import Retirements
+
+    first = server.store.snapshot()["skills"][0]
+    other = copy.deepcopy(first)
+    other["id"] = other["bank"]["skill_id"] = "zz-other-skill"
+    server.store.import_batch({"skills": [other]})
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    try:
+        snapshot = server.store.snapshot()
+        import_snapshot(col, snapshot)
+        for cid in col.find_cards(""):
+            report_skill_review(col, select_skill_review(col.get_card(cid)), "other")
+        # Another device deleted the first skill and delivered its retirement.
+        identity = snapshot["identities"][first["id"]]
+        Retirements(server.store).receive(
+            {
+                "retirement_id": "a" * 32,
+                "version": 1,
+                "active": True,
+                "source_id": snapshot["source_id"],
+                "skill_id": first["id"],
+                "guid": identity["guid"],
+                "native_id": identity["native_id"],
+            }
+        )
+        values = pending_reports(col, snapshot["source_id"])
+        assert sorted(v["skill_id"] for v in values) == [first["id"], "zz-other-skill"]
+        receipts = ui.send_reports(values, ui.companion_connection())
+        status = {v["skill_id"]: r["status"] for v, r in zip(values, receipts)}
+        assert status[first["id"]] == "refused"
+        assert status["zz-other-skill"] != "refused"
+        acknowledge_reports(col, values, receipts)
+        assert pending_reports(col, snapshot["source_id"]) == []
+        with server.store.connect() as db:
+            assert db.execute("select skill_id from exercise_reports").fetchall() == [
+                ("zz-other-skill",)
+            ]
+    finally:
+        col.close()
+
+
+def test_other_report_refusals_still_retry(server, tmp_path, monkeypatch):
+    from anki.learnrecur_reports import pending_reports
+    from anki.learnrecur_skills import report_skill_review, select_skill_review
+
+    col = Collection(str(tmp_path / "synthetic.anki2"))
+    try:
+        import_snapshot(col, server.store.snapshot())
+        card = col.get_card(col.find_cards("")[0])
+        report_skill_review(col, select_skill_review(card), "other")
+        values = pending_reports(col, server.store.snapshot()["source_id"])
+        session = MagicMock()
+        session.__enter__.return_value = session
+        response = session.post.return_value.__enter__.return_value
+        response.status_code = 409
+        response.iter_content.return_value = [
+            b'{"error":"The report history is full."}'
+        ]
+        monkeypatch.setattr(ui.requests, "Session", lambda: session)
+        with pytest.raises(SkillImportError):
+            ui.send_reports(values, ui.companion_connection())
+    finally:
+        col.close()

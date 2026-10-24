@@ -20,7 +20,7 @@ An older peer ignores the new field and refuses the skill's graves with its exis
 
 ## Companion retirement
 
-The same step queues a retirement request in the client's `learnrecur_retirement_outbox`. The note is gone by then, so the row carries everything the request needs: the stable retirement ID, the companion source and skill IDs, the note GUID and ID, whether it's active, and a version that increases with each change. The queue belongs to this client, like the report queue, so a full download keeps it.
+The same step queues a retirement request in the client's `learnrecur_retirement_outbox`. The note is gone by then, so the row carries everything the request needs: the stable retirement ID, the companion source and skill IDs, the note GUID and ID, whether it's active, and a version that increases with each change. The queue belongs to this client, like the report queue, so a full download keeps it. If the downloaded collection has the skill back, with its trusted identity and no marker, the download queues a withdrawal with a newer version, whether or not the request was delivered.
 
 Delivery reuses the report delivery code. Right after a note is deleted or restored, and at the deck list or deck overview, the app checks that the companion's source ID matches, then sends at most ten states per pass. Failures retry at those screens no more than once a minute, with no dialog, and requests survive offline use and restarts. The app also resends acknowledged requests once per connection, so a companion restored from an older backup learns about the deletion again. A 400 or 409 reply can't change on retry, so the app logs it, counts the request as handled, and moves on to the next one.
 
@@ -29,7 +29,7 @@ Authenticated `POST /v1/skill-retirements` takes `retirement_id`, `version`, `ac
 While a skill is retired:
 
 - `GET /v1/skills` leaves it out completely, including its identity, earlier revisions, and exercise batches. The snapshot format is unchanged, so older apps read it too. Importing a new revision under the same skill ID is refused; an identical retry of a stored revision still succeeds.
-- Refill requests, manual jobs, edits, definitions, and reports for it return 409.
+- Refill requests, manual jobs, edits, definitions, and reports for it return 409. A report gets the error `The skill was deleted.`, which the app treats as final for that report only, so reports for other skills keep moving.
 - Waiting jobs for it (`queued`, `retry_wait`, `waiting_budget`, `waiting_capacity`, and `result_ready`) become `obsolete` right away. A job in the middle of a provider call finishes the call and records its charge, then becomes obsolete without publishing. A job with an uncertain charge stays in `needs_attention` until it's reconciled, as before.
 - **Tools > Generation history…** keeps every job and charge. Stopped jobs say the skill was deleted before they finished.
 - Its rows stay in the database and still count toward the storage quotas and the skill limit, so deleting skills doesn't change those rules.
