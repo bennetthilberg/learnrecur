@@ -30,6 +30,7 @@ impl Collection {
         let progress = self.new_progress_handler();
         let reports = self.storage.all_skill_reports()?;
         let report_outbox = self.storage.report_outbox()?;
+        let retirements = self.storage.retirement_outbox()?;
         self.close(None)?;
         let out_data = server
             .download_with_progress(EmptyInput::request(), progress)
@@ -45,6 +46,10 @@ impl Collection {
         // must neither erase local exclusions nor restore another client's reports.
         col.storage.replace_skill_reports(&reports)?;
         col.storage.replace_report_outbox(&report_outbox)?;
+        // Retirement requests are this client's too. Deletion markers are synced
+        // and come from the downloaded collection, which may have the skill back.
+        col.storage.replace_retirement_outbox(&retirements)?;
+        col.storage.withdraw_restored_retirements()?;
         col.storage.db.execute_batch("update col set ls=mod")?;
         col.close(None)?;
         atomic_rename(temp_file, &col_path, true)?;

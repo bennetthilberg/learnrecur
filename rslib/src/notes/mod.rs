@@ -3,6 +3,7 @@
 
 mod learnrecur;
 pub(crate) mod service;
+mod skill_deletions;
 mod skill_reports;
 pub(crate) mod undo;
 

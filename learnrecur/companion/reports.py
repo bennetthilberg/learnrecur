@@ -8,6 +8,7 @@ import re
 from anki.learnrecur_limits import MAX_BATCHES
 from anki.learnrecur_skill_import import SkillImportError, decode, encode
 from learnrecur.companion.jobs import JobConflict, Jobs
+from learnrecur.companion.retirements import RETIRED_ERROR, is_retired
 
 
 def initialize(db):
@@ -71,7 +72,12 @@ class Reports:
         payload = {k: value[k] for k in fields - {"version", "active", "bank_sequence"}}
         with self.store.connect() as db:
             db.execute("begin immediate")
-            snapshot = self.store._snapshot(db)
+            snapshot = self.store._public_snapshot(db)
+            if value["source_id"] == snapshot["source_id"] and is_retired(
+                db, value["skill_id"]
+            ):
+                # The client finishes this report; reports for other skills go on.
+                raise JobConflict(RETIRED_ERROR)
             identity = snapshot["identities"].get(value["skill_id"])
             if (
                 value["source_id"] != snapshot["source_id"]

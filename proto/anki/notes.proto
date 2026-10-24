@@ -34,6 +34,8 @@ service NotesService {
   rpc ReportSkillExercise(ReportSkillExerciseRequest) returns (collection.OpChanges);
   rpc AcknowledgeSkillReport(AcknowledgeSkillReportRequest) returns (generic.Empty);
   rpc ReconnectSkillNotes(ReconnectSkillNotesRequest) returns (generic.Empty);
+  rpc AcknowledgeSkillRetirement(AcknowledgeSkillRetirementRequest)
+      returns (generic.Empty);
 }
 
 // Implicitly includes any of the above methods that are not listed in the
@@ -154,6 +156,14 @@ message ReportSkillExerciseRequest {
 
 message AcknowledgeSkillReportRequest {
   string report_id = 1;
+  int64 version = 2;
+  int64 server_version = 3;
+  bool active = 4;
+}
+
+// A companion receipt for a deleted skill's retirement request.
+message AcknowledgeSkillRetirementRequest {
+  string retirement_id = 1;
   int64 version = 2;
   int64 server_version = 3;
   bool active = 4;

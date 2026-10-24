@@ -21,7 +21,7 @@ enum GraveKind {
     Deck,
 }
 
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct SkillIdentity {
     pub nid: NoteId,
     pub cid: CardId,
@@ -76,14 +76,18 @@ impl SqliteStorage {
 
     pub(crate) fn skill_identity_was_deleted(&self, nid: NoteId, cid: CardId) -> Result<bool> {
         Ok(self.db.query_row(
-            "select exists(select 1 from graves where (type=1 and oid=?) or (type=0 and oid=?))",
-            [nid.0, cid.0],
+            "select exists(select 1 from graves where (type=1 and oid=?) or (type=0 and oid=?))
+            or exists(select 1 from learnrecur_skill_deletions where nid=? or cid=?)",
+            [nid.0, cid.0, nid.0, cid.0],
             |row| row.get(0),
         )?)
     }
 
     pub(crate) fn clear_all_graves(&self) -> Result<()> {
         self.db.execute("delete from graves", [])?;
+        // Skill deletion markers also stop a deleted skill from being imported
+        // again, so a full upload keeps them as synced records.
+        self.update_pending_skill_deletion_usns(Usn(0))?;
         Ok(())
     }
 
@@ -128,6 +132,7 @@ impl SqliteStorage {
                 GraveKind::Deck => graves.decks.push(DeckId(oid)),
             }
         }
+        graves.learnrecur_skill_deletions = self.pending_skill_deletions(pending_usn)?;
         Ok(graves)
     }
 
@@ -135,6 +140,7 @@ impl SqliteStorage {
         self.db
             .prepare("update graves set usn=? where usn=-1")?
             .execute([new_usn])?;
+        self.update_pending_skill_deletion_usns(new_usn)?;
         Ok(())
     }
 

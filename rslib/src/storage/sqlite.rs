@@ -542,6 +542,7 @@ impl SqliteStorage {
         storage.ensure_skill_identity_table()?;
         storage.ensure_skill_link_index()?;
         storage.ensure_skill_report_table()?;
+        storage.ensure_skill_deletion_tables()?;
 
         if create || upgrade {
             storage.commit_trx()?;

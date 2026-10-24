@@ -1,6 +1,7 @@
 // Copyright: Ankitects Pty Ltd and contributors
 // License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
+use super::skill_deletions::SkillDeletion;
 use super::NoteTags;
 use crate::collection::undo::UndoableCollectionChange;
 use crate::prelude::*;
@@ -17,6 +18,8 @@ pub(crate) enum UndoableNoteChange {
     TagsUpdated(Box<NoteTags>),
     SkillReportAdded(Box<SkillExerciseReport>),
     SkillReportRemoved(Box<SkillExerciseReport>),
+    SkillDeleted(Box<SkillDeletion>),
+    SkillDeletionWithdrawn(Box<SkillDeletion>),
 }
 
 impl Collection {
@@ -36,6 +39,12 @@ impl Collection {
             }
             UndoableNoteChange::SkillReportRemoved(report) => {
                 self.add_skill_report_undoable(*report)
+            }
+            UndoableNoteChange::SkillDeleted(deletion) => {
+                self.remove_skill_deletion_undoable(*deletion)
+            }
+            UndoableNoteChange::SkillDeletionWithdrawn(deletion) => {
+                self.add_skill_deletion_undoable(*deletion)
             }
             UndoableNoteChange::GraveAdded(e) => self.remove_note_grave(e.0, e.1),
             UndoableNoteChange::GraveRemoved(e) => self.add_note_grave(e.0, e.1),
@@ -60,12 +69,9 @@ impl Collection {
 
     /// Remove a note. Cards must already have been deleted.
     pub(crate) fn remove_note_only_undoable(&mut self, nid: NoteId, usn: Usn) -> Result<()> {
-        // Other clients refuse skill deletions during sync, so stop them here
-        // instead of saving a change that can't sync.
-        require!(
-            !self.is_trusted_skill_note(nid)?,
-            "Skills can't be deleted yet. Suspend them instead."
-        );
+        // A skill's marker lets its graves sync. Deleting its scheduled card
+        // may already have saved one.
+        self.record_skill_deletion_undoable(nid)?;
         if let Some(note) = self.storage.get_note(nid)? {
             self.save_undo(UndoableNoteChange::Removed(Box::new(note)));
             self.storage.remove_note(nid)?;

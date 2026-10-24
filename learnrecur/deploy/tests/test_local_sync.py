@@ -15,12 +15,13 @@ from contextlib import contextmanager
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 import pytest
 
 from anki.collection import Collection, media_paths_from_col_path
-from anki.errors import BackendError, InvalidInput
+from anki.errors import BackendError
 from anki.learnrecur_skill_import import DECK_NAME, import_snapshot
 from anki.learnrecur_skills import prepare_skill_answer, select_skill_review
 from anki.scheduler.v3 import CardAnswer
@@ -440,9 +441,17 @@ def test_remote_deletion_collision_preserves_unsynced_skill(
         assert (b.get_card(native_id).note().fields, records(b)) == before
 
 
+def markers(col):
+    return col.db.all("select nid,cid,guid from learnrecur_skill_deletions")
+
+
+def outbox(col):
+    return col.db.all("select nid,active,version from learnrecur_retirement_outbox")
+
+
 @pytest.mark.parametrize("delete", ["note", "card", "deck", "notetype"])
 @pytest.mark.parametrize("import_after_bootstrap", [False, True])
-def test_skill_deletion_is_refused_before_it_can_stop_sync(
+def test_skill_deletion_syncs_to_the_server_and_another_client(
     server, snapshot, tmp_path, delete, import_after_bootstrap
 ):
     with collections(tmp_path) as (a, b):
@@ -455,27 +464,88 @@ def test_skill_deletion_is_refused_before_it_can_stop_sync(
             import_snapshot(a, snapshot)
             auth = bootstrap(a, b, server)
         nid = a.find_notes("")[0]
-        assert a.db.all("select * from learnrecur_skill_identities") == b.db.all(
-            "select * from learnrecur_skill_identities"
-        )
-        assert a.db.scalar("select count(*) from learnrecur_skill_identities") == 1
-        before = (a.get_note(nid).fields, a.undo_status().undo)
+        guid = a.get_note(nid).guid
+        rate(b)
+        sync(b, auth)
+        sync(a, auth)
         time.sleep(0.01)  # Native change detection uses millisecond timestamps.
-        with pytest.raises(InvalidInput, match="Skills can't be deleted yet"):
-            if delete == "note":
-                a.remove_notes([nid])
-            elif delete == "card":
-                a.remove_cards_and_orphaned_notes(a.find_cards(""))
-            elif delete == "deck":
-                a.decks.remove([a.decks.id(DECK_NAME)])
-            else:
-                a.models.remove(a.get_note(nid).mid)
-        assert (a.get_note(nid).fields, a.undo_status().undo) == before
-        assert a.db.scalar("select count(*) from graves") == 0
+        # The same native paths as deleting the deck, Browse or the reviewer's
+        # Delete note, Empty Cards, and deleting the note type. No dialog or
+        # extra step.
+        if delete == "note":
+            a.remove_notes([nid])
+        elif delete == "card":
+            a.remove_cards_and_orphaned_notes(a.find_cards(""))
+        elif delete == "deck":
+            a.decks.remove([a.decks.id(DECK_NAME)])
+        else:
+            a.models.remove(a.get_note(nid).mid)
+        assert a.card_count() == 0
+        assert markers(a) == [[nid, nid, guid]]
+        assert outbox(a) == [[nid, 1, 1]]
+        if delete == "notetype":
+            # Removing a note type changes the schema, so Anki needs a one-way
+            # sync, as upstream. The markers travel in the collection.
+            full_sync(a, auth, True)
+            full_sync(b, auth, False)
+        else:
+            sync(a, auth)
+            sync(b, auth)
+        for col in (a, b):
+            assert col.card_count() == col.note_count() == 0
+            assert markers(col) == [[nid, nid, guid]]
+            # The companion still lists the skill until the retirement arrives.
+            assert import_snapshot(col, snapshot).added == 0
+            assert col.card_count() == 0
+        # Only the deleting client asks the companion to retire the skill.
+        assert outbox(b) == []
         sync(a, auth)
         sync(b, auth)
-        assert a.card_count() == b.card_count() == 1
-        assert a.get_note(nid).fields == b.get_note(nid).fields
+
+
+@pytest.mark.parametrize("removal", ["empty_cards", "template"])
+def test_removing_a_skills_scheduled_card_deletes_the_skill(
+    server, snapshot, tmp_path, removal
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        model = a.get_note(nid).note_type()
+        template = a.models.new_template("Synthetic extra")
+        template["qfmt"], template["afmt"] = "{{Title}}", "{{Description}}"
+        a.models.add_template(model, template)
+        a.models.update_dict(model)
+        full_sync(a, auth, True)
+        full_sync(b, auth, False)
+        skill_card, extra = sorted(
+            a.find_cards(""), key=lambda cid: a.get_card(cid).ord
+        )
+        time.sleep(0.01)
+        if removal == "empty_cards":
+            # Empty Cards removes cards this way without removing their note.
+            a.remove_cards_and_orphaned_notes([skill_card])
+            sync(a, auth)
+            sync(b, auth)
+        else:
+            model = a.get_note(nid).note_type()
+            a.models.remove_template(model, model["tmpls"][0])
+            a.models.update_dict(model)
+            full_sync(a, auth, True)
+            full_sync(b, auth, False)
+        for col in (a, b):
+            assert col.find_cards("") == [extra]
+            assert col.get_card(extra).nid == nid
+            assert [row[0] for row in markers(col)] == [nid]
+            assert import_snapshot(col, snapshot).added == 0
+            assert col.find_cards("") == [extra]
+        assert outbox(a) == [[nid, 1, 1]]
+        # Deleting the rest of the note later syncs without another request.
+        a.remove_notes([nid])
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 0
+        assert outbox(a) == [[nid, 1, 1]]
 
 
 def test_extra_card_of_a_skill_note_can_be_deleted(server, snapshot, tmp_path):
@@ -494,10 +564,8 @@ def test_extra_card_of_a_skill_note_can_be_deleted(server, snapshot, tmp_path):
             a.find_cards(""), key=lambda cid: a.get_card(cid).ord
         )
         time.sleep(0.01)
-        with pytest.raises(InvalidInput, match="Skills can't be deleted yet"):
-            a.remove_cards_and_orphaned_notes([skill_card])
-        # Empty Cards removes cards this way without removing their note.
         a.remove_cards_and_orphaned_notes([extra])
+        assert markers(a) == outbox(a) == []
         sync(a, auth)
         sync(b, auth)
         for col in (a, b):
@@ -505,14 +573,45 @@ def test_extra_card_of_a_skill_note_can_be_deleted(server, snapshot, tmp_path):
             assert col.get_card(skill_card).nid == nid
 
 
-def test_server_explains_refused_skill_deletion(server, snapshot, tmp_path):
+def test_undo_before_sync_withdraws_the_deletion(server, snapshot, tmp_path):
     with collections(tmp_path) as (a, b):
         import_snapshot(a, snapshot)
         auth = bootstrap(a, b, server)
         nid = a.find_notes("")[0]
-        # An older build could delete a skill and save native graves for it.
+        fields = a.get_note(nid).fields
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        a.undo()
+        assert a.get_note(nid).fields == fields
+        assert markers(a) == []
+        # The withdrawal keeps a newer version for the companion.
+        assert outbox(a) == [[nid, 0, 2]]
+        assert a.db.scalar("select count(*) from graves") == 0
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 1
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        a.undo()
+        a.redo()
+        assert outbox(a) == [[nid, 1, 5]]
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 0
+
+
+def test_server_refuses_skill_graves_from_a_client_without_markers(
+    server, snapshot, tmp_path
+):
+    with collections(tmp_path) as (a, b):
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        # An older build could delete a skill and save native graves without a
+        # marker. Without its trusted identity, this client saves no marker either.
         a.db.execute("delete from learnrecur_skill_identities")
         a.remove_notes([nid])
+        assert markers(a) == []
         with pytest.raises(BackendError, match="deleted on this device") as error:
             a.sync_collection(auth, False)
         # The server's reason reaches the client instead of the Check Database text.
@@ -524,6 +623,202 @@ def test_server_explains_refused_skill_deletion(server, snapshot, tmp_path):
         sync(b, auth)
         assert a.card_count() == b.card_count() == 1
         assert a.get_note(nid).fields == b.get_note(nid).fields
+
+
+def test_marker_for_a_different_skill_with_the_same_id_is_refused(
+    server, snapshot, tmp_path
+):
+    from anki.collection import AddNoteRequest
+
+    source = Collection(str(tmp_path / "model-source.anki2"))
+    try:
+        import_snapshot(source, snapshot)
+        model = copy.deepcopy(source.models.all()[-1])
+        assert model["learnrecur"] == "skill-v1"
+    finally:
+        source.close()
+    with collections(tmp_path) as (a, b):
+        # Share the skill note type first, so B's change needs no full sync.
+        model["id"] = 0
+        a.models.add_dict(model)
+        auth = bootstrap(a, b, server)
+        import_snapshot(a, snapshot)
+        native_id = a.find_cards("")[0]
+        different = b.new_note(b.models.by_name(model["name"]))
+        different.fields = a.get_card(native_id).note().fields.copy()
+        different.id = native_id
+        different.guid = "00000000000000000000000000000001"
+        b.add_skill_notes([AddNoteRequest(different, 1)], [native_id])
+        sync(a, auth)
+        time.sleep(0.01)
+        # B deletes its own skill. Its marker names another GUID, so the
+        # server keeps A's skill.
+        b.remove_notes([native_id])
+        assert markers(b) == [[native_id, native_id, different.guid]]
+        with pytest.raises(BackendError, match="deleted on this device"):
+            b.sync_collection(auth, False)
+        sync(a, auth)
+        assert a.card_count() == 1
+        assert markers(a) == []
+
+
+@contextmanager
+def live_companion(tmp_path):
+    companion = Server(
+        Store(tmp_path / "live-companion"), TOKEN, 0, refill_provider="fixture"
+    )
+    companion.store.import_batch(
+        json.loads((ROOT / "learnrecur/fixtures/spanish-import.json").read_text())
+    )
+    thread = threading.Thread(target=companion.serve_forever)
+    thread.start()
+    try:
+        yield companion
+    finally:
+        companion.shutdown()
+        companion.server_close()
+        thread.join()
+
+
+def post(companion, path, body):
+    request = Request(
+        f"http://127.0.0.1:{companion.server_port}{path}",
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + TOKEN,
+        },
+    )
+    try:
+        response = urlopen(request, timeout=5)
+    except HTTPError as error:
+        response = error
+    with response:
+        return response.status, json.load(response)
+
+
+def deliver_retirements(col, companion):
+    from anki.learnrecur_retirements import (
+        acknowledge_retirements,
+        pending_retirements,
+    )
+
+    values = pending_retirements(col, companion.store.snapshot()["source_id"])
+    receipts = [post(companion, "/v1/skill-retirements", v)[1] for v in values]
+    acknowledge_retirements(col, values, receipts)
+    return receipts
+
+
+def test_offline_deletion_is_delivered_after_restarts_and_never_comes_back(
+    server, tmp_path
+):
+    with live_companion(tmp_path) as companion, collections(tmp_path) as (a, b):
+        snapshot = companion.store.snapshot()
+        source = snapshot["source_id"]
+        skill = snapshot["skills"][0]["id"]
+        import_snapshot(a, snapshot)
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        server.stop()
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        # The deletion and its companion request survive a client restart.
+        a.close()
+        a.reopen()
+        assert outbox(a) == [[nid, 1, 1]]
+        server.start()
+        sync(a, auth)
+        # The server keeps the marker across a restart.
+        server.stop()
+        server.start()
+        sync(b, auth)
+        assert b.card_count() == 0
+        # Before delivery, the companion still lists the skill; import skips it.
+        assert import_snapshot(b, companion.store.snapshot()).added == 0
+        (receipt,) = deliver_retirements(a, companion)
+        assert (receipt["status"], receipt["active"]) == ("retired", True)
+        assert deliver_retirements(a, companion) == []
+        assert companion.store.snapshot()["skills"] == []
+        for col in (a, b):
+            assert import_snapshot(col, companion.store.snapshot()).added == 0
+            assert col.card_count() == 0
+        checkpoint = {
+            "source_id": source,
+            "skill_id": skill,
+            "revision": 1,
+            "bank_sequence": 0,
+            "remaining": 2,
+        }
+        status, body = post(companion, "/v1/refill-requests", checkpoint)
+        assert (status, body["error"]) == (409, "The skill was deleted.")
+        # A fresh profile that downloads the collection doesn't get it back either.
+        fresh = Collection(str(tmp_path / "profile-c.anki2"))
+        try:
+            full_sync(fresh, auth, False)
+            assert markers(fresh) == markers(a)
+            assert import_snapshot(fresh, snapshot).added == 0
+            assert fresh.card_count() == 0
+        finally:
+            fresh.close()
+
+
+def test_undo_after_delivery_withdraws_the_retirement(server, tmp_path):
+    with live_companion(tmp_path) as companion, collections(tmp_path) as (a, b):
+        import_snapshot(a, companion.store.snapshot())
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        (receipt,) = deliver_retirements(a, companion)
+        assert receipt["status"] == "retired"
+        assert companion.store.snapshot()["skills"] == []
+        # Undo is still available until the next sync, and it withdraws the
+        # delivered request with a newer version.
+        a.undo()
+        (receipt,) = deliver_retirements(a, companion)
+        assert (receipt["status"], receipt["version"]) == ("active", 2)
+        assert len(companion.store.snapshot()["skills"]) == 1
+        sync(a, auth)
+        sync(b, auth)
+        assert a.card_count() == b.card_count() == 1
+        assert import_snapshot(b, companion.store.snapshot()).existing == 1
+
+
+@pytest.mark.parametrize("delivered", [False, True])
+def test_full_download_that_restores_a_skill_withdraws_its_retirement(
+    server, tmp_path, delivered
+):
+    with live_companion(tmp_path) as companion, collections(tmp_path) as (a, b):
+        import_snapshot(a, companion.store.snapshot())
+        auth = bootstrap(a, b, server)
+        nid = a.find_notes("")[0]
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        if delivered:
+            assert deliver_retirements(a, companion)[0]["status"] == "retired"
+        # A forced Download brings back the server's copy, which still has it.
+        full_sync(a, auth, False)
+        assert a.card_count() == 1
+        assert markers(a) == []
+        assert outbox(a) == [[nid, 0, 2]]
+        (receipt,) = deliver_retirements(a, companion)
+        assert (receipt["status"], receipt["active"]) == ("active", False)
+        assert len(companion.store.snapshot()["skills"]) == 1
+        # Refills for the restored skill still work.
+        checkpoint = {
+            "source_id": companion.store.snapshot()["source_id"],
+            "skill_id": companion.store.snapshot()["skills"][0]["id"],
+            "revision": 1,
+            "bank_sequence": 0,
+            "remaining": 2,
+        }
+        assert post(companion, "/v1/refill-requests", checkpoint)[0] == 200
+        # A download that keeps the deletion leaves the request active.
+        time.sleep(0.01)
+        a.remove_notes([nid])
+        sync(a, auth)
+        full_sync(a, auth, False)
+        assert markers(a) != [] and outbox(a) == [[nid, 1, 3]]
 
 
 @pytest.mark.parametrize("deck", ["filtered", "emptied"])

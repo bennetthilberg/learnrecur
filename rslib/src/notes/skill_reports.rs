@@ -133,7 +133,7 @@ impl Collection {
         Ok(())
     }
 
-    fn retain_report_modified_time(&mut self) -> Result<()> {
+    pub(super) fn retain_report_modified_time(&mut self) -> Result<()> {
         let stamps = self.storage.get_collection_timestamps()?;
         self.state
             .undo

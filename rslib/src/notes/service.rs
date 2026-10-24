@@ -32,6 +32,13 @@ impl crate::services::NotesService for Collection {
         self.storage.acknowledge_skill_report(input)
     }
 
+    fn acknowledge_skill_retirement(
+        &mut self,
+        input: anki_proto::notes::AcknowledgeSkillRetirementRequest,
+    ) -> error::Result<()> {
+        self.storage.acknowledge_skill_retirement(input)
+    }
+
     fn new_note(
         &mut self,
         input: anki_proto::notetypes::NotetypeId,
