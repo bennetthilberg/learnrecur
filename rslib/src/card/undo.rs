@@ -54,11 +54,11 @@ impl Collection {
         card: Card,
         usn: Usn,
     ) -> Result<()> {
-        // Other clients refuse this deletion during sync; see remove_note_only_undoable.
-        require!(
-            !self.is_trusted_skill_card(&card)?,
-            "Skills can't be deleted yet. Suspend them instead."
-        );
+        // Removing a skill's scheduled card deletes the skill, even if the note
+        // keeps a card from another template.
+        if self.is_trusted_skill_card(&card)? {
+            self.record_skill_deletion_undoable(card.note_id)?;
+        }
         self.add_card_grave_undoable(card.id, usn)?;
         self.storage.remove_card(card.id)?;
         self.save_undo(UndoableCardChange::Removed(Box::new(card)));

@@ -29,7 +29,7 @@ The October 18 and 20 upgrades used these steps; [DAILY-USE.md](DAILY-USE.md#cur
 3. **Transfer** the image archive and a `git archive` of the same commit to a private staging folder on the VM over Tailscale. Load the image with `docker image load` and check that its architecture is `arm64`.
 4. **Quit the Mac app, then take a pre-upgrade off-host backup.** With the app closed, no client can sync while you compare rows below. Check that no upload is pending, run `sudo systemctl start learnrecur-backup.service`, and confirm the result is `ok`.
 5. **Stop backups, then the services.** Stop `learnrecur-backup.timer`, `learnrecur-backup-check.timer`, and `learnrecur-backup-recover.service` so nothing restarts the containers mid-upgrade. Then stop all three containers with the manager's `stop` command, which holds the deployment lock while it runs. Confirm that nothing is running.
-6. **Fingerprint the rows.** Open both databases read-only and hash every row of the native `notes`, `cards`, and `revlog` tables and the companion's `skills`, `skill_revisions`, `identities`, `exercise_batches`, `generation_jobs`, `generation_attempts`, and `generation_budget` tables. Save each table's row count, hash, and column list.
+6. **Fingerprint the rows.** Open both databases read-only and hash every row of the native `notes`, `cards`, and `revlog` tables and the companion's `skills`, `skill_revisions`, `identities`, `exercise_batches`, `generation_jobs`, `generation_attempts`, and `generation_budget` tables, plus `skill_retirements` once it exists. Save each table's row count, hash, and column list.
 7. **Swap the source.** Move `/srv/learnrecur/repo` to a dated folder under `/srv/learnrecur/releases/`, unpack the new source in its place, and make the `learnrecur` user its owner. Leave the old image loaded.
 8. **Update `backup.json`** so `image` names the new image. Each backup records the image needed to restore it, so this must match what's running.
 9. **Start without the worker.** Run the manager's `start` with the new image. It starts sync and the companion, which applies any database migration, and leaves the worker stopped. Confirm that only those two are running.
@@ -38,6 +38,8 @@ The October 18 and 20 upgrades used these steps; [DAILY-USE.md](DAILY-USE.md#cur
 12. **Keep the previous source and image** while any backup you might restore still names the old image.
 
 Then update the Mac app from the same commit, since the app and sync server must match. The exception is a release that adds exercise fields, such as `blanks` in instruction version 5. For those, update the Mac app first, because an older app refuses snapshots with fields it doesn't know. [Exercise presentation](PRESENTATION.md#saved-data-and-rollout) says which releases need this order.
+
+The release that adds [skill deletion](SKILL-DELETION.md#rollout) needs the usual order: server first, then every Mac app. An older server refuses a newer app's skill deletion, and every sync stops until the server is upgraded. An older app that receives a deletion refuses it too. Don't delete a skill until the server and all apps are updated. If one was deleted too early, upgrade the server and sync again; don't follow the message's Download advice, which would bring the skill back.
 
 Rolling back hasn't been needed or tested. It means stopping the services, putting the previous source back, pointing `backup.json` at the old image, and starting again. If the upgrade changed the database schema, check that the old code accepts the new databases before relying on that.
 

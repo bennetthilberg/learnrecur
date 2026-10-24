@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import hmac
 import os
 import re
@@ -102,6 +101,11 @@ class Store:
             from learnrecur.companion.reports import initialize as initialize_reports
 
             initialize_reports(db)
+            from learnrecur.companion.retirements import (
+                initialize as initialize_retirements,
+            )
+
+            initialize_retirements(db)
             try:
                 validate_snapshot(self._snapshot(db))
             except SkillImportError as error:
@@ -326,10 +330,34 @@ class Store:
         )
         return not self._too_large_with_drafts(db, snapshot)
 
+    @classmethod
+    def _public_snapshot(cls, db):
+        """The snapshot clients see. Deleted skills are left out entirely, so
+        Import skills can't add them again. Their rows stay in the database and
+        still count toward the storage limits."""
+        from learnrecur.companion.retirements import retired_skill_ids
+
+        snapshot = cls._snapshot(db)
+        retired = retired_skill_ids(db)
+        if not retired:
+            return snapshot
+        snapshot["skills"] = [s for s in snapshot["skills"] if s["id"] not in retired]
+        snapshot["identities"] = {
+            k: v for k, v in snapshot["identities"].items() if k not in retired
+        }
+        for name in ("previous_revisions", "bank_updates"):
+            if name in snapshot:
+                kept = {k: v for k, v in snapshot[name].items() if k not in retired}
+                if kept:
+                    snapshot[name] = kept
+                else:
+                    del snapshot[name]
+        return snapshot
+
     def snapshot(self):
         with self.connect() as db:
             db.execute("begin")
-            return self._snapshot(db)
+            return self._public_snapshot(db)
 
     def import_batch(self, payload):
         if (self.path.parent / ".generation-source-retired").exists():
@@ -337,9 +365,12 @@ class Store:
         if not isinstance(payload, dict) or set(payload) != {"skills"}:
             raise SkillImportError("Expected a skill batch.")
         skills = validate_skills(payload["skills"])
+        from learnrecur.companion.retirements import retired_skill_ids
+
         with self.connect() as db:
             db.execute("begin immediate")
             changed = False
+            retired = retired_skill_ids(db)
             for skill in skills:
                 if db.execute(
                     "select 1 from skill_drafts where id=?", (skill["id"],)
@@ -360,6 +391,8 @@ class Store:
                             "This skill revision already has different content."
                         )
                     continue  # A stale retry returns the latest snapshot without rollback.
+                if skill["id"] in retired:
+                    raise Conflict("This skill was deleted. Use a new skill ID.")
                 current_revision = (
                     decode(existing[0].encode())["bank"]["revision"] if existing else 0
                 )
@@ -375,12 +408,11 @@ class Store:
                 )
                 self._assign_identity(db, skill["id"])
                 changed = True
-            result = self._snapshot(db)
-            if changed and self._too_large_with_drafts(db, copy.deepcopy(result)):
+            if changed and self._too_large_with_drafts(db):
                 raise SkillImportError(
                     "The import exceeds the companion's storage limits."
                 )
-            return result
+            return self._public_snapshot(db)
 
 
 class Server(ThreadingHTTPServer):
@@ -474,6 +506,7 @@ class Handler(BaseHTTPRequestHandler):
                     "/v1/generation-jobs",
                     "/v1/refill-requests",
                     "/v1/exercise-reports",
+                    "/v1/skill-retirements",
                     "/v1/skill-drafts",
                     "/v1/skill-edits",
                     "/v1/skill-discards",
@@ -519,6 +552,10 @@ class Handler(BaseHTTPRequestHandler):
                     result = Reports(self.server.store).receive(
                         payload, self.server.refill_provider
                     )
+                elif self.path == "/v1/skill-retirements":
+                    from learnrecur.companion.retirements import Retirements
+
+                    result = Retirements(self.server.store).receive(payload)
                 elif self.path == "/v1/refill-requests":
                     result = Jobs(self.server.store).request_refill(
                         payload, self.server.refill_provider

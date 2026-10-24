@@ -157,6 +157,7 @@ where
             cards: string_list_to_ids(stringly.cards)?,
             decks: string_list_to_ids(stringly.decks)?,
             notes: string_list_to_ids(stringly.notes)?,
+            ..Default::default()
         })),
         GraveType::Null => Ok(None),
     }

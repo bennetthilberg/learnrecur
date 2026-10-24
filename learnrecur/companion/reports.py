@@ -71,7 +71,7 @@ class Reports:
         payload = {k: value[k] for k in fields - {"version", "active", "bank_sequence"}}
         with self.store.connect() as db:
             db.execute("begin immediate")
-            snapshot = self.store._snapshot(db)
+            snapshot = self.store._public_snapshot(db)
             identity = snapshot["identities"].get(value["skill_id"])
             if (
                 value["source_id"] != snapshot["source_id"]

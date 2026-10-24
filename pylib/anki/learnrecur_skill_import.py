@@ -447,6 +447,17 @@ def _cache_update_fields(
     return _fields(source, skill, previous, incoming_batches)
 
 
+def _deleted(col: Collection, nid: int, guid: str) -> bool:
+    """True when this collection has a deletion marker for the skill."""
+    return bool(
+        col.db.scalar(
+            "select exists(select 1 from learnrecur_skill_deletions where nid=? and guid=?)",
+            nid,
+            guid,
+        )
+    )
+
+
 def import_snapshot(
     col: Collection, snapshot: object, *, cache_only: bool = False
 ) -> SkillImportResult:
@@ -485,6 +496,9 @@ def import_snapshot(
                     "Duplicate linked skill cards. Resolve them before importing."
                 )
             seen.add(key)
+            if _deleted(col, note.id, note.guid):
+                # Deleting only the skill's card leaves its note. The skill stays deleted.
+                continue
             if (
                 model.get(MODEL_MARKER) != MODEL_KIND
                 or model["type"] != 0
@@ -548,7 +562,22 @@ def import_snapshot(
                 )
             )
     missing = (
-        [] if cache_only else [skill for skill in skills if skill["id"] not in seen]
+        []
+        if cache_only
+        else [
+            skill
+            for skill in skills
+            if skill["id"] not in seen
+            # The companion lists a deleted skill until its retirement arrives.
+            and not (
+                identities
+                and _deleted(
+                    col,
+                    identities[skill["id"]]["native_id"],
+                    identities[skill["id"]]["guid"],
+                )
+            )
+        ]
     )
     if cache_only:
         changes = (

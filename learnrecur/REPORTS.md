@@ -22,7 +22,7 @@ The pinned question is checked again before reporting, revealing, or rating. A c
 
 The desktop sends pending reports in the background after a report or its undo/redo, and checks again at the deck list or deck overview. Offline reports survive restart. Failed checks retry at those boundaries no more than once a minute; there is no error dialog during review. Each pass handles at most ten states. A successful pass drains the rest in bounded chunks.
 
-Before sending exercise text, the client verifies the companion's source identity. Only cards with trusted native import identities can send reports. A deck package alone does not authorize delivery. Profile or connection changes discard stale callbacks. Requests use the existing bearer token, ignore environment proxies, and refuse redirects.
+[Skill deletion](SKILL-DELETION.md#companion-retirement) retirement requests use the same delivery code and timing. Before sending exercise text, the client verifies the companion's source identity. Only cards with trusted native import identities can send reports. A deck package alone does not authorize delivery. Profile or connection changes discard stale callbacks. Requests use the existing bearer token, ignore environment proxies, and refuse redirects.
 
 Authenticated `POST /v1/exercise-reports` accepts these fields:
 

@@ -27,6 +27,7 @@ from anki.learnrecur_skill_import import (
     validate_exercise,
     validate_snapshot,
 )
+from learnrecur.companion.retirements import RETIRED_ERROR, is_retired
 
 MAX_ATTEMPTS = 3
 LEASE_SECONDS = 60
@@ -286,11 +287,10 @@ class Jobs:
                 "The companion's storage limit is reached. Cached review still works."
             )
         if state == "obsolete":
-            return (
-                error
-                if error == "The request was discarded."
-                else "The skill changed before this job finished."
-            )
+            return {
+                RETIRED_ERROR: "The skill was deleted before this job finished.",
+                "The request was discarded.": "The request was discarded.",
+            }.get(error, "The skill changed before this job finished.")
         if state in ("failed", "retry_wait"):
             return known.get(error, "Generation failed. Check the companion logs.")
         return ""
@@ -359,7 +359,7 @@ class Jobs:
             row = db.execute(
                 "select payload from skills where id=?", (skill_id,)
             ).fetchone()
-            if not row:
+            if not row or is_retired(db, skill_id):
                 raise JobConflict("This skill is no longer available.")
             skill = decode(row[0].encode())
             examples = self._saved_examples(db, skill)
@@ -464,6 +464,8 @@ class Jobs:
                 "select payload from skills where id=?", (key,)
             ).fetchone()
             if editing:
+                if is_retired(db, key):
+                    raise JobConflict(RETIRED_ERROR)
                 if (
                     not current
                     or decode(current[0].encode())["bank"]["revision"]
@@ -612,6 +614,8 @@ class Jobs:
         ).fetchone()
         if not row:
             raise JobConflict("Import the skill before requesting exercises.")
+        if not draft and is_retired(db, skill_id):
+            raise JobConflict(RETIRED_ERROR)
         skill = decode(row[0].encode())
         if skill["bank"]["revision"] != value["revision"]:
             raise JobConflict("Request exercises for the current skill revision.")
@@ -727,6 +731,8 @@ class Jobs:
                 raise JobConflict(
                     "Import this companion's skill before requesting a refill."
                 )
+            if is_retired(db, key):
+                raise JobConflict(RETIRED_ERROR)
             skill = decode(row[0].encode())
             if skill["bank"]["revision"] != value["revision"]:
                 raise JobConflict(
@@ -745,9 +751,20 @@ class Jobs:
             if value["bank_sequence"] < sequence:
                 return {"status": "awaiting_import", "job_id": None}
             existing = db.execute(
-                "select id,state,next_run,retry_rounds from generation_jobs where request_id=?",
+                "select id,state,next_run,retry_rounds,error,result is not null from generation_jobs where request_id=?",
                 (request_id,),
             ).fetchone()
+            if existing and existing[1] == "obsolete" and existing[4] == RETIRED_ERROR:
+                # The client undid the deletion. Resume the same job, keeping a
+                # saved result instead of paying for another.
+                db.execute(
+                    "update generation_jobs set state=?,error=null,next_run=? where id=?",
+                    ("result_ready" if existing[5] else "queued", now, existing[0]),
+                )
+                return {
+                    "status": "result_ready" if existing[5] else "queued",
+                    "job_id": existing[0],
+                }
             if existing:
                 if not self._settled_failure(db, existing[0], existing[1]):
                     return {"status": existing[1], "job_id": existing[0]}
@@ -881,8 +898,16 @@ class Jobs:
             )
 
     @staticmethod
+    def _stale_error(db, context):
+        if is_retired(db, context["skill"]["id"]):
+            return RETIRED_ERROR
+        return "The skill description changed."
+
+    @staticmethod
     def _current(db, context):
         skill = context["skill"]
+        if is_retired(db, skill["id"]):
+            return False
         if (
             not context.get("new_skill")
             and db.execute(
@@ -974,8 +999,8 @@ class Jobs:
                     continue
                 if not self._current(db, context):
                     db.execute(
-                        "update generation_jobs set state='obsolete',error='The skill description changed.' where id=?",
-                        (job_id,),
+                        "update generation_jobs set state='obsolete',error=? where id=?",
+                        (self._stale_error(db, context), job_id),
                     )
                     continue
                 if attempts - round_start >= MAX_ATTEMPTS:
@@ -1116,7 +1141,7 @@ class Jobs:
                         else "waiting_budget"
                         if blocked
                         else "waiting_capacity",
-                        "The skill description changed."
+                        self._stale_error(db, context)
                         if stale
                         else "Generation budget unavailable."
                         if blocked
@@ -1558,8 +1583,8 @@ class Jobs:
             context = decode(row[0].encode())
             if not self._current(db, context):
                 db.execute(
-                    "update generation_jobs set state='obsolete',error='The skill description changed.' where id=?",
-                    (job_id,),
+                    "update generation_jobs set state='obsolete',error=? where id=?",
+                    (self._stale_error(db, context), job_id),
                 )
                 return
             result = decode(row[2].encode())

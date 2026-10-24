@@ -1,7 +1,7 @@
 # Copyright: LearnRecur contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-"""Deliver report states outside the collection queue, preserving native Undo."""
+"""Deliver report and retirement states outside the collection queue, preserving native Undo."""
 
 import os
 import time
@@ -9,12 +9,34 @@ import time
 import requests
 
 from anki.learnrecur_reports import acknowledge_reports, pending_reports
+from anki.learnrecur_retirements import acknowledge_retirements, pending_retirements
 from anki.learnrecur_skill_import import SkillImportError, decode
 from aqt.learnrecur_import import companion_connection, fetch_snapshot
 from aqt.operations import CollectionOp, QueryOp
 
 
 def send_reports(values, connection):
+    return _send(
+        values,
+        connection,
+        "/v1/exercise-reports",
+        "report_id",
+        {"report_id", "version", "active", "status", "job_id"},
+    )
+
+
+def send_retirements(values, connection):
+    return _send(
+        values,
+        connection,
+        "/v1/skill-retirements",
+        "retirement_id",
+        {"retirement_id", "version", "active", "status"},
+        final_refusals=True,
+    )
+
+
+def _send(values, connection, path, key, fields, *, final_refusals=False):
     url, token = connection
     receipts = []
     try:
@@ -22,33 +44,47 @@ def send_reports(values, connection):
             session.trust_env = False
             for value in values:
                 with session.post(
-                    url + "/v1/exercise-reports",
+                    url + path,
                     json=value,
                     headers={"Authorization": "Bearer " + token},
                     timeout=(3, 5),
                     allow_redirects=False,
                     stream=True,
                 ) as response:
+                    if final_refusals and response.status_code in (400, 409):
+                        # Retrying can't change the answer. Count the request as
+                        # handled, so it doesn't hold up later ones.
+                        print("LearnRecur: the companion refused a skill retirement.")
+                        receipts.append(
+                            {
+                                key: value[key],
+                                "version": value["version"],
+                                "active": value["active"],
+                                "status": "refused",
+                            }
+                        )
+                        continue
                     if response.status_code != 200:
                         raise SkillImportError(
-                            "The companion could not accept a report."
+                            "The companion could not accept a request."
                         )
                     data = bytearray()
                     for chunk in response.iter_content(4096):
                         data.extend(chunk)
                         if len(data) > 4096:
-                            raise SkillImportError("The report receipt is too large.")
+                            raise SkillImportError(
+                                "The companion receipt is too large."
+                            )
                 result = decode(bytes(data))
                 if (
                     not isinstance(result, dict)
-                    or set(result)
-                    != {"report_id", "version", "active", "status", "job_id"}
-                    or result["report_id"] != value["report_id"]
+                    or set(result) != fields
+                    or result[key] != value[key]
                     or type(result["version"]) is not int
                     or not value["version"] <= result["version"] < 9_007_199_254_740_991
                     or type(result["active"]) is not bool
                 ):
-                    raise SkillImportError("The report receipt is invalid.")
+                    raise SkillImportError("The companion receipt is invalid.")
                 receipts.append(result)
     except requests.RequestException:
         raise SkillImportError("Could not reach the local companion.") from None
@@ -56,6 +92,18 @@ def send_reports(values, connection):
 
 
 class ReportDelivery:
+    outbox = "learnrecur_report_outbox"
+    key = "report_id"
+
+    def pending(self, col, source, after="", *, replay=False):
+        return pending_reports(col, source, after, replay=replay)
+
+    def send(self, values, connection):
+        return send_reports(values, connection)
+
+    def acknowledge(self, col, values, receipts):
+        return acknowledge_reports(col, values, receipts)
+
     def __init__(self, collection, *, clock=time.monotonic):
         self.collection = collection
         self.clock = clock
@@ -85,15 +133,13 @@ class ReportDelivery:
             self.last_attempt = float("-inf")
         if not force and self.clock() - self.last_attempt < 60:
             return
-        if not self.collection.db.scalar(
-            "select exists(select 1 from learnrecur_report_outbox)"
-        ):
+        if not self.collection.db.scalar(f"select exists(select 1 from {self.outbox})"):
             return
         if (
             force
             and self.replayed
             and not self.collection.db.scalar(
-                "select exists(select 1 from learnrecur_report_outbox where version>acknowledged)"
+                f"select exists(select 1 from {self.outbox} where version>acknowledged)"
             )
         ):
             return
@@ -121,7 +167,7 @@ class ReportDelivery:
             # A dropped response leaves the persisted state available for retry.
             self.again = False
             finish()
-            print("LearnRecur report delivery failed; cached review remains available.")
+            print("LearnRecur delivery failed; cached review remains available.")
 
         def prepared(preparation):
             values, replay = preparation
@@ -140,14 +186,14 @@ class ReportDelivery:
 
                 def acknowledge(col):
                     if col is self.collection and current():
-                        return acknowledge_reports(col, values, receipts)
+                        return self.acknowledge(col, values, receipts)
                     from anki.collection_pb2 import OpChanges
 
                     return OpChanges()
 
                 def acknowledged(_):
                     if replay:
-                        self.after = values[-1]["report_id"]
+                        self.after = values[-1][self.key]
                     # Drain bounded chunks, including a state changed during the POST.
                     self.again = True
                     finish()
@@ -158,7 +204,7 @@ class ReportDelivery:
 
             QueryOp(
                 parent=mw,
-                op=lambda _: send_reports(values, connection),
+                op=lambda _: self.send(values, connection),
                 success=received,
             ).failure(failed).without_collection().run_in_background()
 
@@ -170,11 +216,11 @@ class ReportDelivery:
             def prepare(col):
                 if col is not self.collection or not current():
                     return [], False
-                values = pending_reports(col, snapshot["source_id"])
+                values = self.pending(col, snapshot["source_id"])
                 replay = False
                 if not values and not self.replayed:
                     replay = True
-                    values = pending_reports(
+                    values = self.pending(
                         col, snapshot["source_id"], self.after, replay=True
                     )
                 return values, replay
@@ -183,16 +229,38 @@ class ReportDelivery:
                 failed
             ).run_in_background()
 
-        # Verify the destination source before sending any exercise text.
+        # Verify the destination source before sending anything.
         QueryOp(
             parent=mw, op=lambda _: fetch_snapshot(connection), success=identified
         ).failure(failed).without_collection().run_in_background()
 
 
+class RetirementDelivery(ReportDelivery):
+    """Retire deleted skills on the companion, with the same retry rules."""
+
+    outbox = "learnrecur_retirement_outbox"
+    key = "retirement_id"
+
+    def pending(self, col, source, after="", *, replay=False):
+        return pending_retirements(col, source, after, replay=replay)
+
+    def send(self, values, connection):
+        return send_retirements(values, connection)
+
+    def acknowledge(self, col, values, receipts):
+        return acknowledge_retirements(col, values, receipts)
+
+
 def check_reports(mw, *, force=False):
+    """Deliver reports, then retirements for deleted skills."""
     if not mw.col:
         return
-    controller = getattr(mw, "_report_delivery", None)
-    if controller is None or controller.collection is not mw.col:
-        controller = mw._report_delivery = ReportDelivery(mw.col)
-    controller.check(mw, force=force)
+    for name, kind in (
+        ("_report_delivery", ReportDelivery),
+        ("_retirement_delivery", RetirementDelivery),
+    ):
+        controller = getattr(mw, name, None)
+        if controller is None or controller.collection is not mw.col:
+            controller = kind(mw.col)
+            setattr(mw, name, controller)
+        controller.check(mw, force=force)
