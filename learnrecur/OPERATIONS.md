@@ -83,7 +83,7 @@ Paid generation stays paused after any restore. See [deploy/LINUX.md](deploy/LIN
 
 ## Access
 
-- **Tailscale** connects the Mac and the VM on one account. Key expiry is turned off for both devices, and the VM updates Tailscale automatically. If the app can't connect, check that Tailscale is connected in the Mac's menu bar.
+- **Tailscale** connects the Mac and the VM on one account. Key expiry is turned off for both devices, and the VM updates Tailscale automatically. If the app can't connect, check that Tailscale is connected in the Mac's menu bar. The app starts a stopped Tailscale on its own but can't fix a stuck one; see [When Tailscale isn't working](DAILY-USE.md#when-tailscale-isnt-working).
 - **Emergency SSH.** The public `ssh-from-mac` rule stays set to deny. If Tailscale fails, open it for your current address only, connect, fix Tailscale, then set it back to deny. The commands are in [Reach the host from other networks](deploy/LINUX.md#reach-the-host-from-other-networks). The Azure serial console is the last resort.
 - **Secrets.** The sync password, companion token, and OpenAI key live in the VM's secrets folder, and only the worker mounts the OpenAI key. On the Mac, the companion token is in the private configuration folder and the sync login is in the Daily profile. The backup decryption key is never on the VM; it's in the Mac's protected configuration and the password manager.
 

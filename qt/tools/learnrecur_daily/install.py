@@ -93,6 +93,7 @@ class Plan:
     name: str
     bundle_id: str
     local_ports: tuple[int, int]
+    tailscale: Path | None
     profile: str
     collection: Path
     backup: Path
@@ -215,8 +216,9 @@ def make_plan(args: argparse.Namespace) -> Plan:
     known_hosts = full_path(args.known_hosts)
     for path in (app, config):
         reject_anki_data(path)
-    for path in (ssh_key, known_hosts):
-        if not path.is_file():
+    tailscale = full_path(args.tailscale) if args.tailscale else None
+    for path in (ssh_key, known_hosts, tailscale):
+        if path is not None and not path.is_file():
             raise InstallError(f"No file at {path}.")
     if not BUNDLE_ID.match(args.bundle_id):
         raise InstallError(f"{args.bundle_id!r} isn't a bundle ID.")
@@ -239,6 +241,7 @@ def make_plan(args: argparse.Namespace) -> Plan:
         name=args.name,
         bundle_id=args.bundle_id,
         local_ports=(ports[0], ports[1]),
+        tailscale=tailscale,
         profile=profile,
         collection=collection,
         backup=backup_folder(config),
@@ -360,6 +363,8 @@ def build(plan: Plan, staged: Path) -> None:
         "known_hosts": str(plan.known_hosts),
         "local_ports": list(plan.local_ports),
     }
+    if plan.tailscale is not None:
+        settings["tailscale_cli"] = str(plan.tailscale)
     (resources / f"{MODULE}.json").write_text(json.dumps(settings, indent=2) + "\n")
     entry = resources / "anki/app.py"
     entry.write_text(APP_PY)
@@ -441,6 +446,10 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--local-ports",
         default="%d,%d" % DEFAULT_PORTS,
         help="local sync and companion ports, comma-separated",
+    )
+    parser.add_argument(
+        "--tailscale",
+        help="Tailscale command-line tool, if not the Mac app's or one on PATH",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="check everything, change nothing"

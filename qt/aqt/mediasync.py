@@ -94,9 +94,13 @@ class MediaSyncer:
         elif is_periodic_sync:
             print(str(exc))
         else:
+            from aqt.sync import sync_error_message
+
             self._update_progress(tr.sync_media_failed())
             dialog = show_info(
-                str(exc), parent=self.mw, modality=Qt.WindowModality.NonModal
+                sync_error_message(exc),
+                parent=self.mw,
+                modality=Qt.WindowModality.NonModal,
             )
             self._error_dialogs.add(dialog)
             qconnect(dialog.finished, lambda _: self._error_dialogs.discard(dialog))

@@ -10,7 +10,7 @@ from concurrent.futures import Future
 
 import aqt
 import aqt.main
-from anki.errors import Interrupted, SyncError, SyncErrorKind
+from anki.errors import Interrupted, NetworkError, SyncError, SyncErrorKind
 from anki.sync import SyncOutput, SyncStatus
 from anki.sync_pb2 import SyncAuth
 from anki.utils import plat_desc
@@ -64,6 +64,20 @@ def get_sync_status(
     )
 
 
+SYNC_SERVER_UNREACHABLE = (
+    "Couldn't reach your sync server. Your reviews are saved on this Mac. "
+    "Check your connection, then press Sync."
+)
+
+
+def sync_error_message(err: BaseException) -> str:
+    """Say what to do about a network error, and keep its details in the log."""
+    if isinstance(err, NetworkError):
+        print("Sync couldn't reach the server:", err)
+        return SYNC_SERVER_UNREACHABLE
+    return str(err)
+
+
 def handle_sync_error(
     mw: aqt.main.AnkiQt,
     err: Exception,
@@ -77,7 +91,7 @@ def handle_sync_error(
         if on_done:
             on_done()
         return
-    warning = show_warning(str(err), parent=mw)
+    warning = show_warning(sync_error_message(err), parent=mw)
     if on_done:
         # Closing the profile must wait until the user has read the error.
         qconnect(warning.finished, lambda _: on_done())

@@ -216,6 +216,15 @@ def test_dry_run_changes_nothing(setup, capsys):
     assert not (setup.config / "launcher.lock").exists()
 
 
+def test_tailscale_tool_goes_in_settings(setup, capsys):
+    refuse(setup, capsys, "No file at", "--tailscale", str(setup.ssh / "missing"))
+    tool = setup.ssh / "tailscale"
+    tool.write_text("#!/bin/sh\n")
+    install(setup, capsys, "--tailscale", str(tool))
+    settings = setup.app / "Contents/Resources/app/learnrecur_daily.json"
+    assert json.loads(settings.read_text())["tailscale_cli"] == str(tool)
+
+
 def test_refuses_while_app_process_is_alive(setup, capsys):
     install(setup, capsys)
     before = (setup.app / "Contents/Info.plist").read_bytes()

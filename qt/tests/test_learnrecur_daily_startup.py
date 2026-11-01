@@ -1,7 +1,8 @@
 """Check the Daily app's startup module with synthetic configuration.
 
-These tests never contact a real host. Tunnels are stand-in `sleep` processes,
-and SSH destinations use reserved addresses.
+These tests never contact a real host or the Mac's real Tailscale client.
+Tunnels are stand-in `sleep` processes, SSH destinations use reserved addresses,
+and Tailscale is a fake script that prints canned status.
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import shlex
 import shutil
 import socket
 import subprocess
@@ -25,6 +27,15 @@ from tools.learnrecur_daily import startup as daily
 pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="needs POSIX")
 
 HOSTS = ("synthetic@100.64.0.1", "synthetic@192.0.2.1")
+
+
+@pytest.fixture(autouse=True)
+def no_real_tailscale(tmp_path, monkeypatch):
+    monkeypatch.setattr(daily, "TAILSCALE_APP", str(tmp_path / "no-tailscale"))
+    monkeypatch.setattr(daily, "TAILSCALE_CLI", None)
+    monkeypatch.setattr(daily, "_tailscale_woken", False)
+    monkeypatch.setattr(daily, "_tailscale_health", [])
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-path"))
 
 
 @pytest.fixture
@@ -55,7 +66,9 @@ class Helper:
         both_ports: bool = True,
         sync_ok: bool = True,
         hosts: tuple[str, ...] = HOSTS,
+        woken: bool = False,
     ) -> None:
+        self.woken = woken
         if hosts:
             (root / "ssh-hosts").write_text("\n".join(hosts) + "\n")
         self.tunnels: list[subprocess.Popen] = []
@@ -76,6 +89,8 @@ class Helper:
         self.thread.start()
 
     def start(self, log) -> subprocess.Popen:
+        # Stands in for start_tunnel() having to start Tailscale first.
+        daily._tailscale_woken = self.woken
         tunnel = subprocess.Popen(["/bin/sleep", "120"])
         self.tunnels.append(tunnel)
         return tunnel
@@ -327,10 +342,20 @@ def test_configure_reads_settings(root, monkeypatch, tmp_path):
     assert daily.PORTS == (46001, 46002)
 
 
+def test_configure_reads_tailscale_tool(root, monkeypatch, tmp_path):
+    daily.configure(write_settings(tmp_path / "settings.json"))
+    assert daily.TAILSCALE_CLI is None
+    daily.configure(
+        write_settings(tmp_path / "settings.json", tailscale_cli="/opt/ts/tailscale")
+    )
+    assert daily.TAILSCALE_CLI == Path("/opt/ts/tailscale")
+
+
 @pytest.mark.parametrize(
     "changes",
     [
         {"config_dir": "relative/config"},
+        {"tailscale_cli": "tailscale"},
         {"ssh_key": "key"},
         {"local_ports": [46001, 46001]},
         {"local_ports": [46001]},
@@ -471,3 +496,254 @@ def test_running_app_blocks_installation(root, monkeypatch):
     with daily.startup():
         assert not installer_can_lock()
     assert installer_can_lock()
+
+
+TAILSCALE_HOST = "synthetic@100.64.0.1"
+
+
+class FakeTailscale:
+    """A stand-in Tailscale tool that prints canned status and records its calls."""
+
+    def __init__(
+        self,
+        folder: Path,
+        state: str = "Stopped",
+        *,
+        health: list[str] | None = None,
+        up_exit: int = 0,
+        status_output: str | None = None,
+        status_sleep: float = 0,
+    ) -> None:
+        folder.mkdir(parents=True, exist_ok=True)
+        self.path = folder / "tailscale"
+        self.calls_file = folder / "calls"
+        status = folder / "status.json"
+        status.write_text(
+            status_output
+            if status_output is not None
+            else json.dumps({"BackendState": state, "Health": health})
+        )
+        running = shlex.quote(json.dumps({"BackendState": "Running"}))
+        after_up = f"printf '%s' {running} > {status}" if up_exit == 0 else ":"
+        self.path.write_text(
+            textwrap.dedent(
+                f"""\
+                #!/bin/sh
+                echo "$TAILSCALE_BE_CLI $*" >> {shlex.quote(str(self.calls_file))}
+                case "$1" in
+                  status) /bin/sleep {status_sleep}; /bin/cat {status} ;;
+                  up) {after_up}; exit {up_exit} ;;
+                esac
+                """
+            )
+        )
+        self.path.chmod(0o755)
+
+    def calls(self) -> list[str]:
+        if not self.calls_file.exists():
+            return []
+        return self.calls_file.read_text().splitlines()
+
+    def ups(self) -> int:
+        return self.calls().count("true up")
+
+
+@pytest.fixture
+def tailscale(root, tmp_path, monkeypatch):
+    def make(*args, **kwargs) -> FakeTailscale:
+        fake = FakeTailscale(tmp_path / "fake-tailscale", *args, **kwargs)
+        monkeypatch.setattr(daily, "TAILSCALE_CLI", fake.path)
+        return fake
+
+    return make
+
+
+def wake(root: Path, host: str = TAILSCALE_HOST) -> tuple[bool, bytes]:
+    with (root / "log").open("ab") as log:
+        woke = daily.wake_tailscale(host, log)
+    return woke, (root / "log").read_bytes()
+
+
+def test_stopped_tailscale_is_started_once(root, tailscale):
+    fake = tailscale("Stopped")
+    woke, log = wake(root)
+    assert woke
+    assert fake.calls() == ["true status --json", "true up", "true status --json"]
+    assert b"found Tailscale stopped; running `tailscale up`." in log
+    assert b"it's now Running." in log
+    # Tailscale is running now, so the next check leaves it alone.
+    assert wake(root)[0] is False
+    assert fake.ups() == 1
+
+
+def test_running_tailscale_is_left_alone(root, tailscale):
+    fake = tailscale("Running")
+    assert wake(root) == (False, b"")
+    assert fake.calls() == ["true status --json"]
+
+
+def test_stuck_tailscale_is_only_logged_once(root, tailscale):
+    fake = tailscale("Running", health=["magicsock ReceiveIPv4 not running"])
+    woke, log = wake(root)
+    assert not woke
+    assert b"warnings: magicsock ReceiveIPv4 not running" in log
+    wake(root)
+    assert (root / "log").read_bytes().count(b"warnings") == 1
+    assert fake.ups() == 0
+
+
+@pytest.mark.parametrize("state", ["NeedsLogin", "NeedsMachineAuth", "Starting"])
+def test_other_tailscale_states_are_left_alone(root, tailscale, state):
+    fake = tailscale(state)
+    woke, log = wake(root)
+    assert not woke
+    assert fake.ups() == 0
+    assert f"state {state}; leaving it alone".encode() in log
+
+
+def test_failed_up_is_rate_limited(root, tailscale):
+    fake = tailscale("Stopped", up_exit=1)
+    for _ in range(3):
+        assert wake(root)[0] is False
+    assert fake.ups() == 1
+    log = (root / "log").read_bytes()
+    assert b"failed with exit code 1" in log
+    assert log.count(b"less than a minute ago") == 2
+    # A minute later, it tries again.
+    (root / "tailscale-up.last").write_text(str(time.time() - 61))
+    wake(root)
+    assert fake.ups() == 2
+
+
+def test_rate_limit_spans_launches(root, tailscale):
+    fake = tailscale("Stopped")
+    (root / "tailscale-up.last").write_text(str(time.time() - 10))
+    assert wake(root)[0] is False
+    assert fake.ups() == 0
+
+
+def test_missing_tailscale_keeps_todays_behavior(root):
+    assert daily.find_tailscale() is None
+    assert wake(root) == (False, b"")
+
+
+def test_non_tailscale_host_never_runs_tailscale(root, tailscale):
+    fake = tailscale("Stopped")
+    assert wake(root, "synthetic@192.0.2.1") == (False, b"")
+    assert wake(root, "synthetic@backend.example") == (False, b"")
+    assert fake.calls() == []
+
+
+@pytest.mark.parametrize("output", ["", "not json", "[]"])
+def test_unreadable_status_does_nothing(root, tailscale, output):
+    fake = tailscale(status_output=output)
+    woke, log = wake(root)
+    assert not woke
+    assert fake.ups() == 0
+    assert b"couldn't read Tailscale's status" in log
+
+
+def test_hung_tailscale_is_cut_off(root, tailscale, monkeypatch):
+    monkeypatch.setattr(daily, "TAILSCALE_STATUS_TIMEOUT", 0.5)
+    fake = tailscale("Stopped", status_sleep=30)
+    started = time.monotonic()
+    assert wake(root)[0] is False
+    assert time.monotonic() - started < 5
+    assert fake.ups() == 0
+
+
+def test_tailscale_addresses():
+    assert daily.tailscale_host("synthetic@100.64.0.1")
+    assert daily.tailscale_host("100.127.255.254")
+    assert daily.tailscale_host("synthetic@fd7a:115c:a1e0::1")
+    assert not daily.tailscale_host("synthetic@100.128.0.1")
+    assert not daily.tailscale_host("synthetic@192.0.2.1")
+    assert not daily.tailscale_host("synthetic@backend.example")
+
+
+def test_tailscale_tool_search_order(tmp_path, monkeypatch):
+    def tool(path: Path) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("#!/bin/sh\n")
+        path.chmod(0o755)
+        return path
+
+    on_path = tool(tmp_path / "bin/tailscale")
+    monkeypatch.setenv("PATH", str(on_path.parent))
+    assert daily.find_tailscale() == str(on_path)
+    app = tool(tmp_path / "Tailscale.app/Contents/MacOS/Tailscale")
+    monkeypatch.setattr(daily, "TAILSCALE_APP", str(app))
+    assert daily.find_tailscale() == str(app)
+    configured = tool(tmp_path / "configured/tailscale")
+    monkeypatch.setattr(daily, "TAILSCALE_CLI", configured)
+    assert daily.find_tailscale() == str(configured)
+    # A configured tool replaces the search, even when it's missing.
+    monkeypatch.setattr(daily, "TAILSCALE_CLI", tmp_path / "missing")
+    assert daily.find_tailscale() is None
+
+
+def test_tunnel_to_tailscale_host_starts_tailscale_first(root, tailscale, monkeypatch):
+    fake = tailscale("Stopped")
+    (root / "ssh-hosts").write_text(TAILSCALE_HOST + "\n")
+    real_popen = subprocess.Popen
+    ssh: list[list[str]] = []
+
+    def popen(args, **kwargs):
+        if args[0] == "/usr/bin/ssh":
+            ssh.append(args)
+            return None
+        return real_popen(args, **kwargs)
+
+    monkeypatch.setattr(daily.subprocess, "Popen", popen)
+    with (root / "log").open("ab") as log:
+        daily.start_tunnel(log)
+    assert daily._tailscale_woken
+    assert fake.ups() == 1
+    assert ssh[0][-1] == TAILSCALE_HOST
+    log = (root / "log").read_bytes()
+    assert log.index(b"running `tailscale up`") < log.index(b"SSH forwarding")
+
+
+@pytest.mark.parametrize("woken", [False, True])
+def test_starting_tailscale_extends_first_wait(root, monkeypatch, helpers, woken):
+    monkeypatch.setattr(daily, "READY_WAIT_SECONDS", 0.3)
+    monkeypatch.setattr(daily, "WOKEN_WAIT_SECONDS", 2.5)
+    started = time.monotonic()
+    # The companion never answers, so the helper waits out the whole period.
+    helper = run_helper(root, monkeypatch, helpers, authenticated=False, woken=woken)
+    assert helper.control.recv(64) == b"ready\n"
+    waited = time.monotonic() - started
+    if woken:
+        assert waited >= 2.5
+    else:
+        assert waited < 2
+    helper.quit()
+
+
+WAKE_SCRIPT = textwrap.dedent(
+    """
+    import importlib.util, sys
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location("daily", sys.argv[1])
+    daily = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(daily)
+    daily.ROOT = Path(sys.argv[2])
+    daily.TAILSCALE_CLI = Path(sys.argv[3])
+    with (daily.ROOT / "log").open("ab") as log:
+        print(daily.wake_tailscale("synthetic@100.64.0.1", log))
+    """
+)
+
+
+@pytest.mark.parametrize("python", system_pythons())
+def test_tailscale_check_runs_under_system_python(root, tmp_path, python):
+    fake = FakeTailscale(tmp_path / "fake-tailscale", "Stopped")
+    result = subprocess.run(
+        [python, "-I", "-c", WAKE_SCRIPT, daily.__file__, str(root), str(fake.path)],
+        capture_output=True,
+        timeout=30,
+        check=True,
+    )
+    assert result.stdout == b"True\n"
+    assert fake.ups() == 1
