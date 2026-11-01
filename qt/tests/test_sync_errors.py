@@ -97,6 +97,35 @@ def test_other_sync_errors_keep_their_message(mw, kind):
     assert mw.findChild(QMessageBox).text() == "Server says no"
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Your proxy requires authentication.",
+        "A network error occurred.\n\nError details: Please force a one-way sync in the "
+        "Preferences screen to bring your devices into sync. invalid type: map",
+        "A network error occurred.\n\nError details: 500 Internal Server Error",
+    ],
+    ids=["proxy-auth", "invalid-response", "server-error"],
+)
+def test_network_errors_with_their_own_steps_keep_their_message(mw, message):
+    sync.handle_sync_error(mw, NetworkError(message, None, None, None), MagicMock())
+    assert mw.findChild(QMessageBox).text() == message
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Please check your internet connection.\n\nError details: dns error",
+        "Connection timed out. Please try again. If you see frequent timeouts, "
+        "please try a different network connection.",
+    ],
+    ids=["offline", "timeout"],
+)
+def test_offline_and_timeout_say_what_to_do(mw, message):
+    sync.handle_sync_error(mw, NetworkError(message, None, None, None), MagicMock())
+    assert mw.findChild(QMessageBox).text() == sync.SYNC_SERVER_UNREACHABLE
+
+
 def test_media_network_error_says_what_to_do(mw, media):
     media._handle_sync_error(NetworkError(NETWORK_DETAILS, None, None, None))
     (dialog,) = media._error_dialogs

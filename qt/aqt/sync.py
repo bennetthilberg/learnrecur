@@ -70,9 +70,24 @@ SYNC_SERVER_UNREACHABLE = (
 )
 
 
+def _could_not_connect(message: str) -> bool:
+    """True when sync got no response at all, which only a retry can fix.
+
+    Proxy authentication and unexpected responses are also network errors,
+    but their messages carry their own recovery steps.
+    """
+    if message.startswith((tr.network_offline(), tr.network_timeout())):
+        return True
+    return (
+        message.startswith(tr.network_other())
+        and "error sending request" in message
+        and "invalid type" not in message
+    )
+
+
 def sync_error_message(err: BaseException) -> str:
-    """Say what to do about a network error, and keep its details in the log."""
-    if isinstance(err, NetworkError):
+    """Say what to do when the server can't be reached, and log the details."""
+    if isinstance(err, NetworkError) and _could_not_connect(str(err)):
         print("Sync couldn't reach the server:", err)
         return SYNC_SERVER_UNREACHABLE
     return str(err)
