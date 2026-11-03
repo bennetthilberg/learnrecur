@@ -1477,6 +1477,13 @@ title="{}" {}>{}</button>""".format(
         self.generation_history_action = QAction("Generation history…", self)
         qconnect(self.generation_history_action.triggered, lambda: open_history(self))
         m.menuTools.addAction(self.generation_history_action)
+        from aqt.learnrecur_ask import open_settings as open_ask_settings
+        from aqt.learnrecur_ask import setup as setup_ask
+
+        self.ask_settings_action = QAction("AI Help Settings…", self)
+        qconnect(self.ask_settings_action.triggered, lambda: open_ask_settings(self))
+        m.menuTools.addAction(self.ask_settings_action)
+        setup_ask(self)
         qconnect(m.actionFullDatabaseCheck.triggered, self.onCheckDB)
         qconnect(m.actionCheckMediaDatabase.triggered, self.on_check_media_db)
         qconnect(m.actionStudyDeck.triggered, self.onStudyDeck)

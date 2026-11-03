@@ -726,6 +726,7 @@ class Reviewer:
             ("6", self.on_seek_backward),
             ("7", self.on_seek_forward),
             ("Shift+A", self.toggle_auto_advance),
+            ("h", self.on_ask),
             *self.korean_shortcuts(),
         ]
 
@@ -759,9 +760,16 @@ class Reviewer:
         else:
             self._answerCard(self._defaultEase())
 
+    def on_ask(self) -> None:
+        from aqt.learnrecur_ask import toggle
+
+        toggle(self)
+
     def _linkHandler(self, url: str) -> None:
         if url == "skillExit":
             self.mw.moveToState("overview")
+        elif url == "ask":
+            self.on_ask()
         elif url == "ans":
             self._getTypedAnswer()
         elif url.startswith("ease"):
@@ -904,7 +912,8 @@ class Reviewer:
 <table id=innertable width=100%% cellspacing=0 cellpadding=0>
 <tr>
 <td align=start valign=top class=stat>
-<button title="%(editkey)s" onclick="pycmd('edit');">%(edit)s</button></td>
+<button title="%(editkey)s" onclick="pycmd('edit');">%(edit)s</button>
+<button id=askbut hidden title="%(askkey)s" onclick="pycmd('ask');">Ask</button></td>
 <td align=center valign=top id=middle>
 </td>
 <td align=end valign=top class=stat>
@@ -923,6 +932,7 @@ timerStopped = false;
 """ % dict(
             edit=tr.studying_edit(),
             editkey=tr.actions_shortcut_key(val="E"),
+            askkey=tr.actions_shortcut_key(val="H"),
             more=tr.studying_more(),
             morekey=tr.actions_shortcut_key(val="M"),
             downArrow=downArrow(),
@@ -947,7 +957,10 @@ timerStopped = false;
             maxTime = self.card.time_limit() / 1000
         else:
             maxTime = 0
-        self.bottom.web.eval("showQuestion(%s,%d);" % (json.dumps(middle), maxTime))
+        self.bottom.web.eval(
+            "showQuestion(%s,%d);document.getElementById('askbut').hidden=true;"
+            % (json.dumps(middle), maxTime)
+        )
 
     def _showEaseButtons(self) -> None:
         if not self._states_mutated:
@@ -957,6 +970,7 @@ timerStopped = false;
         conf = self.mw.col.decks.config_dict_for_deck_id(self.card.current_deck_id())
         self.bottom.web.eval(
             f"showAnswer({json.dumps(middle)}, {json.dumps(conf['stopTimerOnAnswer'])});"
+            "document.getElementById('askbut').hidden=false;"
         )
 
     def _remaining(self) -> str:

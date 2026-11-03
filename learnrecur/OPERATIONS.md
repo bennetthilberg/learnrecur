@@ -8,6 +8,7 @@ This page is how to keep LearnRecur running now that it's used daily. It says wh
 - **Server.** An Azure ARM VM (Ubuntu 24.04, resource group `learnrecur-rg`) runs one Docker image as three containers: the sync server, the companion, and the paid generation worker. Their HTTP ports listen only on the VM's loopback address. The checkout, state, secrets, and backup configuration are under `/srv/learnrecur/`. See [deploy/LINUX.md](deploy/LINUX.md).
 - **Network.** The Mac reaches the VM over Tailscale. A public SSH firewall rule exists but is set to deny. See [Access](#access).
 - **Backups.** A timer on the VM makes a daily encrypted backup and uploads it to a private Azure Blob container. The decryption key isn't on the VM. See [deploy/AUTOMATIC-BACKUPS.md](deploy/AUTOMATIC-BACKUPS.md).
+- **AI help.** The Mac app calls Claude, OpenAI, or OpenRouter directly with the user's own key from the macOS Keychain. The server isn't involved. See [AI-HELP.md](AI-HELP.md).
 - **Private notes.** Receipts and the current-state handoff, `HANDOFF.md`, are in the Mac configuration folder. Checked ARM images are in `~/.local/share/learnrecur/backend-images`. Neither is in Git.
 
 ## Update the Mac app
