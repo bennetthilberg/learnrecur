@@ -16,19 +16,26 @@ The configuration directory contains:
   (`source_id`).
 - `desktop/`: the LearnRecur base folder, with its `.learnrecur-data` marker.
 
-The helper keeps `launcher.lock` and `launcher.log` there, and the app writes
-`desktop.pid` and its own output to `app.log`. A running app holds a shared lock
-on `install.lock`, and the installer takes it exclusively, so neither can start
-while the other is running.
+The helper keeps `launcher.lock`, `launcher.log`, and `tailscale-up.last` there,
+and the app writes `desktop.pid` and its own output to `app.log`. A running app
+holds a shared lock on `install.lock`, and the installer takes it exclusively, so
+neither can start while the other is running.
+
+Before connecting to a Tailscale address, the helper checks whether the Mac's
+Tailscale client is stopped and, if so, runs a plain `tailscale up`. The
+settings file can name the Tailscale tool as `tailscale_cli`; otherwise the
+helper uses the Mac app's binary or `tailscale` on PATH.
 """
 
 from __future__ import annotations
 
 import fcntl
 import http.client
+import ipaddress
 import json
 import os
 import select
+import shutil
 import socket
 import subprocess
 import sys
@@ -50,23 +57,42 @@ APP_LOG_LIMIT = 2 * 1024 * 1024
 APP_LOG_CHECK_SECONDS = 30
 STORAGE_MARKER = "learnrecur-data-v1\n"
 INSTALL_LOCK = "install.lock"
+# How long the helper waits for the companion before telling the app it's ready,
+# and the longer wait after it had to start Tailscale.
+READY_WAIT_SECONDS = 6.0
+WOKEN_WAIT_SECONDS = 15.0
+# The Mac app's command-line tool, used when the settings don't name one.
+TAILSCALE_APP = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+TAILSCALE_NETWORKS = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("fd7a:115c:a1e0::/48"),
+)
+TAILSCALE_STATUS_TIMEOUT = 3.0
+TAILSCALE_UP_TIMEOUT = 15.0
+# Run `tailscale up` at most once in this many seconds, across launches.
+TAILSCALE_UP_INTERVAL = 60.0
 
 # Set by configure() from the bundle's settings file.
 ROOT: Path = Path()
 SSH_KEY: Path = Path()
 KNOWN_HOSTS: Path = Path()
 PORTS: tuple[int, int] = DEFAULT_PORTS
+TAILSCALE_CLI: Path | None = None
 
 _host_index = 0
 _started_at = 0.0
+# Whether the latest start_tunnel() call had to start Tailscale first.
+_tailscale_woken = False
+_tailscale_health: list = []
 
 
 def configure(path: Path = SETTINGS) -> None:
-    """Read the configuration directory, SSH files, and ports from the settings file."""
-    global ROOT, SSH_KEY, KNOWN_HOSTS, PORTS
+    """Read the directories, SSH files, ports, and Tailscale tool from the settings."""
+    global ROOT, SSH_KEY, KNOWN_HOSTS, PORTS, TAILSCALE_CLI
     data = json.loads(path.read_text())
     paths = [Path(data[key]) for key in ("config_dir", "ssh_key", "known_hosts")]
-    if not all(item.is_absolute() for item in paths):
+    tailscale = Path(data["tailscale_cli"]) if "tailscale_cli" in data else None
+    if not all(item.is_absolute() for item in [*paths, tailscale or Path("/")]):
         raise ValueError("Daily settings need absolute paths.")
     ports = tuple(int(port) for port in data.get("local_ports", DEFAULT_PORTS))
     if (
@@ -77,6 +103,7 @@ def configure(path: Path = SETTINGS) -> None:
         raise ValueError("Daily settings need two different local ports.")
     ROOT, SSH_KEY, KNOWN_HOSTS = paths
     PORTS = (ports[0], ports[1])
+    TAILSCALE_CLI = tailscale
 
 
 def ports_open() -> list[bool]:
@@ -147,8 +174,140 @@ def ssh_hosts() -> list[str]:
     ]
 
 
+def _log(log: IO[bytes], message: str) -> None:
+    log.write(("LearnRecur " + message + "\n").encode())
+    log.flush()
+
+
+def tailscale_host(host: str) -> bool:
+    """Check whether an SSH destination like `user@100.64.0.1` is a Tailscale address."""
+    try:
+        address = ipaddress.ip_address(host.rpartition("@")[2])
+    except ValueError:
+        return False
+    return any(address in network for network in TAILSCALE_NETWORKS)
+
+
+def find_tailscale() -> str | None:
+    """Find the Tailscale command-line tool: the configured one, or the Mac app's,
+    or one on PATH."""
+    if TAILSCALE_CLI is not None:
+        candidates = [str(TAILSCALE_CLI)]
+    else:
+        candidates = [TAILSCALE_APP, shutil.which("tailscale") or ""]
+    for candidate in candidates:
+        if candidate and os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            return candidate
+    return None
+
+
+def run_tailscale(
+    cli: str, arguments: list[str], timeout: float
+) -> subprocess.CompletedProcess:
+    # The Mac app's binary acts as the command-line tool only when told to, since
+    # this helper doesn't run in a terminal.
+    return subprocess.run(
+        [cli, *arguments],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+        env=dict(os.environ, TAILSCALE_BE_CLI="true"),
+        check=False,
+    )
+
+
+def tailscale_status(cli: str) -> dict | None:
+    try:
+        result = run_tailscale(cli, ["status", "--json"], TAILSCALE_STATUS_TIMEOUT)
+        status = json.loads(result.stdout)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    return status if isinstance(status, dict) else None
+
+
+def _claim_tailscale_up() -> bool:
+    """Record a `tailscale up` attempt unless one ran in the last minute."""
+    path = ROOT / "tailscale-up.last"
+    now = time.time()
+    try:
+        last = float(path.read_text())
+    except (OSError, ValueError):
+        last = None
+    if last is not None and 0 <= now - last < TAILSCALE_UP_INTERVAL:
+        return False
+    try:
+        path.write_text("%f\n" % now)
+    except OSError:
+        return False
+    return True
+
+
+def wake_tailscale(host: str, log: IO[bytes]) -> bool:
+    """Start Tailscale before connecting to a Tailscale host, if it's stopped.
+
+    This runs a plain `tailscale up`, without sudo or flags, at most once a
+    minute. It never touches Tailscale when it's running or in another state, and
+    it does nothing if the tool is missing or fails. Returns whether it started
+    Tailscale.
+    """
+    global _tailscale_health
+    if not tailscale_host(host):
+        return False
+    cli = find_tailscale()
+    if cli is None:
+        return False
+    status = tailscale_status(cli)
+    if status is None:
+        _log(log, "couldn't read Tailscale's status.")
+        return False
+    state = status.get("BackendState")
+    if state == "Running":
+        # A stuck client can still say Running. Quitting and reopening the
+        # Tailscale app fixes that, which is too invasive to do automatically.
+        health = status.get("Health") or []
+        if health and health != _tailscale_health:
+            _log(
+                log,
+                "found Tailscale running with warnings: %s"
+                % "; ".join(str(item) for item in health),
+            )
+        _tailscale_health = health
+        return False
+    if state != "Stopped":
+        _log(log, "found Tailscale in state %s; leaving it alone." % state)
+        return False
+    if not _claim_tailscale_up():
+        _log(
+            log,
+            "found Tailscale stopped, but ran `tailscale up` less than a minute ago.",
+        )
+        return False
+    _log(log, "found Tailscale stopped; running `tailscale up`.")
+    try:
+        result = run_tailscale(cli, ["up"], TAILSCALE_UP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        _log(log, "`tailscale up` didn't finish in %d seconds." % TAILSCALE_UP_TIMEOUT)
+        return False
+    except (OSError, subprocess.SubprocessError) as err:
+        _log(log, "couldn't run `tailscale up`: %s" % err)
+        return False
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).decode(errors="replace").strip()
+        _log(
+            log,
+            "`tailscale up` failed with exit code %d: %s"
+            % (result.returncode, detail[-500:]),
+        )
+        return False
+    status = tailscale_status(cli) or {}
+    _log(log, "started Tailscale; it's now %s." % status.get("BackendState", "unknown"))
+    return True
+
+
 def start_tunnel(log: IO[bytes]) -> subprocess.Popen | None:
-    global _host_index, _started_at
+    global _host_index, _started_at, _tailscale_woken
+    _tailscale_woken = False
     hosts = ssh_hosts()
     if not hosts:
         log.write(b"LearnRecur has no SSH hosts in ssh-hosts.\n")
@@ -157,6 +316,7 @@ def start_tunnel(log: IO[bytes]) -> subprocess.Popen | None:
     if _started_at and time.monotonic() - _started_at < STABLE_SECONDS:
         _host_index += 1
     host = hosts[_host_index % len(hosts)]
+    _tailscale_woken = wake_tailscale(host, log)
     _started_at = time.monotonic()
     log.write(("LearnRecur SSH forwarding through %s.\n" % host).encode())
     log.flush()
@@ -213,7 +373,9 @@ def supervise(control: socket.socket, log: IO[bytes]) -> None:
                 log.flush()
             elif not existing:
                 tunnel = start_tunnel(log)
-                until = time.monotonic() + 6
+                until = time.monotonic() + (
+                    WOKEN_WAIT_SECONDS if _tailscale_woken else READY_WAIT_SECONDS
+                )
                 while tunnel is not None and time.monotonic() < until:
                     if connected() or tunnel.poll() is not None:
                         break
@@ -390,7 +552,8 @@ def startup() -> Iterator[None]:
                 start_new_session=True,
             )
         child.close()
-        parent.settimeout(15)
+        # Long enough for the helper to start Tailscale and wait for the tunnel.
+        parent.settimeout(45)
         with parent.makefile("rb") as status:
             state = status.readline(64).strip()
         if state not in (b"ready", b"existing"):

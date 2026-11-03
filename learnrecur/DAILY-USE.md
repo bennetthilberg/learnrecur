@@ -10,20 +10,29 @@ Open `~/Desktop/LearnRecur Daily.app`, choose **Daily Spanish**, and press **Stu
 
 The pinned app opens its separate profile under `~/.local/share/learnrecur/daily-use/2026-10-08/desktop`. Its startup code, described in [Build, install, and update the app](#build-install-and-update-the-app), connects to the existing Azure services through an SSH tunnel over Tailscale before opening the window, so it works from any network. Native sync runs on open and quit. Cached exercises stay local; generation and refill requests use the companion service. The other two decks contain earlier synthetic checks and aren't part of daily use. Nothing reads or changes personal Anki profiles.
 
-If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. If reconnection fails, check that Tailscale is connected in the menu bar, then quit and reopen the app. Sync errors stay visible until dismissed, including during quit. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
+If sync fails during a backup, wait for the backup to finish and press **Sync** again. A background helper reconnects if its own SSH process exits and closes it when the app quits. Sync errors stay visible until dismissed, including during quit. When the server can't be reached, the error says "Couldn't reach your sync server" and the technical detail goes to `app.log`. Local reviews can continue from eligible cached exercises while disconnected; new refills and sync need reconnection.
+
+### When Tailscale isn't working
+
+The tunnel goes over Tailscale, so the Mac's Tailscale client has to be connected. Twice in late October it wasn't when the app opened, and the startup sync failed:
+
+- **Stopped.** `tailscale status` printed "Tailscale is stopped." This happened while Tailscale's auto-updater was running. The helper now handles this case itself. Before connecting to a Tailscale address, it runs `tailscale status --json`, and if the state is `Stopped`, it runs a plain `tailscale up`, with no sudo and no flags. It does this at most once a minute, even across launches, and then waits up to 15 seconds instead of 6 for the tunnel before opening the window, so the first sync usually works. Every step goes to `launcher.log`. If it still fails, run `/Applications/Tailscale.app/Contents/MacOS/Tailscale up` yourself, then press **Sync**.
+- **Stuck.** Tailscale said it was running, but nothing got through, and its health warnings included "magicsock ReceiveIPv4 not running". Quitting and reopening the Tailscale app fixed it. The helper doesn't try this, since restarting someone's Tailscale app is too invasive. It only logs the warnings to `launcher.log`. Quit and reopen Tailscale from the menu bar, then press **Sync**.
+
+The helper leaves Tailscale alone when it's running or in any other state, like `NeedsLogin`, and when the tool is missing or doesn't answer within three seconds. Then startup works as it did before. It looks for the tool inside the Mac app, then for `tailscale` on the app's PATH; `install.py --tailscale PATH` names a different one.
 
 ## Build, install, and update the app
 
 The Daily app is the packaged LearnRecur app with its own name and bundle ID, plus a startup module that runs before Qt. The module opens the Daily profile, forwards the sync and companion ports over SSH, and writes the app's output to a private log. Both pieces live in `qt/tools/learnrecur_daily/`: `startup.py` is the module, and `install.py` builds and installs the app. They sit next to the other tools that turn the packaged app into a variant, like `prepare_anki_compatibility_app.py`, and their tests run with the Qt suite.
 
-The install doesn't copy anything private into the bundle. The bundle gets a copy of `startup.py` and a small settings file with the paths of the configuration directory, SSH key, and `known_hosts` file. Those files stay outside the bundle. The configuration directory holds:
+The install doesn't copy anything private into the bundle. The bundle gets a copy of `startup.py` and a small settings file with the paths of the configuration directory, SSH key, and `known_hosts` file, plus the Tailscale tool if `--tailscale` names one. Those files stay outside the bundle. The configuration directory holds:
 
 - `ssh-hosts`: SSH destinations, one per line, tried in order. Lines starting with `#` are comments. With no hosts, the app opens offline.
 - `companion-token`: the companion's bearer token.
 - `profile-ready.json`: the profile folder (`profile`) and the companion's `source_id`. The profile folder's name is the profile the app opens.
 - `desktop/`: the LearnRecur base folder with its `.learnrecur-data` marker.
 
-The app also keeps `install.lock`, `launcher.lock`, `launcher.log`, `desktop.pid`, and `app.log` there. While the app runs, it holds `install.lock`, so the installer refuses to run, and a launch during installation refuses to start. `app.log` holds the app's own output, including Python and Qt messages. It's private (mode 600) and moves to `app.log.1` once it passes 2 MiB, so the pair stays near 4 MiB. `launcher.log` holds the connection helper's SSH messages and isn't size-limited.
+The app also keeps `install.lock`, `launcher.lock`, `launcher.log`, `tailscale-up.last`, `desktop.pid`, and `app.log` there. While the app runs, it holds `install.lock`, so the installer refuses to run, and a launch during installation refuses to start. `app.log` holds the app's own output, including Python and Qt messages. It's private (mode 600) and moves to `app.log.1` once it passes 2 MiB, so the pair stays near 4 MiB. `launcher.log` holds the connection helper's SSH messages and isn't size-limited.
 
 To build and install, quit the Daily app and run these from the repository root:
 

@@ -10,7 +10,7 @@ from concurrent.futures import Future
 
 import aqt
 import aqt.main
-from anki.errors import Interrupted, SyncError, SyncErrorKind
+from anki.errors import Interrupted, NetworkError, SyncError, SyncErrorKind
 from anki.sync import SyncOutput, SyncStatus
 from anki.sync_pb2 import SyncAuth
 from anki.utils import plat_desc
@@ -64,6 +64,35 @@ def get_sync_status(
     )
 
 
+SYNC_SERVER_UNREACHABLE = (
+    "Couldn't reach your sync server. Your reviews are saved on this Mac. "
+    "Check your connection, then press Sync."
+)
+
+
+def _could_not_connect(message: str) -> bool:
+    """True when sync got no response at all, which only a retry can fix.
+
+    Proxy authentication and unexpected responses are also network errors,
+    but their messages carry their own recovery steps.
+    """
+    if message.startswith((tr.network_offline(), tr.network_timeout())):
+        return True
+    return (
+        message.startswith(tr.network_other())
+        and "error sending request" in message
+        and "invalid type" not in message
+    )
+
+
+def sync_error_message(err: BaseException) -> str:
+    """Say what to do when the server can't be reached, and log the details."""
+    if isinstance(err, NetworkError) and _could_not_connect(str(err)):
+        print("Sync couldn't reach the server:", err)
+        return SYNC_SERVER_UNREACHABLE
+    return str(err)
+
+
 def handle_sync_error(
     mw: aqt.main.AnkiQt,
     err: Exception,
@@ -77,7 +106,7 @@ def handle_sync_error(
         if on_done:
             on_done()
         return
-    warning = show_warning(str(err), parent=mw)
+    warning = show_warning(sync_error_message(err), parent=mw)
     if on_done:
         # Closing the profile must wait until the user has read the error.
         qconnect(warning.finished, lambda _: on_done())
