@@ -11,13 +11,17 @@ from learnrecur.deploy.tests.test_backup import state
 
 __all__ = ["state"]
 
+# Check for this exact value: the runner's own environment, which these
+# calls pass through, can contain unrelated text such as "task-" or "disk-".
+TEST_KEY = "sk-synthetic-secret-for-tests-only"
+
 
 @pytest.fixture
 def deployment(state, tmp_path):
     credentials = tmp_path / "credentials"
     credentials.mkdir(mode=0o700)
     result = Deployment(state, credentials, "learnrecur:synthetic")
-    save_key(result.openai_key(), "sk-synthetic-secret-for-tests-only")
+    save_key(result.openai_key(), TEST_KEY)
     result.verify_containers = Mock()
     result.running = Mock(return_value=set())
     return result
@@ -40,14 +44,14 @@ def test_provider_configuration_persists_without_exposing_the_key(
     deployment.configure_openai(1000000)
     config = deployment.credentials / "generation.json"
     assert config.stat().st_mode & 0o777 == 0o600
-    assert "sk-" not in config.read_text()
+    assert TEST_KEY not in config.read_text()
     restarted = Deployment(deployment.state, deployment.credentials, deployment.image)
     restarted.compose("config")
     call = run.call_args
     assert any("compose.openai.yaml" in arg for arg in call.args[0])
     assert call.kwargs["env"]["LEARNRECUR_GENERATION_LIMIT"] == "1000000"
     assert call.kwargs["env"]["LEARNRECUR_GENERATION_PROVIDER"] == "openai"
-    assert "sk-" not in str(call)
+    assert TEST_KEY not in str(call)
 
 
 @pytest.mark.parametrize(
@@ -99,7 +103,7 @@ def test_reconciliation_uses_only_the_recovery_command(deployment, monkeypatch):
     assert "--reconcile-job" in args and "--response-id" in args
     assert "worker" not in args
     assert (deployment.state / "companion/.paid-restore-pending").exists()
-    assert "sk-" not in str(run.call_args)
+    assert TEST_KEY not in str(run.call_args)
 
 
 def test_release_records_a_confirmed_charge_without_key_or_network(
