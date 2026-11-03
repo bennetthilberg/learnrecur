@@ -220,8 +220,9 @@ def test_claude_errors_say_what_to_do(status, body, message):
 
 def test_claude_refusal_is_an_error():
     http, _ = recorder((200, claude_events([], stop="refusal")))
-    with pytest.raises(AskError, match="declined"):
+    with pytest.raises(AskError, match="declined") as raised:
         run(Settings("claude", "claude-haiku-5-5", "high", fast=False), http)
+    assert raised.value.usage.output_tokens == 2000
 
 
 def test_openai_streams_with_fast_mode_and_prices_cached_input():
@@ -262,8 +263,11 @@ def test_openai_without_fast_mode_sends_no_service_tier():
 
 def test_openai_running_out_of_room_before_any_text_is_an_error():
     http, _ = recorder((200, responses_events([], final="response.incomplete")))
-    with pytest.raises(AskError, match="lower reasoning level"):
-        run(Settings("openai", "gpt-6-luna", "max", fast=False), http)
+    settings = Settings("openai", "gpt-6-luna", "max", fast=False)
+    with pytest.raises(AskError, match="lower reasoning level") as raised:
+        run(settings, http)
+    # The provider still billed the reasoning, so it counts toward the limit.
+    assert client.cost_microusd(settings, raised.value.usage) == 1605
 
 
 def test_openai_failed_response_is_an_error():

@@ -585,25 +585,26 @@ class AskPanel(QDockWidget):
             self.mw.taskman.run_on_main(apply)
 
         def run() -> None:
+            billed = None
             try:
-                usage = stream_reply(
+                billed = stream_reply(
                     settings, key, chat.system, messages, on_text, cancel.is_set
                 )
-                error = None
+                ok, error = billed is not None, None
             except AskError as exc:
-                usage, error = None, str(exc)
+                # A failed reply can still be billed, e.g. reasoning that ran
+                # out of room before any text.
+                billed, ok, error = exc.usage, False, str(exc)
             except Exception as exc:  # pylint: disable=broad-except
                 print("AI help failed:", repr(exc))
-                usage, error = None, "Something went wrong. Try again."
-            if usage is not None:
-                cost = cost_microusd(settings, usage)
+                ok, error = False, "Something went wrong. Try again."
+            if billed is not None:
+                cost = cost_microusd(settings, billed)
                 if cost is None:
                     print("AI help: no price for", settings.provider, settings.model)
                 else:
                     self.mw.taskman.run_on_main(lambda: record_spend(self.mw, cost))
-            self.mw.taskman.run_on_main(
-                lambda: self._finish(chat, usage is not None, error)
-            )
+            self.mw.taskman.run_on_main(lambda: self._finish(chat, ok, error))
 
         threading.Thread(target=run, daemon=True, name="learnrecur-ask").start()
 

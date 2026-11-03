@@ -85,7 +85,15 @@ PRICES: dict[tuple[str, str, bool], Prices] = {
 
 
 class AskError(Exception):
-    """A failure the user can act on. The message is shown in the panel."""
+    """A failure the user can act on. The message is shown in the panel.
+
+    `usage` is set when the provider still billed the request, so it can be
+    counted toward the monthly limit.
+    """
+
+    def __init__(self, message: str, usage: Usage | None = None) -> None:
+        super().__init__(message)
+        self.usage = usage
 
 
 @dataclass
@@ -335,16 +343,17 @@ def _claude_once(
                 return None
             on_text(text)
         final = stream.get_final_message()
-    if final.stop_reason == "refusal":
-        raise AskError("Claude declined to answer this one.")
     usage = final.usage
-    return Usage(
+    result = Usage(
         input_tokens=usage.input_tokens or 0,
         output_tokens=usage.output_tokens or 0,
         cache_read_tokens=usage.cache_read_input_tokens or 0,
         cache_write_tokens=usage.cache_creation_input_tokens or 0,
         fast=getattr(usage, "speed", None) == "fast",
     )
+    if final.stop_reason == "refusal":
+        raise AskError("Claude declined to answer this one.", usage=result)
+    return result
 
 
 def _api_message(error) -> str:
@@ -440,7 +449,8 @@ def _read_responses(
             if not wrote:
                 raise AskError(
                     "The model ran out of room before answering. "
-                    "Try a lower reasoning level."
+                    "Try a lower reasoning level.",
+                    usage=_responses_usage(event.response, settings),
                 )
             return _responses_usage(event.response, settings)
         elif kind == "response.failed":
