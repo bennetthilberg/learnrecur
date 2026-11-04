@@ -573,7 +573,7 @@ def test_a_late_reply_never_lands_on_the_next_card():
 
 
 def fake_window(x, width, *, screen_x=0, screen_width=1440, full=False, zoomed=False):
-    state = SimpleNamespace(x=x, y=40, width=width, height=700)
+    state = SimpleNamespace(x=x, y=40, width=width, height=700, zoomed=zoomed)
 
     def geometry():
         return QRect(state.x, state.y, state.width, state.height)
@@ -587,7 +587,7 @@ def fake_window(x, width, *, screen_x=0, screen_width=1440, full=False, zoomed=F
     window = SimpleNamespace(
         screen=lambda: screen,
         isFullScreen=lambda: full,
-        isMaximized=lambda: zoomed,
+        isMaximized=lambda: state.zoomed,
         frameGeometry=geometry,
         geometry=geometry,
         setGeometry=set_geometry,
@@ -626,3 +626,31 @@ def test_full_screen_and_zoomed_windows_keep_their_size(mode):
     panel, state = fake_window(0, 1440, **{mode: True})
     ask.AskPanel._grow_window(panel)
     assert panel._grown is None and state.width == 1440
+
+
+def test_closing_while_zoomed_shrinks_once_the_window_returns_to_normal():
+    panel, state = fake_window(100, 800)
+    ask.AskPanel._grow_window(panel)
+    state.zoomed = True
+    ask.AskPanel._shrink_window(panel)
+    # Nothing to undo yet: the zoomed window's normal size is still wide.
+    assert panel._grown == (ask.PANEL_WIDTH, 0)
+    ask.AskPanel._grow_window(panel)
+    assert state.width == 800 + ask.PANEL_WIDTH
+    state.zoomed = False
+    ask.AskPanel._shrink_window(panel)
+    assert (state.x, state.width, panel._grown) == (100, 800, None)
+
+
+def test_the_panel_builds_and_watches_window_state(app):
+    from aqt.qt import QEvent, QMainWindow
+
+    window = QMainWindow()
+    panel = ask.AskPanel(window)
+    assert [b.label.text() for b in panel.presets] == [
+        "Explain the rule here",
+        "Walk me through this step by step",
+        "Is this exercise correct?",
+    ]
+    panel._grown = (ask.PANEL_WIDTH, 0)
+    assert not panel.eventFilter(window, QEvent(QEvent.Type.WindowStateChange))

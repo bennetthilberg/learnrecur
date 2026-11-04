@@ -482,6 +482,7 @@ class AskPanel(QDockWidget):
         # How much the window grew to fit the panel, and how far it moved left.
         self._grown: tuple[int, int] | None = None
         self._bubble = QColor(128, 128, 128, 60)
+        mw.installEventFilter(self)
 
         title = QWidget()
         title.setObjectName("title")
@@ -651,7 +652,10 @@ class AskPanel(QDockWidget):
         A full-screen or zoomed window can't grow, so there the panel takes
         space from the card instead.
         """
-        self._grown = None
+        if self._grown is not None:
+            # A shrink is still waiting for the window to leave full screen
+            # or zoom, so the window's normal size already has room.
+            return
         mw = self.mw
         screen = mw.screen()
         if mw.isFullScreen() or mw.isMaximized() or screen is None:
@@ -676,16 +680,34 @@ class AskPanel(QDockWidget):
         self._grown = (extra, shift)
 
     def _shrink_window(self) -> None:
+        """Undo _grow_window. While the window is full screen or zoomed, wait
+        until it returns to its normal size, so that size isn't left wide."""
         if self._grown is None:
             return
-        extra, shift = self._grown
-        self._grown = None
         mw = self.mw
         if mw.isFullScreen() or mw.isMaximized():
             return
+        extra, shift = self._grown
+        self._grown = None
         geometry = mw.geometry()
         width = max(mw.minimumWidth(), geometry.width() - extra)
         mw.setGeometry(geometry.x() + shift, geometry.y(), width, geometry.height())
+
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if (
+            obj is self.mw
+            and event is not None
+            and event.type() == QEvent.Type.WindowStateChange
+            and self._grown is not None
+            and self.isHidden()
+        ):
+            # Let the window settle into its normal size first.
+            QTimer.singleShot(0, self._shrink_if_hidden)
+        return False
+
+    def _shrink_if_hidden(self) -> None:
+        if self.isHidden():
+            self._shrink_window()
 
     def end_chat(self) -> None:
         """Forget the chat and stop any reply still coming in."""
