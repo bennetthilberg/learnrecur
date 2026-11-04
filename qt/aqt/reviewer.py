@@ -1153,13 +1153,12 @@ timerStopped = false;
                 dict(checked=self.auto_advance_enabled),
             ],
         ]
+        first: list[Any] = [["Ask AI", "H", self.on_ask]]
         if self._skill_review and not self._skill_error:
             from aqt.learnrecur_report import report_and_skip
 
-            opts[0:0] = [
-                ["Report and skip…", "", lambda: report_and_skip(self)],
-                None,
-            ]
+            first.append(["Report and skip…", "", lambda: report_and_skip(self)])
+        opts[0:0] = [*first, None]
         return opts
 
     def showContextMenu(self) -> None:
