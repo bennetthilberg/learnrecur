@@ -627,24 +627,87 @@ class AskPanel(QDockWidget):
         self._has_key = load_key(load_settings(self.mw).provider) is not None
         self._apply_style()
         if self.isHidden():
-            self._grow_window()
-            self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self)
-            self.show()
-            width = self._grown[0] if self._grown else PANEL_WIDTH
-            QTimer.singleShot(
-                0,
-                lambda: self.mw.resizeDocks([self], [width], Qt.Orientation.Horizontal),
-            )
+            self._show_beside_card()
         self._render()
         self.input.setFocus()
+
+    def _show_beside_card(self) -> None:
+        # Widening the window before the panel takes its space would make the
+        # card area briefly wider, and its centered content would jump right
+        # and back. Holding the card area's width makes both happen at once.
+        growth = self._growth()
+        # With less room than the panel needs, the card has to give up some
+        # width; holding it would push the window off the screen.
+        fits = growth is not None and growth[0] >= self.minimumSizeHint().width()
+        held = self._hold_card_width() if fits else None
+        # Grow first: a panel added to the narrow window would push it wider by
+        # the panel's minimum width before the window's own growth.
+        self._grow_window()
+        self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self)
+        self.show()
+
+        def settle() -> None:
+            if held:
+                # Keep the width the panel got, or the layout would take its
+                # preferred width back from the card once the card is free.
+                self.mw.resizeDocks([self], [self.width()], Qt.Orientation.Horizontal)
+                self._release_card_width(held)
+            else:
+                # The window couldn't grow, so the panel takes card space.
+                self.mw.resizeDocks([self], [PANEL_WIDTH], Qt.Orientation.Horizontal)
+
+        QTimer.singleShot(0, settle)
 
     def hide_panel(self) -> None:
         if self.isHidden():
             return
+        held = self._hold_card_width() if self._will_shrink() else None
         self.hide()
         self._shrink_window()
+        QTimer.singleShot(0, lambda: self._release_card_width(held))
         if self.mw.web:
             self.mw.web.setFocus()
+
+    def _hold_card_width(self) -> tuple[QWidget, int, int] | None:
+        card = self.mw.centralWidget()
+        if card is None:
+            return None
+        held = (card, card.minimumWidth(), card.maximumWidth())
+        card.setFixedWidth(card.width())
+        return held
+
+    def _release_card_width(self, held: tuple[QWidget, int, int] | None) -> None:
+        if held is None:
+            return
+        card, minimum, maximum = held
+        card.setMinimumWidth(minimum)
+        card.setMaximumWidth(maximum)
+
+    def _growth(self) -> tuple[int, int] | None:
+        """How much wider the window can get for the panel, and how far left it
+        has to move to stay on screen."""
+        if self._grown is not None:
+            # A shrink is still waiting for the window to leave full screen
+            # or zoom, so the window's normal size already has room.
+            return None
+        mw = self.mw
+        screen = mw.screen()
+        if mw.isFullScreen() or mw.isMaximized() or screen is None:
+            return None
+        available = screen.availableGeometry()
+        frame = mw.frameGeometry()
+        extra = min(PANEL_WIDTH, available.width() - frame.width())
+        if extra <= 0:
+            return None
+        overflow = (
+            frame.x() + frame.width() + extra - (available.x() + available.width())
+        )
+        shift = min(max(0, overflow), frame.x() - available.x())
+        return extra, max(0, shift)
+
+    def _will_shrink(self) -> bool:
+        mw = self.mw
+        return self._grown is not None and not (mw.isFullScreen() or mw.isMaximized())
 
     def _grow_window(self) -> None:
         """Widen the window for the panel, so the card keeps its width.
@@ -652,24 +715,11 @@ class AskPanel(QDockWidget):
         A full-screen or zoomed window can't grow, so there the panel takes
         space from the card instead.
         """
-        if self._grown is not None:
-            # A shrink is still waiting for the window to leave full screen
-            # or zoom, so the window's normal size already has room.
+        growth = self._growth()
+        if growth is None:
             return
+        extra, shift = growth
         mw = self.mw
-        screen = mw.screen()
-        if mw.isFullScreen() or mw.isMaximized() or screen is None:
-            return
-        available = screen.availableGeometry()
-        frame = mw.frameGeometry()
-        extra = min(PANEL_WIDTH, available.width() - frame.width())
-        if extra <= 0:
-            return
-        overflow = (
-            frame.x() + frame.width() + extra - (available.x() + available.width())
-        )
-        shift = min(max(0, overflow), frame.x() - available.x())
-        shift = max(0, shift)
         geometry = mw.geometry()
         mw.setGeometry(
             geometry.x() - shift,
@@ -682,11 +732,9 @@ class AskPanel(QDockWidget):
     def _shrink_window(self) -> None:
         """Undo _grow_window. While the window is full screen or zoomed, wait
         until it returns to its normal size, so that size isn't left wide."""
-        if self._grown is None:
+        if self._grown is None or not self._will_shrink():
             return
         mw = self.mw
-        if mw.isFullScreen() or mw.isMaximized():
-            return
         extra, shift = self._grown
         self._grown = None
         geometry = mw.geometry()
