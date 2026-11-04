@@ -635,7 +635,11 @@ class AskPanel(QDockWidget):
         # Widening the window before the panel takes its space would make the
         # card area briefly wider, and its centered content would jump right
         # and back. Holding the card area's width makes both happen at once.
-        held = self._hold_card_width() if self._growth() else None
+        growth = self._growth()
+        # With less room than the panel needs, the card has to give up some
+        # width; holding it would push the window off the screen.
+        fits = growth is not None and growth[0] >= self.minimumSizeHint().width()
+        held = self._hold_card_width() if fits else None
         # Grow first: a panel added to the narrow window would push it wider by
         # the panel's minimum width before the window's own growth.
         self._grow_window()

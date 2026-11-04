@@ -686,6 +686,35 @@ def test_the_card_keeps_its_width_while_the_panel_opens_and_closes(app):
     window.close()
 
 
+def test_a_window_with_little_room_stays_on_screen(app):
+    from aqt.qt import QMainWindow, QWidget
+
+    window = QMainWindow()
+    window.setCentralWidget(QWidget())
+    window.web = None
+    available = window.screen().availableGeometry()
+    # Room to grow, but less than the panel's minimum width.
+    width = available.width() - 100
+    window.setGeometry(available.x(), available.y() + 50, width, 500)
+    window.show()
+    for _ in range(5):
+        app.processEvents()
+    width = window.width()
+    panel = ask.AskPanel(window)
+
+    def settle():
+        for _ in range(10):
+            app.processEvents()
+
+    panel._show_beside_card()
+    settle()
+    assert window.frameGeometry().right() <= available.right()
+    panel.hide_panel()
+    settle()
+    assert window.width() == width
+    window.close()
+
+
 def test_the_panel_builds_and_watches_window_state(app):
     from aqt.qt import QEvent, QMainWindow
 
