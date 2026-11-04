@@ -652,10 +652,14 @@ def test_the_card_keeps_its_width_while_the_panel_opens_and_closes(app):
     card = QWidget()
     window.setCentralWidget(card)
     window.web = None
-    window.setGeometry(100, 100, 800, 600)
+    # Leave room for the whole panel on any screen, including small CI ones.
+    available = window.screen().availableGeometry()
+    width = min(800, available.width() - ask.PANEL_WIDTH - 40)
+    window.setGeometry(available.x(), available.y() + 50, width, 500)
     window.show()
     for _ in range(5):
         app.processEvents()
+    width = window.width()
     start = card.width()
     widths = []
 
@@ -675,11 +679,11 @@ def test_the_card_keeps_its_width_while_the_panel_opens_and_closes(app):
 
     panel._show_beside_card()
     settle()
-    assert window.width() == 800 + ask.PANEL_WIDTH
+    assert window.width() == width + ask.PANEL_WIDTH
     assert panel.isVisible()
     panel.hide_panel()
     settle()
-    assert window.width() == 800
+    assert window.width() == width
     # The card never changed width, so its centered content never moved.
     assert set(widths) <= {start}
     assert card.width() == start
