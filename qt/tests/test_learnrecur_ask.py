@@ -593,7 +593,10 @@ def fake_window(x, width, *, screen_x=0, screen_width=1440, full=False, zoomed=F
         setGeometry=set_geometry,
         minimumWidth=lambda: 400,
     )
-    return SimpleNamespace(mw=window, _grown=None), state
+    panel = SimpleNamespace(mw=window, _grown=None)
+    panel._growth = lambda: ask.AskPanel._growth(panel)
+    panel._will_shrink = lambda: ask.AskPanel._will_shrink(panel)
+    return panel, state
 
 
 def test_the_window_grows_for_the_panel_and_shrinks_back():
@@ -640,6 +643,47 @@ def test_closing_while_zoomed_shrinks_once_the_window_returns_to_normal():
     state.zoomed = False
     ask.AskPanel._shrink_window(panel)
     assert (state.x, state.width, panel._grown) == (100, 800, None)
+
+
+def test_the_card_keeps_its_width_while_the_panel_opens_and_closes(app):
+    from aqt.qt import QMainWindow, QObject, QWidget
+
+    window = QMainWindow()
+    card = QWidget()
+    window.setCentralWidget(card)
+    window.web = None
+    window.setGeometry(100, 100, 800, 600)
+    window.show()
+    for _ in range(5):
+        app.processEvents()
+    start = card.width()
+    widths = []
+
+    class Watch(QObject):
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Type.Resize:
+                widths.append(card.width())
+            return False
+
+    watch = Watch()
+    card.installEventFilter(watch)
+    panel = ask.AskPanel(window)
+
+    def settle():
+        for _ in range(10):
+            app.processEvents()
+
+    panel._show_beside_card()
+    settle()
+    assert window.width() == 800 + ask.PANEL_WIDTH
+    assert panel.isVisible()
+    panel.hide_panel()
+    settle()
+    assert window.width() == 800
+    # The card never changed width, so its centered content never moved.
+    assert set(widths) <= {start}
+    assert card.width() == start
+    window.close()
 
 
 def test_the_panel_builds_and_watches_window_state(app):
