@@ -35,6 +35,7 @@ from aqt.learnrecur_ask_client import (
     valid_key,
 )
 from aqt.qt import *
+from aqt.theme import theme_manager
 from aqt.utils import disable_help_button, tooltip
 
 if TYPE_CHECKING:
@@ -356,6 +357,23 @@ class Chat:
     cancel: threading.Event | None = None
 
 
+PANEL_WIDTH = 360
+# Each preset sends at once. Cmd+1–3 (Ctrl on other systems) work while the
+# panel has focus, where they don't reach the review shortcuts for flags.
+PRESETS = (
+    ("Explain the rule here", "Explain the rule here."),
+    ("Walk me through this step by step", "Walk me through this step by step."),
+    ("Is this exercise correct?", "Is this exercise correct?"),
+)
+PRESET_KEYS = (Qt.Key.Key_1, Qt.Key.Key_2, Qt.Key.Key_3)
+
+
+def preset_text(index: int, is_skill: bool) -> str:
+    if index == 2 and not is_skill:
+        return "Is this card correct?"
+    return PRESETS[index][1]
+
+
 class _KeepKeys(QObject):
     """Keep review shortcuts (1–4, space, Cmd+Backspace…) from firing while typing."""
 
@@ -363,6 +381,14 @@ class _KeepKeys(QObject):
         super().__init__(panel)
         self.panel = panel
         self.all_keys = all_keys
+
+    @staticmethod
+    def _preset(event: QKeyEvent) -> int | None:
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier and (
+            event.key() in PRESET_KEYS
+        ):
+            return PRESET_KEYS.index(Qt.Key(event.key()))
+        return None
 
     def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
         if event is None:
@@ -373,6 +399,7 @@ class _KeepKeys(QObject):
                 return False
             if (
                 self.all_keys
+                or self._preset(event) is not None
                 or event.matches(QKeySequence.StandardKey.Copy)
                 or event.matches(QKeySequence.StandardKey.SelectAll)
             ):
@@ -382,6 +409,10 @@ class _KeepKeys(QObject):
             assert isinstance(event, QKeyEvent)
             if event.key() == Qt.Key.Key_Escape:
                 self.panel.hide_panel()
+                return True
+            preset = self._preset(event)
+            if preset is not None:
+                self.panel.send_preset(preset)
                 return True
             if (
                 self.all_keys
@@ -393,9 +424,49 @@ class _KeepKeys(QObject):
         return False
 
 
+class _Status(QLabel):
+    """A message line that takes no space while it's empty."""
+
+    def setText(self, text: str | None) -> None:
+        super().setText(text)
+        self.setVisible(bool(text))
+
+    def clear(self) -> None:
+        self.setText("")
+
+
 class _PanelBody(QWidget):
     def sizeHint(self) -> QSize:
-        return QSize(360, super().sizeHint().height())
+        return QSize(PANEL_WIDTH, super().sizeHint().height())
+
+
+class _PresetButton(QPushButton):
+    """A full-width button with its label on the left and its shortcut on the right."""
+
+    def __init__(self, label: str, shortcut: str) -> None:
+        super().__init__()
+        self.setObjectName("preset")
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.label = QLabel(label)
+        key = QLabel(shortcut)
+        key.setObjectName("shortcut")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(10, 6, 10, 6)
+        row.addWidget(self.label)
+        row.addStretch()
+        row.addWidget(key)
+        for part in (self.label, key):
+            part.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setAccessibleName(label)
+        self.setToolTip(shortcut)
+
+    def set_label(self, label: str) -> None:
+        self.label.setText(label)
+        self.setAccessibleName(label)
+
+    def sizeHint(self) -> QSize:
+        hint = self.layout().sizeHint()
+        return QSize(hint.width(), hint.height())
 
 
 class AskPanel(QDockWidget):
@@ -403,15 +474,38 @@ class AskPanel(QDockWidget):
         super().__init__("Ask", mw)
         self.mw = mw
         self.setObjectName("learnrecurAsk")
-        self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
+        self.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
         self.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea)
         self.chat: Chat | None = None
         self._dirty = False
         self._has_key = False
+        # How much the window grew to fit the panel, and how far it moved left.
+        self._grown: tuple[int, int] | None = None
+        self._bubble = QColor(128, 128, 128, 60)
+        mw.installEventFilter(self)
+
+        title = QWidget()
+        title.setObjectName("title")
+        title_row = QHBoxLayout(title)
+        title_row.setContentsMargins(8, 6, 8, 2)
+        self.close_button = QToolButton()
+        self.close_button.setObjectName("close")
+        self.close_button.setText("✕")
+        self.close_button.setToolTip("Close (Esc)")
+        self.close_button.setAccessibleName("Close")
+        self.close_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        title_row.addWidget(self.close_button)
+        heading = QLabel("Ask")
+        heading.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        title_row.addWidget(heading, 1)
+        title_row.addSpacing(self.close_button.sizeHint().width())
+        self.setTitleBarWidget(title)
 
         body = _PanelBody()
+        self.body = body
         layout = QVBoxLayout(body)
         layout.setContentsMargins(8, 4, 8, 8)
+        layout.setSpacing(6)
 
         self.transcript = QTextBrowser()
         self.transcript.setOpenExternalLinks(True)
@@ -421,15 +515,20 @@ class AskPanel(QDockWidget):
         self.suggestions = QWidget()
         suggestion_layout = QVBoxLayout(self.suggestions)
         suggestion_layout.setContentsMargins(0, 0, 0, 0)
-        self.explain = QPushButton("Explain this step by step")
-        self.mine = QPushButton("I thought it was…")
-        self.check = QPushButton("Is this exercise correct?")
-        for button in (self.explain, self.mine, self.check):
-            button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        suggestion_layout.setSpacing(4)
+        self.presets: list[_PresetButton] = []
+        for index, (label, _) in enumerate(PRESETS):
+            shortcut = QKeySequence(f"Ctrl+{index + 1}").toString(
+                QKeySequence.SequenceFormat.NativeText
+            )
+            button = _PresetButton(label, shortcut)
+            qconnect(button.clicked, lambda _=False, i=index: self.send_preset(i))
             suggestion_layout.addWidget(button)
+            self.presets.append(button)
         layout.addWidget(self.suggestions)
 
-        self.status = QLabel()
+        self.status = _Status()
+        self.status.hide()
         self.status.setWordWrap(True)
         self.status.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
@@ -441,7 +540,6 @@ class AskPanel(QDockWidget):
         self.input = QPlainTextEdit()
         self.input.setPlaceholderText("Ask about this card")
         self.input.setTabChangesFocus(True)
-        self.input.setFixedHeight(self.input.fontMetrics().lineSpacing() * 4 + 16)
         self.input.installEventFilter(_KeepKeys(self, all_keys=True))
         layout.addWidget(self.input)
 
@@ -457,17 +555,56 @@ class AskPanel(QDockWidget):
         self.setWidget(body)
         self.setMinimumWidth(280)
 
-        qconnect(self.explain.clicked, lambda: self.send("Explain this step by step."))
-        qconnect(self.mine.clicked, self._prefill_mine)
-        qconnect(self.check.clicked, lambda: self.send(self.check.text()))
+        qconnect(self.close_button.clicked, self.hide_panel)
         qconnect(self.send_button.clicked, self._send_typed)
         qconnect(self.settings_button.clicked, self._open_settings)
         qconnect(self.setup.clicked, self._open_settings)
-        qconnect(self.visibilityChanged, self._on_visibility)
 
         self._timer = QTimer(self)
         self._timer.setInterval(60)
         qconnect(self._timer.timeout, self._flush)
+
+    # Look
+
+    def _apply_style(self) -> None:
+        """Hover and pressed states for every button, in the current theme."""
+        night = theme_manager.night_mode
+        palette = self.palette()
+        base = palette.color(QPalette.ColorRole.Button)
+        text = palette.color(QPalette.ColorRole.ButtonText)
+        border = palette.color(QPalette.ColorRole.Mid)
+        hover = base.lighter(160) if night else base.darker(112)
+        pressed = base.lighter(190) if night else base.darker(125)
+        muted = palette.color(QPalette.ColorRole.PlaceholderText)
+        self.setStyleSheet(
+            f"""
+            QPushButton, QToolButton#close {{
+                background: {base.name()}; color: {text.name()};
+                border: 1px solid {border.name()}; border-radius: 6px;
+                padding: 4px 12px;
+            }}
+            QPushButton:hover, QToolButton#close:hover {{ background: {hover.name()}; }}
+            QPushButton:pressed, QToolButton#close:pressed {{ background: {pressed.name()}; }}
+            QPushButton:disabled {{ color: {muted.name()}; }}
+            QPushButton#preset {{ padding: 0; }}
+            QToolButton#close {{
+                border: none; border-radius: 12px; background: transparent;
+                min-width: 24px; max-width: 24px; min-height: 24px; max-height: 24px;
+                padding: 0; font-size: 15px;
+            }}
+            QLabel#shortcut {{ color: {muted.name()}; }}
+            """
+        )
+        font = QFont(self.mw.font())
+        font.setPointSizeF(font.pointSizeF() * 1.15)
+        for widget in (self.transcript, self.input, *self.presets, self.status):
+            widget.setFont(font)
+        for button in self.presets:
+            for label in button.findChildren(QLabel):
+                label.setFont(font)
+        self.transcript.document().setDefaultFont(font)
+        self.input.setFixedHeight(QFontMetrics(font).lineSpacing() * 4 + 16)
+        self._bubble = QColor(64, 64, 70) if night else QColor(232, 232, 237)
 
     # Opening and closing
 
@@ -486,24 +623,91 @@ class AskPanel(QDockWidget):
             )
             self.input.clear()
             self.status.clear()
-        self.check.setText(
-            "Is this exercise correct?"
-            if self.chat.is_skill
-            else "Is this card correct?"
-        )
+        self.presets[2].set_label(preset_text(2, self.chat.is_skill))
         self._has_key = load_key(load_settings(self.mw).provider) is not None
+        self._apply_style()
         if self.isHidden():
+            self._grow_window()
             self.mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self)
             self.show()
+            width = self._grown[0] if self._grown else PANEL_WIDTH
+            QTimer.singleShot(
+                0,
+                lambda: self.mw.resizeDocks([self], [width], Qt.Orientation.Horizontal),
+            )
         self._render()
         self.input.setFocus()
 
     def hide_panel(self) -> None:
+        if self.isHidden():
+            return
         self.hide()
-
-    def _on_visibility(self, visible: bool) -> None:
-        if not visible and self.mw.web:
+        self._shrink_window()
+        if self.mw.web:
             self.mw.web.setFocus()
+
+    def _grow_window(self) -> None:
+        """Widen the window for the panel, so the card keeps its width.
+
+        A full-screen or zoomed window can't grow, so there the panel takes
+        space from the card instead.
+        """
+        if self._grown is not None:
+            # A shrink is still waiting for the window to leave full screen
+            # or zoom, so the window's normal size already has room.
+            return
+        mw = self.mw
+        screen = mw.screen()
+        if mw.isFullScreen() or mw.isMaximized() or screen is None:
+            return
+        available = screen.availableGeometry()
+        frame = mw.frameGeometry()
+        extra = min(PANEL_WIDTH, available.width() - frame.width())
+        if extra <= 0:
+            return
+        overflow = (
+            frame.x() + frame.width() + extra - (available.x() + available.width())
+        )
+        shift = min(max(0, overflow), frame.x() - available.x())
+        shift = max(0, shift)
+        geometry = mw.geometry()
+        mw.setGeometry(
+            geometry.x() - shift,
+            geometry.y(),
+            geometry.width() + extra,
+            geometry.height(),
+        )
+        self._grown = (extra, shift)
+
+    def _shrink_window(self) -> None:
+        """Undo _grow_window. While the window is full screen or zoomed, wait
+        until it returns to its normal size, so that size isn't left wide."""
+        if self._grown is None:
+            return
+        mw = self.mw
+        if mw.isFullScreen() or mw.isMaximized():
+            return
+        extra, shift = self._grown
+        self._grown = None
+        geometry = mw.geometry()
+        width = max(mw.minimumWidth(), geometry.width() - extra)
+        mw.setGeometry(geometry.x() + shift, geometry.y(), width, geometry.height())
+
+    def eventFilter(self, obj: QObject | None, event: QEvent | None) -> bool:
+        if (
+            obj is self.mw
+            and event is not None
+            and event.type() == QEvent.Type.WindowStateChange
+            and self._grown is not None
+            and self.isHidden()
+        ):
+            # Let the window settle into its normal size first.
+            QTimer.singleShot(0, self._shrink_if_hidden)
+        return False
+
+    def _shrink_if_hidden(self) -> None:
+        if self.isHidden():
+            self._shrink_window()
 
     def end_chat(self) -> None:
         """Forget the chat and stop any reply still coming in."""
@@ -517,15 +721,12 @@ class AskPanel(QDockWidget):
 
     # Sending
 
-    def _prefill_mine(self) -> None:
-        self.input.setPlainText("I thought it was ")
-        cursor = self.input.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        self.input.setTextCursor(cursor)
-        self.input.setFocus()
-
     def _send_typed(self) -> None:
         self.send()
+
+    def send_preset(self, index: int) -> None:
+        if self.chat is not None:
+            self.send(preset_text(index, self.chat.is_skill))
 
     def send(self, text: str | None = None) -> None:
         chat = self.chat
@@ -650,24 +851,39 @@ class AskPanel(QDockWidget):
         if chat is None:
             self.transcript.clear()
             return
-        parts = []
-        for message in chat.messages:
-            if message["role"] == "user":
-                parts.append(
-                    "\n".join(
-                        f"> **{line.strip()}**" if line.strip() else ">"
-                        for line in message["content"].splitlines()
-                    )
-                )
-            else:
-                parts.append(message["content"])
-        if chat.pending:
-            parts.append(chat.pending)
         bar = self.transcript.verticalScrollBar()
         at_bottom = bar.value() >= bar.maximum() - 4
-        self.transcript.setMarkdown("\n\n".join(parts))
+        self.transcript.clear()
+        cursor = QTextCursor(self.transcript.document())
+        turns = list(chat.messages)
+        if chat.pending:
+            turns.append({"role": "assistant", "content": chat.pending})
+        for number, message in enumerate(turns):
+            if number:
+                cursor.insertBlock()
+            if message["role"] == "user":
+                self._insert_question(cursor, message["content"])
+            else:
+                cursor.insertMarkdown(message["content"])
+            cursor.movePosition(QTextCursor.MoveOperation.End)
         if at_bottom:
             bar.setValue(bar.maximum())
+
+    def _insert_question(self, cursor: QTextCursor, text: str) -> None:
+        """The learner's own messages sit in a shaded box on the right."""
+        table = QTextTableFormat()
+        table.setAlignment(Qt.AlignmentFlag.AlignRight)
+        table.setBackground(self._bubble)
+        table.setBorder(0)
+        table.setCellPadding(8)
+        table.setCellSpacing(0)
+        table.setTopMargin(6)
+        table.setBottomMargin(10)
+        cell = cursor.insertTable(1, 1, table).cellAt(0, 0)
+        shading = QTextTableCellFormat()
+        shading.setBackground(self._bubble)
+        cell.setFormat(shading)
+        cell.firstCursorPosition().insertText(text)
 
     def _open_settings(self) -> None:
         # Refresh even after Cancel, since Remove takes effect right away.
@@ -699,6 +915,8 @@ def _on_state(new_state: str, old_state: str) -> None:
 def setup(mw: AnkiQt) -> None:
     gui_hooks.reviewer_did_show_question.append(_on_question)
     gui_hooks.state_did_change.append(_on_state)
+    # Before the window saves its size, so a widened window isn't remembered.
+    gui_hooks.profile_will_close.append(end)
 
 
 def toggle(reviewer: Reviewer) -> None:
@@ -719,4 +937,4 @@ def toggle(reviewer: Reviewer) -> None:
 def end() -> None:
     if _panel is not None:
         _panel.end_chat()
-        _panel.hide()
+        _panel.hide_panel()

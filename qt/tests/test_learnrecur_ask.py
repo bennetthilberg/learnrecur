@@ -15,7 +15,7 @@ import pytest
 from aqt import learnrecur_ask as ask
 from aqt import learnrecur_ask_client as client
 from aqt.learnrecur_ask_client import AskError, Settings, Usage
-from aqt.qt import QApplication, QEvent, QKeyEvent, Qt
+from aqt.qt import QApplication, QEvent, QKeyEvent, QRect, Qt
 from tests.test_learnrecur_import import server
 from tests.test_learnrecur_review_navigation import start_review
 from tests.test_learnrecur_skills import col, reviewer
@@ -487,7 +487,9 @@ def key_event(kind, key, modifiers=Qt.KeyboardModifier.NoModifier, text=""):
 
 
 def test_typing_in_the_box_blocks_review_shortcuts(app):
-    panel = SimpleNamespace(hide_panel=MagicMock(), send=MagicMock())
+    panel = SimpleNamespace(
+        hide_panel=MagicMock(), send=MagicMock(), send_preset=MagicMock()
+    )
     keep = ask._KeepKeys.__new__(ask._KeepKeys)
     keep.panel, keep.all_keys = panel, True
     for key, text in (
@@ -519,6 +521,29 @@ def test_typing_in_the_box_blocks_review_shortcuts(app):
     panel.hide_panel.assert_called_once()
 
 
+@pytest.mark.parametrize("all_keys", [True, False])
+def test_command_number_sends_a_preset_instead_of_flagging(app, all_keys):
+    panel = SimpleNamespace(send_preset=MagicMock())
+    keep = ask._KeepKeys.__new__(ask._KeepKeys)
+    keep.panel, keep.all_keys = panel, all_keys
+    command = Qt.KeyboardModifier.ControlModifier
+    override = key_event(QEvent.Type.ShortcutOverride, Qt.Key.Key_2, command)
+    assert keep.eventFilter(None, override) and override.isAccepted()
+    assert keep.eventFilter(
+        None, key_event(QEvent.Type.KeyPress, Qt.Key.Key_3, command)
+    )
+    panel.send_preset.assert_called_once_with(2)
+
+
+def test_preset_wording():
+    assert [ask.preset_text(i, True) for i in range(3)] == [
+        "Explain the rule here.",
+        "Walk me through this step by step.",
+        "Is this exercise correct?",
+    ]
+    assert ask.preset_text(2, False) == "Is this card correct?"
+
+
 def test_reading_the_transcript_lets_rating_keys_through(app):
     keep = ask._KeepKeys.__new__(ask._KeepKeys)
     keep.panel, keep.all_keys = MagicMock(), False
@@ -545,3 +570,87 @@ def test_a_late_reply_never_lands_on_the_next_card():
     )
     ask.AskPanel._finish(panel, old, True, None)
     assert panel.chat.messages == []
+
+
+def fake_window(x, width, *, screen_x=0, screen_width=1440, full=False, zoomed=False):
+    state = SimpleNamespace(x=x, y=40, width=width, height=700, zoomed=zoomed)
+
+    def geometry():
+        return QRect(state.x, state.y, state.width, state.height)
+
+    def set_geometry(x, y, width, height):
+        state.x, state.y, state.width, state.height = x, y, width, height
+
+    screen = SimpleNamespace(
+        availableGeometry=lambda: QRect(screen_x, 25, screen_width, 875)
+    )
+    window = SimpleNamespace(
+        screen=lambda: screen,
+        isFullScreen=lambda: full,
+        isMaximized=lambda: state.zoomed,
+        frameGeometry=geometry,
+        geometry=geometry,
+        setGeometry=set_geometry,
+        minimumWidth=lambda: 400,
+    )
+    return SimpleNamespace(mw=window, _grown=None), state
+
+
+def test_the_window_grows_for_the_panel_and_shrinks_back():
+    panel, state = fake_window(100, 800)
+    ask.AskPanel._grow_window(panel)
+    assert (state.x, state.width) == (100, 800 + ask.PANEL_WIDTH)
+    ask.AskPanel._shrink_window(panel)
+    assert (state.x, state.width) == (100, 800)
+
+
+def test_a_window_near_the_right_edge_moves_left_to_fit():
+    panel, state = fake_window(500, 800)
+    ask.AskPanel._grow_window(panel)
+    assert state.x + state.width == 1440
+    assert state.width == 800 + ask.PANEL_WIDTH
+    ask.AskPanel._shrink_window(panel)
+    assert (state.x, state.width) == (500, 800)
+
+
+def test_a_window_almost_as_wide_as_the_screen_grows_what_it_can():
+    panel, state = fake_window(0, 1300)
+    ask.AskPanel._grow_window(panel)
+    assert (state.x, state.width) == (0, 1440)
+    ask.AskPanel._shrink_window(panel)
+    assert state.width == 1300
+
+
+@pytest.mark.parametrize("mode", ["full", "zoomed"])
+def test_full_screen_and_zoomed_windows_keep_their_size(mode):
+    panel, state = fake_window(0, 1440, **{mode: True})
+    ask.AskPanel._grow_window(panel)
+    assert panel._grown is None and state.width == 1440
+
+
+def test_closing_while_zoomed_shrinks_once_the_window_returns_to_normal():
+    panel, state = fake_window(100, 800)
+    ask.AskPanel._grow_window(panel)
+    state.zoomed = True
+    ask.AskPanel._shrink_window(panel)
+    # Nothing to undo yet: the zoomed window's normal size is still wide.
+    assert panel._grown == (ask.PANEL_WIDTH, 0)
+    ask.AskPanel._grow_window(panel)
+    assert state.width == 800 + ask.PANEL_WIDTH
+    state.zoomed = False
+    ask.AskPanel._shrink_window(panel)
+    assert (state.x, state.width, panel._grown) == (100, 800, None)
+
+
+def test_the_panel_builds_and_watches_window_state(app):
+    from aqt.qt import QEvent, QMainWindow
+
+    window = QMainWindow()
+    panel = ask.AskPanel(window)
+    assert [b.label.text() for b in panel.presets] == [
+        "Explain the rule here",
+        "Walk me through this step by step",
+        "Is this exercise correct?",
+    ]
+    panel._grown = (ask.PANEL_WIDTH, 0)
+    assert not panel.eventFilter(window, QEvent(QEvent.Type.WindowStateChange))

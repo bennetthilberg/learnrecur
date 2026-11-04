@@ -290,7 +290,10 @@ def test_report_is_only_in_skill_more_menu(reviewer):
     reviewer.auto_advance_enabled = False
     reviewer.mw.flags = SimpleNamespace(all=lambda: [])
     reviewer._showQuestion()
-    assert reviewer._contextMenu()[0][0] == "Report and skip…"
+    assert [row[0] for row in reviewer._contextMenu()[:2]] == [
+        "Ask AI",
+        "Report and skip…",
+    ]
     reviewer.card = reviewer.mw.col.get_card(
         reviewer.mw.col.find_cards('deck:"Ordinary sample"')[0]
     )
@@ -298,3 +301,4 @@ def test_report_is_only_in_skill_more_menu(reviewer):
     assert not any(
         row and row[0] == "Report and skip…" for row in reviewer._contextMenu()
     )
+    assert reviewer._contextMenu()[0][:2] == ["Ask AI", "H"]

@@ -1,6 +1,6 @@
 # AI help during review
 
-After you reveal a card's answer, press **H** or click **Ask** in the bottom bar. A panel opens on the right where you can ask a model about the card and send follow-ups. It works on skill exercises and ordinary cards. You pay for it with your own API key from Claude, OpenAI, or OpenRouter.
+After you reveal a card's answer, press **H**, click **Ask** in the bottom bar, or choose **More > Ask AI**. A panel opens on the right where you can ask a model about the card and send follow-ups. The window grows to make room for it, so the card keeps its width, and shrinks back when the panel closes. A full-screen or zoomed window can't grow, so there the panel takes space from the card. It works on skill exercises and ordinary cards. You pay for it with your own API key from Claude, OpenAI, or OpenRouter.
 
 ## Why it only opens after the reveal
 
@@ -14,6 +14,10 @@ Trying to remember the answer, even when you get it wrong, is the part of review
 The instructions tell the model to keep replies short, stay on the card, and say plainly when a card or exercise looks wrong. If it agrees an exercise is wrong, use **Report** as usual; the chat never reports or rates anything.
 
 A chat belongs to one showing of one card. Esc or the panel's close button hides the panel and keeps the chat until you rate the card. Rating, moving to another card, or leaving review throws the chat away. Chats are never saved, so they don't sync and don't end up in exports.
+
+While the chat is empty, three buttons send a question right away: **Explain the rule here**, **Walk me through this step by step**, and **Is this exercise correct?** (**Is this card correct?** on ordinary cards). Cmd+1, Cmd+2, and Cmd+3 send them at any point while the panel has focus. The panel takes focus when it opens, so H then Cmd+1 works without the mouse. Outside the panel, Cmd+1–3 still set flags.
+
+Your questions appear in a shaded box on the right, and the replies below them span the panel's width.
 
 While the text box has focus, review shortcuts are off. Typing `1` or pressing Space doesn't rate the card, and Cmd+Backspace doesn't delete the note. Return sends the question and Shift+Return starts a new line.
 
