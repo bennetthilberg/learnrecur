@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from anki.learnrecur_limits import MAX_BATCHES
+from anki.learnrecur_limits import DEFAULT_READY, MAX_BATCHES, MAX_READY, MIN_READY
 from anki.learnrecur_skill_import import (
     MAX_BYTES,
     SkillImportError,
@@ -317,9 +317,11 @@ class Jobs:
             type(value["revision"]) is not int
             or not 1 <= value["revision"] <= 100
             or type(value["count"]) is not int
-            or not 1 <= value["count"] <= 3
+            or not 1 <= value["count"] <= MAX_READY
         ):
-            raise SkillImportError("Use a valid revision and request 1 to 3 exercises.")
+            raise SkillImportError(
+                f"Use a valid revision and request 1 to {MAX_READY} exercises."
+            )
         examples = value.get("examples", [])
         provider_name = value.get("provider", "fixture")
         if provider_name not in ("fixture", "openai"):
@@ -516,7 +518,7 @@ class Jobs:
                 **value,
                 "skill_id": key,
                 "revision": revision,
-                "count": 3,
+                "count": DEFAULT_READY,
                 "provider": provider,
             }
             return self._enqueue(
@@ -694,11 +696,15 @@ class Jobs:
         )
 
     def request_refill(self, value, provider, *, _db=None):
-        """Queue once per imported bank checkpoint, under the same write lock."""
+        """Queue once per imported bank checkpoint, under the same write lock.
+
+        `ready` is the learner's setting for spare exercises, which sets the
+        batch size. Older apps leave it out and get the default."""
+        fields = {"source_id", "skill_id", "revision", "bank_sequence", "remaining"}
         if (
             not isinstance(value, dict)
-            or set(value)
-            != {"source_id", "skill_id", "revision", "bank_sequence", "remaining"}
+            or not fields <= set(value)
+            or set(value) - fields - {"ready"}
             or not isinstance(value["source_id"], str)
             or not isinstance(value["skill_id"], str)
             or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", value["skill_id"])
@@ -707,7 +713,9 @@ class Jobs:
             or type(value["bank_sequence"]) is not int
             or not 0 <= value["bank_sequence"] <= MAX_BATCHES
             or type(value["remaining"]) is not int
-            or not 0 <= value["remaining"] <= 2
+            or not 0 <= value["remaining"] <= MAX_READY
+            or type(value.get("ready", DEFAULT_READY)) is not int
+            or not MIN_READY <= value.get("ready", DEFAULT_READY) <= MAX_READY
         ):
             raise SkillImportError("Supply a valid low-bank checkpoint.")
         if provider is None:
@@ -828,7 +836,7 @@ class Jobs:
                 "request_id": request_id,
                 "skill_id": key,
                 "revision": value["revision"],
-                "count": min(3, available),
+                "count": min(value.get("ready", DEFAULT_READY), available),
                 "examples": examples,
                 "provider": provider,
             }
@@ -1779,7 +1787,7 @@ class FixtureProvider:
         matches = context["skill"]["description"] in descriptions
         if (
             context["provider"] != "fixture-spanish-v1"
-            or context["count"] > 3
+            or context["count"] > MAX_READY
             or not matches
         ):
             raise TerminalFailure()
@@ -1813,6 +1821,96 @@ class FixtureProvider:
                 "Ayer yo ___ por el parque. (caminar)",
                 "caminé",
                 "For yo in the preterite, replace -ar with -é: caminar → caminé.",
+            ),
+            (
+                "Anoche yo ___ la radio. (escuchar)",
+                "escuché",
+                "For yo in the preterite, replace -ar with -é: escuchar → escuché.",
+            ),
+            (
+                "Ayer yo ___ una película. (mirar)",
+                "miré",
+                "For yo in the preterite, replace -ar with -é: mirar → miré.",
+            ),
+            (
+                "Esta mañana yo ___ los platos. (lavar)",
+                "lavé",
+                "For yo in the preterite, replace -ar with -é: lavar → lavé.",
+            ),
+            (
+                "Ayer yo ___ mi cuarto. (limpiar)",
+                "limpié",
+                "For yo in the preterite, replace -ar with -é: limpiar → limpié.",
+            ),
+            (
+                "El verano pasado yo ___ a México. (viajar)",
+                "viajé",
+                "For yo in the preterite, replace -ar with -é: viajar → viajé.",
+            ),
+            (
+                "Ayer yo ___ en la piscina. (nadar)",
+                "nadé",
+                "For yo in the preterite, replace -ar with -é: nadar → nadé.",
+            ),
+            (
+                "Ayer yo ___ a mi hermana. (ayudar)",
+                "ayudé",
+                "For yo in the preterite, replace -ar with -é: ayudar → ayudé.",
+            ),
+            (
+                "Anoche yo ___ arroz. (cocinar)",
+                "cociné",
+                "For yo in the preterite, replace -ar with -é: cocinar → cociné.",
+            ),
+            (
+                "El domingo yo ___ en casa. (descansar)",
+                "descansé",
+                "For yo in the preterite, replace -ar with -é: descansar → descansé.",
+            ),
+            (
+                "Ayer yo ___ el autobús. (esperar)",
+                "esperé",
+                "For yo in the preterite, replace -ar with -é: esperar → esperé.",
+            ),
+            (
+                "Anoche yo ___ a mi madre. (llamar)",
+                "llamé",
+                "For yo in the preterite, replace -ar with -é: llamar → llamé.",
+            ),
+            (
+                "Ayer yo ___ un paraguas. (llevar)",
+                "llevé",
+                "For yo in the preterite, replace -ar with -é: llevar → llevé.",
+            ),
+            (
+                "Esta mañana yo ___ las llaves. (olvidar)",
+                "olvidé",
+                "For yo in the preterite, replace -ar with -é: olvidar → olvidé.",
+            ),
+            (
+                "El sábado yo ___ la cerca. (pintar)",
+                "pinté",
+                "For yo in the preterite, replace -ar with -é: pintar → pinté.",
+            ),
+            (
+                "Anoche yo ___ tarde a casa. (regresar)",
+                "regresé",
+                "For yo in the preterite, replace -ar with -é: regresar → regresé.",
+            ),
+            (
+                "Ayer yo ___ el proyecto. (terminar)",
+                "terminé",
+                "For yo in the preterite, replace -ar with -é: terminar → terminé.",
+            ),
+            (
+                "El mes pasado yo ___ a mis abuelos. (visitar)",
+                "visité",
+                "For yo in the preterite, replace -ar with -é: visitar → visité.",
+            ),
+            (
+                "Ayer yo ___ un gato. (dibujar)",
+                "dibujé",
+                "For yo in the preterite, replace -ar with -é: dibujar → dibujé.",
             ),
         ]
         excluded = set(context.get("existing_prompts", [])) | {

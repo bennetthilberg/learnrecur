@@ -1,6 +1,20 @@
 # Low-bank refill requests
 
-With refills enabled, the Mac app asks the companion for up to three exercises when a linked skill has at most two unused exercises. The check runs when a question appears and after a successful rating. Requests run on a background thread outside the collection queue. Reveal and rating use the local bank, even when the companion is unavailable.
+With refills enabled, each linked skill keeps a spare of unused exercises. **Preferences > Review > Exercises ready per skill** sets its size, from 3 to 20, and defaults to 10. The Mac app asks the companion for more once a skill has fewer unused exercises than that setting, and each refill adds that many. New skills and edited revisions start with 10. The check runs when a question appears and after a successful rating. Requests run on a background thread outside the collection queue. Reveal and rating use the local bank, even when the companion is unavailable.
+
+The setting is saved in the collection config, so it syncs between Macs. A value outside 3–20, from an edited profile or another app, counts as 10.
+
+## Why a spare of ten
+
+A refill takes a while to reach the app. Only one refill per skill can be outstanding, and a finished batch is added only at the deck list or deck overview, not during review. So after a skill asks for more, its bank has to last the rest of the review session.
+
+A new card's first day uses the most exercises. Every rating uses one, including Again and each learning step, so a new skill can use three or four before the learner leaves review, and more after repeated lapses. With the default, the first rating queues a refill while nine fresh exercises remain. After a batch arrives, a skill holds roughly 10–19 unused exercises, so a repeat needs about ten ratings of one skill between deck list visits. A repeat is still possible, for example during a long offline stretch or once the monthly budget runs out.
+
+Until November 2026, new skills started with three exercises, the app asked at two, and refills added three. A skill could run out during its first session, and an older bank could run dry before the next deck list visit. Skills with fewer than ten unused exercises ask as soon as their question appears, so the first session after the upgrade can queue refills for many skills at once.
+
+## Cost
+
+A bigger spare doesn't raise spending per review, since each review still uses one exercise. It generates exercises earlier: up to about twice the setting per skill, made once, as each skill comes up for review. At about $0.0003 per exercise and the default of 10, 55 skills front-load about 1,000 exercises, or about $0.31. At 20, that's about $0.64. Normal reviews come on top of that. If a month's spending reaches the $1 ceiling, refills wait until the next month and cached review continues, reusing older exercises if a bank runs out.
 
 Completed batches now use [automatic delivery](DELIVERY.md) at the deck list or deck overview. **Tools > Import skills…** remains available. A refill request never changes the exercise on screen or adds an undo entry.
 
@@ -13,20 +27,20 @@ PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.server
   --data-dir out/learnrecur/companion --refill-provider fixture
 ```
 
-Import the original Spanish skill and rate its first exercise. That leaves two unused exercises and queues one job. Run the fixture worker against the same companion folder:
+Import the original Spanish skill and show its first question. Its three unused exercises are fewer than the default of ten, so that queues one job. Run the fixture worker against the same companion folder:
 
 ```sh
 PYTHONPATH=.:pylib:out/pylib out/pyenv/bin/python -m learnrecur.companion.jobs \
   --data-dir out/learnrecur/companion --provider fixture --once
 ```
 
-Return to the deck list after the fetch interval, or restart the app, to add the completed batch automatically. The fixture has six predetermined variations, enough for two three-exercise refills. It skips prompts already in the bank or supplied as examples, then stops when its pool is exhausted. It makes no model calls and costs nothing.
+Return to the deck list after the fetch interval, or restart the app, to add the completed batch automatically. The fixture has 24 predetermined variations, enough for two ten-exercise refills. It skips prompts already in the bank or supplied as examples, then stops when its pool is exhausted. It makes no model calls and costs nothing.
 
 The server disables refills by default. `--refill-provider openai` queues OpenAI jobs, but the worker still requires a private key, `--allow-paid-generation`, and spending authorization. The model remains `gpt-6-luna` with `xhigh` reasoning. Set the budget before starting the worker; see [OpenAI setup](OPENAI.md). Enabling the server alone does not run generation.
 
 ## Requests and duplicate protection
 
-Authenticated `POST /v1/refill-requests` accepts exactly these fields:
+Authenticated `POST /v1/refill-requests` accepts these fields, and no others:
 
 ```json
 {
@@ -34,11 +48,14 @@ Authenticated `POST /v1/refill-requests` accepts exactly these fields:
   "skill_id": "spanish-ar-preterite-yo",
   "revision": 1,
   "bank_sequence": 0,
-  "remaining": 2
+  "remaining": 2,
+  "ready": 10
 }
 ```
 
-`remaining` counts active exercises not yet used in a successful native rating. It must be 0–2. The server checks the source, current description revision, and imported batch sequence. The client cannot select a provider or increase the batch size.
+`remaining` counts active exercises not yet used in a successful native rating. It must be 0–20. `ready` is the learner's setting and becomes the batch size, shrunk to fit the bank limit. It must be 3–20; a request without it, from an older app, gets 10. The server checks the source, current description revision, and imported batch sequence. The client cannot select a provider or ask for more than 20. Two Macs with different settings share the job for a checkpoint; the first request sets its size.
+
+Servers released before November 2026 reject the `ready` field, so a newer app gets no refills from them. Upgrade the server before the app. An older app still works with a newer server; it asks at two and gets ten.
 
 New refill jobs use the examples saved when the current skill revision was created or edited. When the learner's material has suitable exercises, supply those examples so later batches keep the same guidance. Suitability is checked before saving the definition; the server does not assess the original material. Removing unsuitable examples in the editor lets that revision use the fallback.
 
@@ -64,8 +81,20 @@ Older cards with only a counter conservatively treat the first `n` active exerci
 
 Refill requests queue generation; [delivery](DELIVERY.md) fetches and applies published batches separately. [Report delivery](../REPORTS.md) also shares these checkpoints. This request path adds no hosting, budget UI, or paid trial. The defaults are 1,000 jobs, 1,000 batches per skill, 200 exercises per revision, and an 8 MiB snapshot. The [storage limits](../STORAGE.md) are configurable. A full bank stops generation; older exercises remain available for eligible cached review. Ordinary decks never request refills. A linked card must also have a trusted native import identity; a deck package alone cannot authorize background generation.
 
+With the default, a revision reaches 200 exercises after its first 10 and 19 refills. That's about 190 ratings at one revision; after that, review reuses older eligible exercises. The usage bitmap holds 256 positions, so it never limits a 200-exercise bank. Larger batches use fewer jobs for the same exercises: filling three revisions of three skills takes 180 jobs, down from 603 with batches of three. That leaves more room under the 1,000-job quota, which counts every job ever created.
+
+Before each paid call, the worker reserves the attempt's worst-case cost: the full 16,384-token output cap at the output price, plus the request's input. The output cap is in tokens, not exercises, so the hold is about $0.0086 for any batch size and still covers any bill. A response that reports more tokens than that is treated as an uncertain charge. Recent three-exercise jobs used about 500 output tokens, so a batch of 20 should need about 3,500. Batches above three haven't been tried with the real model yet.
+
+Each running or saved job also reserves room in the snapshot limit for its worst-case batch, about 98 KB per exercise. A batch of 10 holds about 1 MB of the default 8 MiB, and a batch of 20 about 2 MB, so roughly seven or three jobs can be in flight. Others wait in `waiting_capacity` and try again a minute later. Queued jobs reserve nothing.
+
+The OpenAI request lists every existing prompt so the model avoids repeats, and requests are capped at 32 KiB. The base request is about 5 KB. Short prompts fit at 200 exercises, but prompts near 150 bytes reach the cap at about 180. A job over the cap fails before any call, so it costs nothing. Its later retry rounds fail the same way, though, so that skill stops getting new exercises, and the job's error says only that its saved provider settings can't run.
+
 
 ## Verification
+
+On November 5, 2026, automated checks covered the setting and the new sizes. The app asks once fewer unused exercises remain than the setting, and sends the setting. Invalid saved values fall back to 10, and the value survives reopening. Preferences saves it only when it changes. On the companion, `ready` of 3, 15, and 20 sets the batch size; a checkpoint without it gets 10; values outside 3–20 are rejected; and a second Mac with a different setting shares the same job. Near the bank limit, a refill shrinks to the room left. A snapshot with room for three worst-case exercises refuses a batch of ten. A 20-exercise OpenAI refill holds its worst-case cost under the $1 ceiling, settles below that hold, and waits without calling when the budget is one microdollar short. A new skill and an edited revision each publish ten. These checks use synthetic data and mocked responses; no paid call ran. The packaged Mac app hasn't been checked with the setting yet.
+
+The checks below were run with the earlier sizes: three initial exercises, a threshold of two, and refills of three.
 
 On October 2, 2026, the packaged Mac app imported the original three-exercise skill in fresh synthetic storage. Its first question queued nothing; rating Again automatically queued one refill. The fixture worker published three exercises at zero cost. Native rating undo/redo passed, and five ratings cycled through the original bank without creating another job.
 

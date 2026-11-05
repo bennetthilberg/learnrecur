@@ -157,6 +157,54 @@ def test_wrapped_bank_prefers_new_batch_and_undo_restores_usage(col, revisions):
     assert skill_refill_request(col.get_card(cid))["remaining"] == 1
 
 
+def test_refill_starts_once_fewer_than_the_ready_setting_remain(col, revisions):
+    from anki.learnrecur_skills import set_ready_exercises, skill_refill_request
+
+    set_ready_exercises(col, 6)
+    original, _ = revisions
+    snapshot = appended(original)
+    snapshot["bank_updates"][original["skills"][0]["id"]][0]["exercises"].append(
+        {
+            "id": "generated-tomar",
+            "prompt": "Esta mañana yo ___ un café. (tomar)",
+            "answer": "tomé",
+            "explanation": "Replace -ar with -é: tomar → tomé.",
+        }
+    )
+    import_snapshot(col, snapshot)
+    cid = col.find_cards('deck:"LearnRecur skills"')[0]
+    # Six unused with six ready: showing the first question asks for nothing.
+    assert skill_refill_request(col.get_card(cid)) is None
+    rate(col)
+    request = skill_refill_request(col.get_card(cid))
+    assert request["remaining"] == 5 and request["ready"] == 6
+    assert request["bank_sequence"] == 1
+    col.undo()
+    assert skill_refill_request(col.get_card(cid)) is None
+
+
+@pytest.mark.parametrize("saved", [None, 2, 21, 7.0, True, "12"])
+def test_ready_setting_falls_back_to_the_default(col, saved):
+    from anki.learnrecur_limits import DEFAULT_READY
+    from anki.learnrecur_skills import (
+        READY_KEY,
+        ready_exercises,
+        set_ready_exercises,
+    )
+
+    assert ready_exercises(col) == DEFAULT_READY == 10
+    if saved is not None:
+        # Another Mac, or an edited profile, can sync any value.
+        col.set_config(READY_KEY, saved)
+        assert ready_exercises(col) == DEFAULT_READY
+        with pytest.raises(ValueError):
+            set_ready_exercises(col, saved)
+    set_ready_exercises(col, 20)
+    col.close()
+    col.reopen()
+    assert ready_exercises(col) == 20
+
+
 def test_legacy_counter_is_conservative_and_upgrade_uses_native_answer(col, revisions):
     from anki.learnrecur_skills import skill_refill_request
 

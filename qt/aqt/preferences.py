@@ -43,6 +43,7 @@ class Preferences(QDialog):
         self.prof = self.mw.pm.profile
         self.form = aqt.forms.preferences.Ui_Preferences()
         self.form.setupUi(self)
+        self._add_ready_exercises()
         for spinbox in (
             self.form.lrnCutoff,
             self.form.dayOffset,
@@ -71,6 +72,19 @@ class Preferences(QDialog):
         self.setup_global()
         self.setup_configurable_answer_keys()
         self.show()
+
+    def _add_ready_exercises(self) -> None:
+        from anki.learnrecur_limits import MAX_READY, MIN_READY
+
+        spinbox = self.ready_exercises = QSpinBox()
+        spinbox.setRange(MIN_READY, MAX_READY)
+        label = QLabel("Exercises ready per skill")
+        label.setBuddy(spinbox)
+        grid = self.form.gridLayout_4
+        row = grid.rowCount()
+        grid.addWidget(label, row, 0)
+        grid.addWidget(spinbox, row, 1)
+        QWidget.setTabOrder(self.form.timeLimit, spinbox)
 
     def _setup_webview(self) -> None:
         self.web = AnkiWebView(kind=AnkiWebViewKind.PREFERENCES)
@@ -150,6 +164,11 @@ class Preferences(QDialog):
         form.showPlayButtons.setChecked(not reviewing.hide_audio_play_buttons)
         form.interrupt_audio.setChecked(reviewing.interrupt_audio_when_answering)
 
+        from anki.learnrecur_skills import ready_exercises
+
+        self.old_ready = ready_exercises(self.mw.col)
+        self.ready_exercises.setValue(self.old_ready)
+
         editing = self.prefs.editing
         form.useCurrent.setCurrentIndex(
             0 if editing.adding_defaults_to_current_deck else 1
@@ -184,6 +203,12 @@ class Preferences(QDialog):
         reviewing.time_limit_secs = form.timeLimit.value() * 60
         reviewing.hide_audio_play_buttons = not self.form.showPlayButtons.isChecked()
         reviewing.interrupt_audio_when_answering = self.form.interrupt_audio.isChecked()
+
+        if (ready := self.ready_exercises.value()) != self.old_ready:
+            from anki.learnrecur_skills import set_ready_exercises
+
+            set_ready_exercises(self.mw.col, ready)
+            self.old_ready = ready
 
         editing = self.prefs.editing
         editing.adding_defaults_to_current_deck = not form.useCurrent.currentIndex()

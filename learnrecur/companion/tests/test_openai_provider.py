@@ -36,14 +36,14 @@ __all__ = ["jobs", "payload"]
 SYNTHETIC_KEY = "sk-synthetic-secret-for-tests-only"
 
 
-def reply(meta, **changes):
+def reply(meta, count=3, **changes):
     exercises = FixtureProvider().generate(
         {
             "provider": "fixture-spanish-v1",
             "skill": json.loads(
                 (ROOT / "learnrecur/fixtures/spanish-import.json").read_text()
             )["skills"][0],
-            "count": 3,
+            "count": count,
         }
     )["exercises"]
     result = {
@@ -78,6 +78,7 @@ class Transport:
     def __init__(self, *, pending=False):
         self.calls = []
         self.meta = None
+        self.count = 3
         self.pending = pending
         self.failure = None
 
@@ -85,10 +86,14 @@ class Transport:
         self.calls.append((method, path, copy.deepcopy(body), trace))
         if method == "POST":
             self.meta = body["metadata"]
+            # Answer with as many exercises as the request's schema requires.
+            schema = body["text"]["format"]["schema"]["properties"]["exercises"]
+            self.count = schema["minItems"]
             if self.failure:
                 raise self.failure()
             return reply(
                 self.meta,
+                self.count,
                 **(
                     {"status": "queued", "usage": None, "output": []}
                     if self.pending
@@ -97,7 +102,7 @@ class Transport:
             )
         if self.failure:
             raise self.failure()
-        return reply(self.meta)
+        return reply(self.meta, self.count)
 
 
 def openai_job(jobs, payload):
@@ -1063,3 +1068,58 @@ def test_credit_balance_failure_is_actionable_and_never_declared_free(jobs, payl
         assert db.execute("select net_actual from generation_attempts").fetchone() == (
             None,
         )
+
+
+def test_largest_refill_holds_its_worst_case_cost(jobs):
+    from anki.learnrecur_limits import MAX_READY
+
+    jobs.configure_budget(1000000)  # The deployed $1 monthly ceiling.
+    checkpoint = {
+        "source_id": jobs.store.snapshot()["source_id"],
+        "skill_id": "spanish-ar-preterite-yo",
+        "revision": 1,
+        "bank_sequence": 0,
+        "remaining": 0,
+        "ready": MAX_READY,
+    }
+    job = jobs.get(jobs.request_refill(checkpoint, "openai")["job_id"])
+    assert job["request"]["count"] == MAX_READY
+    transport = Transport()
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    hold = provider.estimate(job["context"])
+    # Output is capped by tokens, not exercise count, so the hold covers the
+    # whole cap at the output price plus the larger request's input.
+    output_cap = CONFIG["max_output_tokens"] * 0.5
+    request_bytes = len(json.dumps(request_body(job["context"])).encode())
+    assert output_cap + request_bytes * 0.1 <= hold < output_cap + 1000
+    jobs.run_once(provider)
+    schema = transport.calls[0][2]["text"]["format"]["schema"]
+    items = schema["properties"]["exercises"]
+    assert items["minItems"] == items["maxItems"] == MAX_READY
+    with jobs.store.connect() as db:
+        reserved, actual = db.execute(
+            "select gross_reserved,gross_actual from generation_attempts"
+        ).fetchone()
+    assert reserved == hold and 0 < actual <= reserved
+    batch = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"][0]
+    assert len(batch["exercises"]) == MAX_READY
+
+
+def test_largest_refill_waits_when_the_budget_cannot_hold_it(jobs):
+    from anki.learnrecur_limits import MAX_READY
+
+    checkpoint = {
+        "source_id": jobs.store.snapshot()["source_id"],
+        "skill_id": "spanish-ar-preterite-yo",
+        "revision": 1,
+        "bank_sequence": 0,
+        "remaining": 0,
+        "ready": MAX_READY,
+    }
+    job = jobs.get(jobs.request_refill(checkpoint, "openai")["job_id"])
+    transport = Transport()
+    provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
+    jobs.configure_budget(provider.estimate(job["context"]) - 1)
+    assert jobs.claim(provider) is None
+    assert jobs.get(job["id"])["state"] == "waiting_budget"
+    assert transport.calls == []

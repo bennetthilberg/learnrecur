@@ -87,7 +87,7 @@ def test_full_offline_restart_delivery_fixture_and_native_undo(
                     "exercises"
                 ]
             )
-            == 6
+            == 13
         )
         # Native Undo was cleared by restart; make a second report and deliver it first.
         report_skill_review(

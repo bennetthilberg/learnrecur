@@ -12,6 +12,14 @@ MAX_BANK_BYTES = 6 * MAX_BYTES
 MAX_SKILLS = 5000
 MAX_EXERCISES = 256  # The usage bitmap must fit native card custom data.
 MAX_BATCHES = 5000
+# Learners choose how many unused exercises each skill keeps ready. The app
+# asks for more once fewer remain, and each refill adds that many. Batches
+# reach the app only at the deck list, so the spare covers a review session,
+# including a new card's first-day learning steps.
+DEFAULT_READY = 10
+MIN_READY = 3
+# The companion's hard cap on `ready`, `remaining`, and batch size.
+MAX_READY = 20
 
 
 @dataclass(frozen=True)

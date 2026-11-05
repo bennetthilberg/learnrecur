@@ -385,12 +385,14 @@ def refresh(plans, companion, plan_id, plan, *, submit):
             **payload,
             "skill_id": "skill-" + payload["request_id"],
             "revision": 1,
-            "count": 3,
         }
         if (
             not isinstance(job, dict)
             or not isinstance(job.get("request"), dict)
             or any(job["request"].get(key) != value for key, value in expected.items())
+            # The server picks the initial batch size, up to its cap of 20.
+            or type(job["request"].get("count")) is not int
+            or not 1 <= job["request"]["count"] <= 20
             or job.get("request_id") != payload["request_id"]
             or not isinstance(job.get("state"), str)
             or job["state"] not in STATES

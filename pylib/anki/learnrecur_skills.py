@@ -16,7 +16,13 @@ from dataclasses import dataclass
 from anki.cards import Card, CardId
 from anki.collection import Collection
 from anki.collection_pb2 import OpChanges
-from anki.learnrecur_limits import MAX_BATCHES, MAX_EXERCISES
+from anki.learnrecur_limits import (
+    DEFAULT_READY,
+    MAX_BATCHES,
+    MAX_EXERCISES,
+    MAX_READY,
+    MIN_READY,
+)
 from anki.scheduler.v3 import CardAnswer
 from anki.template import TemplateRenderOutput
 
@@ -220,6 +226,24 @@ def select_skill_review(card: Card) -> SkillReview | None:
     return SkillReview(card.id, bank_hash, position, exercise, cursor_hash, used)
 
 
+# Collection config, so the setting syncs between Macs.
+READY_KEY = "learnrecurReadyExercises"
+
+
+def ready_exercises(col: Collection) -> int:
+    """How many unused exercises each skill keeps ready."""
+    value = col.get_config(READY_KEY, DEFAULT_READY)
+    if type(value) is not int or not MIN_READY <= value <= MAX_READY:
+        return DEFAULT_READY
+    return value
+
+
+def set_ready_exercises(col: Collection, value: int) -> None:
+    if type(value) is not int or not MIN_READY <= value <= MAX_READY:
+        raise ValueError(f"Keep {MIN_READY} to {MAX_READY} exercises ready.")
+    col.set_config(READY_KEY, value)
+
+
 def skill_refill_request(card: Card) -> dict | None:
     """Describe a low bank using only its companion identity and native usage."""
     if (bank := _bank(card)) is None:
@@ -242,7 +266,8 @@ def skill_refill_request(card: Card) -> dict | None:
         for exercise in exercises
         if exercise.id not in reported
     )
-    if remaining > 2:
+    ready = ready_exercises(card.col)
+    if remaining >= ready:
         return None
     raw = json.loads(card.note()[BANK_FIELD])
     sequence = raw.get("bank_sequence", 0)
@@ -254,6 +279,7 @@ def skill_refill_request(card: Card) -> dict | None:
         "revision": raw["revision"],
         "bank_sequence": sequence,
         "remaining": remaining,
+        "ready": ready,
     }
 
 

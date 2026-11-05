@@ -226,7 +226,7 @@ def test_native_rejects_changed_or_invalid_request_without_writes(
 
 def test_remaining_count_excludes_reports(col, revisions):
     card = imported(col, revisions)
-    assert skill_refill_request(card) is None
+    assert skill_refill_request(card)["remaining"] == 3
     report(col, card)
     assert skill_refill_request(card)["remaining"] == 2
     report(col, card)

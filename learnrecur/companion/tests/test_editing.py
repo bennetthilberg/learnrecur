@@ -8,6 +8,7 @@ from uuid import uuid4
 
 import pytest
 
+from anki.learnrecur_limits import DEFAULT_READY
 from anki.learnrecur_skill_import import SkillImportError
 from learnrecur.companion.jobs import FixtureProvider, JobConflict, Jobs
 from learnrecur.companion.openai_provider import OpenAIProvider
@@ -62,7 +63,7 @@ def test_pending_edit_recovers_publication_without_changing_identity(jobs):
     assert skill["bank"]["revision"] == 2
     assert skill["title"] == value["title"]
     assert skill["description"] == value["description"]
-    assert len(skill["bank"]["exercises"]) == 3
+    assert len(skill["bank"]["exercises"]) == DEFAULT_READY
     assert restarted.definition(ORIGINAL["id"])["examples"] == [EXAMPLE]
     assert restarted.edit_skill(value, "openai")["id"] == created["id"]
     assert restarted.run_once(provider) is None
