@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl
 from uuid import uuid4
 
-from anki.learnrecur_limits import BATCH_SIZE, StorageLimits
+from anki.learnrecur_limits import DEFAULT_READY, StorageLimits
 from anki.learnrecur_skill_import import (
     MAX_BLANK_BYTES,
     MAX_BLANKS,
@@ -270,8 +270,8 @@ class Store:
         for (payload,) in db.execute("select payload from skill_drafts"):
             skill = decode(payload.encode())
             drafts.add(skill["id"])
-            # Reserve the largest batch a draft's job could publish.
-            skill["bank"]["exercises"] = self.reserved_exercises(BATCH_SIZE)
+            # New skills and edits always ask for the default batch.
+            skill["bank"]["exercises"] = self.reserved_exercises(DEFAULT_READY)
             published = next(
                 (s for s in snapshot["skills"] if s["id"] == skill["id"]), None
             )

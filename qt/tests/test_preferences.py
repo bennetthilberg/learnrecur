@@ -75,6 +75,9 @@ def make_dialog(prefs: PreferencesProto, form: MagicMock) -> Preferences:
     dialog.form = form
     dialog.prefs = prefs
     dialog.old_prefs = deepcopy(prefs)
+    dialog.ready_exercises = MagicMock()
+    dialog.ready_exercises.value.return_value = 10
+    dialog.old_ready = 10
     return dialog
 
 
@@ -119,3 +122,46 @@ def test_update_collection_calls_backend_when_changed(
     success_callback()
     dialog.mw.apply_collection_options.assert_called_once()
     on_done.assert_called_once()
+
+
+@patch("aqt.preferences.set_preferences")
+def test_ready_exercises_saves_only_when_changed(
+    mock_set_preferences: MagicMock,
+) -> None:
+    from anki.learnrecur_skills import READY_KEY
+
+    prefs = make_prefs()
+    form = make_form(prefs)
+    dialog = make_dialog(prefs, form)
+    dialog.update_collection(MagicMock())
+    dialog.mw.col.set_config.assert_not_called()
+
+    dialog.ready_exercises.value.return_value = 15
+    dialog.update_collection(MagicMock())
+    dialog.mw.col.set_config.assert_called_once_with(READY_KEY, 15)
+    # The skill setting is separate from the backend preferences.
+    mock_set_preferences.assert_not_called()
+
+
+def test_ready_exercises_spin_box_sits_with_scheduling_options() -> None:
+    import aqt.forms
+    from aqt.qt import QApplication, QDialog
+
+    import anki.lang
+
+    app = QApplication.instance() or QApplication([])
+    assert app
+    anki.lang.set_lang("en_US")  # The form's labels come from translations.
+    dialog = Preferences.__new__(Preferences)
+    QDialog.__init__(dialog)
+    dialog.form = aqt.forms.preferences.Ui_Preferences()
+    dialog.form.setupUi(dialog)
+    dialog._add_ready_exercises()
+    spinbox = dialog.ready_exercises
+    assert (spinbox.minimum(), spinbox.maximum()) == (3, 20)
+    grid = dialog.form.gridLayout_4
+    row = grid.getItemPosition(grid.indexOf(spinbox))[0]
+    label = grid.itemAtPosition(row, 0).widget()
+    assert label.text() == "Exercises ready per skill"
+    assert label.buddy() is spinbox
+    dialog.deleteLater()

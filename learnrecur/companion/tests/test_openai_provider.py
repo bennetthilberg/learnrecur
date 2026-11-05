@@ -1070,8 +1070,8 @@ def test_credit_balance_failure_is_actionable_and_never_declared_free(jobs, payl
         )
 
 
-def test_six_exercise_refill_holds_its_worst_case_cost(jobs):
-    from anki.learnrecur_limits import BATCH_SIZE, REFILL_AT
+def test_largest_refill_holds_its_worst_case_cost(jobs):
+    from anki.learnrecur_limits import MAX_READY
 
     jobs.configure_budget(1000000)  # The deployed $1 monthly ceiling.
     checkpoint = {
@@ -1079,10 +1079,11 @@ def test_six_exercise_refill_holds_its_worst_case_cost(jobs):
         "skill_id": "spanish-ar-preterite-yo",
         "revision": 1,
         "bank_sequence": 0,
-        "remaining": REFILL_AT,
+        "remaining": 0,
+        "ready": MAX_READY,
     }
     job = jobs.get(jobs.request_refill(checkpoint, "openai")["job_id"])
-    assert job["request"]["count"] == BATCH_SIZE
+    assert job["request"]["count"] == MAX_READY
     transport = Transport()
     provider = OpenAIProvider(SYNTHETIC_KEY, transport=transport)
     hold = provider.estimate(job["context"])
@@ -1094,25 +1095,26 @@ def test_six_exercise_refill_holds_its_worst_case_cost(jobs):
     jobs.run_once(provider)
     schema = transport.calls[0][2]["text"]["format"]["schema"]
     items = schema["properties"]["exercises"]
-    assert items["minItems"] == items["maxItems"] == BATCH_SIZE
+    assert items["minItems"] == items["maxItems"] == MAX_READY
     with jobs.store.connect() as db:
         reserved, actual = db.execute(
             "select gross_reserved,gross_actual from generation_attempts"
         ).fetchone()
     assert reserved == hold and 0 < actual <= reserved
     batch = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"][0]
-    assert len(batch["exercises"]) == BATCH_SIZE
+    assert len(batch["exercises"]) == MAX_READY
 
 
-def test_six_exercise_refill_waits_when_the_budget_cannot_hold_it(jobs):
-    from anki.learnrecur_limits import REFILL_AT
+def test_largest_refill_waits_when_the_budget_cannot_hold_it(jobs):
+    from anki.learnrecur_limits import MAX_READY
 
     checkpoint = {
         "source_id": jobs.store.snapshot()["source_id"],
         "skill_id": "spanish-ar-preterite-yo",
         "revision": 1,
         "bank_sequence": 0,
-        "remaining": REFILL_AT,
+        "remaining": 0,
+        "ready": MAX_READY,
     }
     job = jobs.get(jobs.request_refill(checkpoint, "openai")["job_id"])
     transport = Transport()

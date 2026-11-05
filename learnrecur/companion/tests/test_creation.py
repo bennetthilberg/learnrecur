@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from anki.learnrecur_limits import BATCH_SIZE
+from anki.learnrecur_limits import DEFAULT_READY
 from anki.learnrecur_skill_import import SkillImportError
 from learnrecur.companion.jobs import FixtureProvider, JobConflict, Jobs
 from learnrecur.companion.openai_provider import OpenAIProvider
@@ -48,7 +48,7 @@ def test_creation_survives_restart_and_is_not_importable_until_publication(jobs)
     snapshot = restarted.store.snapshot()
     skill = snapshot["skills"][0]
     assert skill["title"] == payload["title"]
-    assert len(skill["bank"]["exercises"]) == BATCH_SIZE
+    assert len(skill["bank"]["exercises"]) == DEFAULT_READY
     assert len(snapshot["identities"]) == 1
     assert restarted.create_skill(payload, "openai")["id"] == job["id"]
     assert restarted.run_once(FixtureProvider()) is None
@@ -217,8 +217,8 @@ def test_creation_rejects_full_snapshot_before_reserving_or_calling(jobs):
 
 def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
     jobs.store.configure_limits(max_snapshot_bytes=2 * 1024 * 1024)
-    # Leave enough space for exactly one worst-case initial bank of six.
-    jobs.store.import_batch({"skills": [large_skill(29)]})
+    # Leave enough space for exactly one worst-case initial bank of ten.
+    jobs.store.import_batch({"skills": [large_skill(20)]})
     payloads = [definition(jobs), definition(jobs)]
 
     def create(payload):
@@ -230,7 +230,7 @@ def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
     with ThreadPoolExecutor(max_workers=2) as pool:
         created = list(pool.map(create, payloads))
     assert sum(job is not None for job in created) == 1
-    extra = large_skill(2)
+    extra = large_skill(3)
     extra["id"] = extra["bank"]["skill_id"] = "another-skill"
     before = jobs.store.snapshot()
     assert (
@@ -253,7 +253,7 @@ def test_concurrent_drafts_reserve_space_and_imports_cannot_take_it(jobs):
                     "instruction": "\\" * 8192,
                     "context": "\\" * 8192,
                 }
-                for index in range(BATCH_SIZE)
+                for index in range(DEFAULT_READY)
             ]
             return result
 

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from anki.learnrecur_limits import BATCH_SIZE, REFILL_AT
+from anki.learnrecur_limits import DEFAULT_READY, MAX_READY, MIN_READY
 from anki.learnrecur_skill_import import SkillImportError
 from learnrecur.companion.jobs import (
     FixtureProvider,
@@ -201,7 +201,8 @@ def test_concurrent_clients_and_restart_share_one_job(jobs):
     value["remaining"] = 0
     assert restored.request_refill(value, "openai") == replies[0]
     job = restored.get(replies[0]["job_id"])
-    assert job["request"]["count"] == BATCH_SIZE
+    # A checkpoint without `ready`, from an older app, gets the default.
+    assert job["request"]["count"] == DEFAULT_READY == 10
     assert job["context"]["provider"] == "fixture-spanish-v1"
     assert job["context"]["examples"][0]["answer"] == "hablé"
 
@@ -218,7 +219,7 @@ def test_completed_batch_requires_import_before_another_refill(jobs):
     assert jobs.run_once(FixtureProvider()) == second["job_id"]
     banks = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"]
     prompts = [e["prompt"] for batch in banks for e in batch["exercises"]]
-    assert len(prompts) == len(set(prompts)) == 2 * BATCH_SIZE
+    assert len(prompts) == len(set(prompts)) == 2 * DEFAULT_READY
     assert count(jobs) == 2
 
 
@@ -287,8 +288,13 @@ def test_zero_budget_and_failed_checkpoint_do_not_get_new_jobs(jobs):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("remaining", REFILL_AT + 1),
+        ("remaining", MAX_READY + 1),
         ("remaining", -1),
+        ("ready", MIN_READY - 1),
+        ("ready", MAX_READY + 1),
+        ("ready", True),
+        ("ready", "10"),
+        ("count", 5),
         ("remaining", True),
         ("bank_sequence", -1),
         ("bank_sequence", True),
@@ -556,14 +562,19 @@ def test_release_cli_is_separate_from_paid_options(jobs, payload, monkeypatch, c
     assert jobs.get(manual["id"])["state"] == "failed"
 
 
-def test_threshold_checkpoint_queues_a_full_batch(jobs):
+@pytest.mark.parametrize("ready", [MIN_READY, 15, MAX_READY])
+def test_ready_setting_sets_the_batch_size(jobs, ready):
     value = checkpoint(jobs)
-    value["remaining"] = REFILL_AT
+    value["remaining"], value["ready"] = ready - 1, ready
     job = jobs.get(jobs.request_refill(value, "fixture")["job_id"])
-    assert job["request"]["count"] == BATCH_SIZE == 6
+    assert job["request"]["count"] == ready
+    # Another Mac with a different setting shares the job for this checkpoint.
+    other = {**value, "ready": MIN_READY if ready != MIN_READY else MAX_READY}
+    assert jobs.request_refill(other, "fixture")["job_id"] == job["id"]
     jobs.run_once(FixtureProvider())
     batch = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"][0]
-    assert len(batch["exercises"]) == BATCH_SIZE
+    assert len(batch["exercises"]) == ready
+    assert count(jobs) == 1
 
 
 def test_refill_shrinks_to_the_room_left_in_the_bank(jobs):
@@ -578,7 +589,7 @@ def test_refill_shrinks_to_the_room_left_in_the_bank(jobs):
 
 
 def test_storage_reservation_covers_the_larger_batch(jobs):
-    # Room for a worst-case batch of 3 is not room for a batch of 6.
+    # Room for a worst-case batch of 3 is not room for the default 10.
     snapshot = len(json.dumps(jobs.store.snapshot()).encode())
     three = len(json.dumps(Store.reserved_exercises(3)).encode())
     jobs.store.configure_limits(max_snapshot_bytes=snapshot + three + 64 * 1024)
