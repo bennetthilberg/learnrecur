@@ -223,7 +223,7 @@ def check_loss_release(usage_microusd, confirm_original_host_lost, unretrievable
         )
     if type(usage_microusd) is not int or not 0 <= usage_microusd <= 5000000:
         raise RecoveryRefused(
-            "Supply --post-backup-usage-microusd: the OpenAI usage since the "
+            "Supply --post-backup-usage-microusd: the provider usage since the "
             "backup, from 0 to 5000000."
         )
 

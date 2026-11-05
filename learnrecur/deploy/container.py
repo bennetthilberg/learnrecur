@@ -28,11 +28,13 @@ def main():
     mode = sys.argv[1] if len(sys.argv) == 2 else ""
     require_active(Path("/state/sync" if mode == "sync" else "/state/companion"))
     provider = os.environ.get("LEARNRECUR_GENERATION_PROVIDER", "fixture")
-    if provider not in {"fixture", "openai"}:
-        raise ValueError("Choose fixture or openai as the generation provider.")
+    if provider not in {"fixture", "openai", "anthropic"}:
+        raise ValueError(
+            "Choose fixture, openai, or anthropic as the generation provider."
+        )
     folder = Path("/state/companion")
     paused = (folder / ".restore-pending").exists() or (
-        provider == "openai" and (folder / ".paid-restore-pending").exists()
+        provider != "fixture" and (folder / ".paid-restore-pending").exists()
     )
     if mode == "sync":
         env = server_environment(
@@ -64,19 +66,21 @@ def main():
 
         Store(folder).configure_environment_limits()
         options = []
-        if provider == "openai":
+        if provider != "fixture":
             try:
                 limit = int(os.environ["LEARNRECUR_GENERATION_LIMIT"])
             except (KeyError, ValueError):
-                raise ValueError("Specify an authorized OpenAI allowance.") from None
+                raise ValueError(
+                    "Specify an authorized generation allowance."
+                ) from None
             if not 0 <= limit <= 5000000:
                 raise ValueError("Specify an authorized allowance of at most $5.")
             options = [
                 "--provider",
-                "openai",
+                provider,
                 "--allow-paid-generation",
                 "--key-file",
-                "/run/learnrecur-openai/openai-api-key",
+                f"/run/learnrecur-{provider}/{provider}-api-key",
                 "--monthly-limit-microusd",
                 str(limit),
             ]

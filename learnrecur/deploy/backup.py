@@ -370,7 +370,7 @@ def inspect_generation(root):
             )
             for row in attempts
         ],
-        "recovery": "Retrieve known responses without resubmitting. A backup cannot account for calls made later. Recover that history with a final handoff, or, if the original host is lost, check OpenAI usage since backup_created_at and run release-paid-after-loss.",
+        "recovery": "Retrieve known responses without resubmitting. A backup cannot account for calls made later. Recover that history with a final handoff, or, if the original host is lost, check the provider usage since backup_created_at and run release-paid-after-loss.",
     }
 
 

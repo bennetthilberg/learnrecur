@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 
-def key_path():
-    return Path.home() / ".config/learnrecur/secrets/openai-api-key"
+def key_path(provider="openai"):
+    return Path.home() / f".config/learnrecur/secrets/{provider}-api-key"
 
 
 def _path(path):
@@ -37,7 +37,7 @@ def _path(path):
 
 def _key(value):
     if not re.fullmatch(r"sk-[A-Za-z0-9_-]{20,512}", value):
-        raise ValueError("Enter an OpenAI secret key on one line.")
+        raise ValueError("Enter a secret API key on one line.")
     return value
 
 
@@ -73,17 +73,20 @@ def load_key(path):
 
 
 def main():
+    provider = sys.argv[1] if len(sys.argv) == 2 else "openai"
+    if provider not in ("openai", "anthropic"):
+        raise SystemExit("Choose openai or anthropic.")
     if not sys.stdin.isatty() or not sys.stderr.isatty():
         raise SystemExit(
             "Run this in your own interactive terminal; do not pipe the key."
         )
     try:
-        save_key(key_path(), getpass.getpass("OpenAI key (hidden): "))
+        save_key(key_path(provider), getpass.getpass(f"{provider} key (hidden): "))
     except (OSError, ValueError):
         raise SystemExit(
             "Key not saved. Check the path, permissions, or existing file."
         ) from None
-    print(f"Saved key to {key_path()}")
+    print(f"Saved key to {key_path(provider)}")
 
 
 if __name__ == "__main__":

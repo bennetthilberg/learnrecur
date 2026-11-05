@@ -126,3 +126,42 @@ def test_release_records_a_confirmed_charge_without_key_or_network(
         with pytest.raises(ValueError):
             deployment.release_generation("synthetic-job", charge)
     run.assert_not_called()
+
+
+def test_switching_to_claude_mounts_only_the_claude_key(deployment, monkeypatch):
+    save_key(deployment.provider_key("anthropic"), "sk-ant-" + TEST_KEY)
+    run = Mock(return_value=Mock(stdout=""))
+    monkeypatch.setattr("learnrecur.deploy.manage.subprocess.run", run)
+    deployment.configure_openai(1000000)
+    deployment.configure_provider("anthropic", 1000000)
+    restarted = Deployment(deployment.state, deployment.credentials, deployment.image)
+    assert restarted.generation_settings() == {
+        "provider": "anthropic",
+        "monthly_limit_microusd": 1000000,
+    }
+    restarted.compose("config")
+    call = run.call_args
+    assert any("compose.anthropic.yaml" in arg for arg in call.args[0])
+    assert not any("compose.openai" in arg for arg in call.args[0])
+    assert call.kwargs["env"]["LEARNRECUR_GENERATION_PROVIDER"] == "anthropic"
+    assert TEST_KEY not in str(call)
+
+
+def test_claude_needs_its_own_private_key(deployment):
+    deployment.compose = Mock()
+    with pytest.raises((OSError, ValueError)):
+        deployment.configure_provider("anthropic", 1000000)
+    assert not (deployment.credentials / "generation.json").exists()
+    deployment.compose.assert_not_called()
+
+
+def test_claude_reconciliation_mounts_the_claude_key(deployment, monkeypatch):
+    save_key(deployment.provider_key("anthropic"), "sk-ant-" + TEST_KEY)
+    run = Mock()
+    monkeypatch.setattr("learnrecur.deploy.manage.subprocess.run", run)
+    deployment.reconcile("job", "msgbatch_test", "anthropic")
+    command = run.call_args.args[0]
+    assert "anthropic" in command
+    assert any("dst=/run/learnrecur-anthropic,readonly" in arg for arg in command)
+    assert "/run/learnrecur-anthropic/anthropic-api-key" in command
+    assert TEST_KEY not in str(run.call_args)

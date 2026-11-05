@@ -9,6 +9,7 @@ This page is how to keep LearnRecur running now that it's used daily. It says wh
 - **Network.** The Mac reaches the VM over Tailscale. A public SSH firewall rule exists but is set to deny. See [Access](#access).
 - **Backups.** A timer on the VM makes a daily encrypted backup and uploads it to a private Azure Blob container. The decryption key isn't on the VM. See [deploy/AUTOMATIC-BACKUPS.md](deploy/AUTOMATIC-BACKUPS.md).
 - **AI help.** The Mac app calls Claude, OpenAI, or OpenRouter directly with the user's own key from the macOS Keychain. The server isn't involved. See [AI-HELP.md](AI-HELP.md).
+- **Generation provider.** The worker writes exercises with Claude or OpenAI, chosen on the server with the manager's `configure-anthropic` or `configure-openai`. The server keeps its own copy of the key, so use the same Claude key as AI help. See [Claude generation](companion/ANTHROPIC.md).
 - **Private notes.** Receipts and the current-state handoff, `HANDOFF.md`, are in the Mac configuration folder. Checked ARM images are in `~/.local/share/learnrecur/backend-images`. Neither is in Git.
 
 ## Update the Mac app
@@ -48,11 +49,11 @@ Rolling back hasn't been needed or tested. It means stopping the services, putti
 
 The permanent control is the backend's $1 monthly ceiling. It resets at the start of each UTC month, which is 6 or 7 p.m. Chicago time on the last day of the month. Nothing needs doing at the reset. [DAILY-USE.md](DAILY-USE.md#spending) explains the decision.
 
-- **Estimates aren't a provider cap.** Each job reserves its maximum estimated cost from saved prices before it calls OpenAI. The prepaid OpenAI balance doesn't stop spending instantly either; it can briefly go negative.
+- **Estimates aren't a provider cap.** Each job reserves its maximum estimated cost from saved prices before it calls the provider. A prepaid provider balance doesn't stop spending instantly either; it can briefly go negative.
 - **Unconfirmed reservations carry over.** A reservation whose result or charge is uncertain counts against every month until someone reconciles it. The monthly reset doesn't clear it.
 - **Check spending** in **Tools > Generation history…**, which shows the month's spending, the limit, and unresolved reservations from any month. See [GENERATION-HISTORY.md](GENERATION-HISTORY.md).
-- **Stuck jobs.** A job in `needs_attention` pauses refills for every skill. Run the manager's `inspect-generation` to see it. With a saved response ID, stop the services and run `reconcile-openai`. Without one, find the request in the OpenAI dashboard and record its charge with `release-generation`, which can run while services are up. If a result was saved but not published, stop the services and run `publish-ready`. Afterward, run `start-worker`. The commands are in [Restore on another host](deploy/LINUX.md#restore-on-another-host), and [Recovery and charges](companion/OPENAI.md#recovery-and-charges) explains them.
-- **Stop paid generation.** Run the manager's `stop`, move `secrets/openai/openai-api-key` out of the `openai` folder, then run `start`. That brings back sync and companion only, and `start-worker` refuses to run without the key. Refill requests wait in the queue, and cached review keeps working.
+- **Stuck jobs.** A job in `needs_attention` pauses refills for every skill. Run the manager's `inspect-generation` to see it. With a saved response ID, stop the services and run `reconcile-openai` or `reconcile-anthropic`. Without one, find the request in the provider's dashboard and record its charge with `release-generation`, which can run while services are up. If a result was saved but not published, stop the services and run `publish-ready`. Afterward, run `start-worker`. The commands are in [Restore on another host](deploy/LINUX.md#restore-on-another-host), and [Recovery and charges](companion/OPENAI.md#recovery-and-charges) explains them.
+- **Stop paid generation.** Run the manager's `stop`, move the provider key (`secrets/openai/openai-api-key` or `secrets/anthropic/anthropic-api-key`) out of its folder, then run `start`. That brings back sync and companion only, and `start-worker` refuses to run without the key. Refill requests wait in the queue, and cached review keeps working.
 
 Don't reset accounting or remove restore markers to get around the ceiling. Raising it, up to the $5 maximum, needs the user's approval.
 
@@ -86,7 +87,7 @@ Paid generation stays paused after any restore. See [deploy/LINUX.md](deploy/LIN
 
 - **Tailscale** connects the Mac and the VM on one account. Key expiry is turned off for both devices, and the VM updates Tailscale automatically. If the app can't connect, check that Tailscale is connected in the Mac's menu bar. The app starts a stopped Tailscale on its own but can't fix a stuck one; see [When Tailscale isn't working](DAILY-USE.md#when-tailscale-isnt-working).
 - **Emergency SSH.** The public `ssh-from-mac` rule stays set to deny. If Tailscale fails, open it for your current address only, connect, fix Tailscale, then set it back to deny. The commands are in [Reach the host from other networks](deploy/LINUX.md#reach-the-host-from-other-networks). The Azure serial console is the last resort.
-- **Secrets.** The sync password, companion token, and OpenAI key live in the VM's secrets folder, and only the worker mounts the OpenAI key. On the Mac, the companion token is in the private configuration folder and the sync login is in the Daily profile. The backup decryption key is never on the VM; it's in the Mac's protected configuration and the password manager.
+- **Secrets.** The sync password, companion token, and generation key live in the VM's secrets folder, and only the worker mounts the generation key. On the Mac, the companion token is in the private configuration folder and the sync login is in the Daily profile. The backup decryption key is never on the VM; it's in the Mac's protected configuration and the password manager.
 
 ## Calendar
 

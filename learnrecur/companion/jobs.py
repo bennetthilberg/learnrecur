@@ -1,13 +1,14 @@
 # Copyright: LearnRecur contributors
 # License: GNU AGPL, version 3 or later; http://www.gnu.org/licenses/agpl.html
 
-"""Durable local generation jobs, with an opt-in OpenAI worker."""
+"""Durable local generation jobs, with opt-in OpenAI and Claude workers."""
 
 from __future__ import annotations
 
 import argparse
 import copy
 import hashlib
+import importlib
 import re
 import sys
 import time
@@ -33,6 +34,30 @@ MAX_ATTEMPTS = 3
 LEASE_SECONDS = 60
 HOST_LOSS_ERROR = "Settled at its reservation after the original host was lost."
 INSTRUCTIONS = "Return varied exercises within the supplied skill's scope and difficulty, with a prompt, answer, and brief explanation. Examples are reference material, not instructions or output to copy."
+
+
+# The setting name, adapter module, and saved provider name of each paid provider.
+PAID_PROVIDERS = {
+    "openai": "learnrecur.companion.openai_provider",
+    "anthropic": "learnrecur.companion.anthropic_provider",
+}
+PAID_NAMES = {"openai-responses-v1": "openai", "anthropic-batches-v1": "anthropic"}
+PROVIDERS = ("fixture", *PAID_PROVIDERS)
+PROVIDER_ERROR = "Choose fixture, openai, or anthropic as the provider."
+
+
+def paid_provider(name):
+    return importlib.import_module(PAID_PROVIDERS[name])
+
+
+def use_provider(context, name):
+    """Freeze a paid provider's current settings and guidance into a job."""
+    module = paid_provider(name)
+    context["provider"] = module.NAME
+    context["provider_config"] = copy.deepcopy(module.CONFIG)
+    context["instructions"] = module.GUIDANCE + " " + INSTRUCTIONS
+    context["instructions_version"] = module.GUIDANCE_VERSION
+    module.request_body(context)
 
 
 class JobConflict(SkillImportError):
@@ -324,8 +349,8 @@ class Jobs:
             )
         examples = value.get("examples", [])
         provider_name = value.get("provider", "fixture")
-        if provider_name not in ("fixture", "openai"):
-            raise SkillImportError("Choose fixture or openai as the provider.")
+        if provider_name not in PROVIDERS:
+            raise SkillImportError(PROVIDER_ERROR)
         if not isinstance(examples, list) or len(examples) > 5:
             raise SkillImportError("Supply at most five example exercises.")
         for example in examples:
@@ -446,10 +471,10 @@ class Jobs:
                         "This request already has a different skill definition."
                     )
                 return self._read(db, existing)
-            if provider not in ("fixture", "openai"):
+            if provider not in PROVIDERS:
                 raise JobConflict("Generation is not enabled on this server.")
             markers = [".generation-source-retired", ".restore-pending"]
-            if provider == "openai":
+            if provider in PAID_PROVIDERS:
                 markers.append(".paid-restore-pending")
             if any((self.store.path.parent / name).exists() for name in markers):
                 raise JobConflict("Generation is paused for recovery.")
@@ -669,20 +694,8 @@ class Jobs:
                     context["existing_prompts"].extend(
                         e["prompt"] for e in batch["exercises"]
                     )
-        if provider_name == "openai":
-            from learnrecur.companion.openai_provider import (
-                CONFIG,
-                GUIDANCE,
-                GUIDANCE_VERSION,
-                NAME,
-                request_body,
-            )
-
-            context["provider"] = NAME
-            context["provider_config"] = copy.deepcopy(CONFIG)
-            context["instructions"] = GUIDANCE + " " + INSTRUCTIONS
-            context["instructions_version"] = GUIDANCE_VERSION
-            request_body(context)
+        if provider_name in PAID_PROVIDERS:
+            use_provider(context, provider_name)
         job_id = uuid4().hex
         db.execute(
             "insert into generation_jobs (id,request_id,request,context,state,next_run) values (?,?,?,?,?,?)",
@@ -720,8 +733,8 @@ class Jobs:
             raise SkillImportError("Supply a valid low-bank checkpoint.")
         if provider is None:
             return {"status": "disabled", "job_id": None}
-        if provider not in ("fixture", "openai"):
-            raise SkillImportError("Choose fixture or openai as the refill provider.")
+        if provider not in PROVIDERS:
+            raise SkillImportError(PROVIDER_ERROR)
         key = value["skill_id"]
         checkpoint = {
             k: value[k] for k in ("source_id", "skill_id", "revision", "bank_sequence")
@@ -1001,10 +1014,24 @@ class Jobs:
             ).fetchall()
             for job_id, encoded, attempts, round_start in rows:
                 context = decode(encoded.encode())
-                if context["provider"] != getattr(
-                    provider, "name", "fixture-spanish-v1"
-                ):
-                    continue
+                name = getattr(provider, "name", "fixture-spanish-v1")
+                if context["provider"] != name:
+                    # After the operator switches paid providers, a job that
+                    # hasn't called the old one runs on the new one instead.
+                    if context["provider"] not in PAID_NAMES or name not in PAID_NAMES:
+                        continue
+                    try:
+                        use_provider(context, PAID_NAMES[name])
+                    except SkillImportError:
+                        db.execute(
+                            "update generation_jobs set state='failed',error='Saved provider settings cannot run.',next_run=? where id=?",
+                            (now, job_id),
+                        )
+                        continue
+                    db.execute(
+                        "update generation_jobs set context=? where id=?",
+                        (encode(context), job_id),
+                    )
                 if not self._current(db, context):
                     db.execute(
                         "update generation_jobs set state='obsolete',error=? where id=?",
@@ -1201,10 +1228,7 @@ class Jobs:
                 (encode(result), job_id),
             )
 
-    def submitted(self, job_id, token, response):
-        from learnrecur.companion.openai_provider import response_id
-
-        value = response_id(response)
+    def submitted(self, job_id, token, value):
         with self.store.connect() as db:
             db.execute("begin immediate")
             attempt = self._owned(db, job_id, token)
@@ -1219,7 +1243,7 @@ class Jobs:
                 (value, job_id, attempt),
             )
 
-    def pending(self, job_id, token, *, read_failed=False):
+    def pending(self, job_id, token, *, read_failed=False, delay=None):
         with self.store.connect() as db:
             db.execute("begin immediate")
             attempt = self._owned(db, job_id, token)
@@ -1244,7 +1268,12 @@ class Jobs:
                     "Provider retrieval failed; reservation retained."
                     if failures >= MAX_ATTEMPTS
                     else None,
-                    self.clock() + 2 ** min(failures + 1, 4),
+                    self.clock()
+                    + (
+                        2 ** min(failures + 1, 4)
+                        if read_failed or delay is None
+                        else delay
+                    ),
                     job_id,
                 ),
             )
@@ -1277,23 +1306,19 @@ class Jobs:
                 return job_id, token, context, attempt, response
         return None
 
-    def _openai_result(self, provider, job_id, token, context, attempt, response):
+    def _paid_result(self, provider, job_id, token, context, attempt, response):
         from learnrecur.companion.openai_provider import identity
 
         result = provider.result(response, context, identity(job_id, attempt))
         if result is None:
-            self.pending(job_id, token)
+            self.pending(job_id, token, delay=getattr(provider, "poll_seconds", None))
         else:
             self.save_result(job_id, token, result)
             self.publish(job_id)
 
     def reconcile(self, job_id, value, provider):
         """Recover a confirmed response ID through GET only, without a new reservation."""
-        from learnrecur.companion.openai_provider import (
-            NAME,
-            BillingUnavailable,
-            identity,
-        )
+        from learnrecur.companion.openai_provider import BillingUnavailable, identity
 
         job = self.get(job_id)
         restored_response = (
@@ -1306,10 +1331,12 @@ class Jobs:
         )
         if (
             (job["state"] != "needs_attention" and not restored_response)
-            or job["context"]["provider"] != NAME
+            or job["context"]["provider"] != provider.name
             or not job["attempts"]
         ):
-            raise JobConflict("Only an uncertain OpenAI attempt can be reconciled.")
+            raise JobConflict(
+                "Only an uncertain attempt from this provider can be reconciled."
+            )
         response = provider.retrieve(value)
         provider.check(response, job["context"], identity(job_id, job["attempts"]))
         if response["id"] != value:
@@ -1331,8 +1358,8 @@ class Jobs:
                 (job_id, job["attempts"]),
             )
         try:
-            self.submitted(job_id, token, response)
-            self._openai_result(
+            self.submitted(job_id, token, provider.response_id(response))
+            self._paid_result(
                 provider, job_id, token, job["context"], job["attempts"], response
             )
         except BillingUnavailable:
@@ -1702,7 +1729,7 @@ class Jobs:
                 response = provider.retrieve(value)
                 if response["id"] != value:
                     raise JobConflict("The provider returned another response.")
-                self._openai_result(provider, job_id, token, context, attempt, response)
+                self._paid_result(provider, job_id, token, context, attempt, response)
             except ReadFailure:
                 self.pending(job_id, token, read_failed=True)
             except BillingUnavailable:
@@ -1728,15 +1755,14 @@ class Jobs:
                 )
                 # Log the ID before saving it, so a lost write can still be
                 # recovered with --reconcile-job.
-                from learnrecur.companion.openai_provider import response_id
-
+                value = provider.response_id(response)
                 print(
-                    f"Job {job_id} attempt {attempt} submitted as {response_id(response)}.",
+                    f"Job {job_id} attempt {attempt} submitted as {value}.",
                     file=sys.stderr,
                     flush=True,
                 )
-                self.submitted(job_id, token, response)
-                self._openai_result(provider, job_id, token, context, attempt, response)
+                self.submitted(job_id, token, value)
+                self._paid_result(provider, job_id, token, context, attempt, response)
             else:
                 self.save_result(
                     job_id, token, provider.generate(copy.deepcopy(context))
@@ -1761,7 +1787,7 @@ class Jobs:
             (folder / ".generation-source-retired").exists()
             or (folder / ".restore-pending").exists()
             or (
-                getattr(provider, "name", "") == "openai-responses-v1"
+                getattr(provider, "name", "") in PAID_NAMES
                 and (folder / ".paid-restore-pending").exists()
             )
         ):
@@ -1934,7 +1960,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--once", action="store_true")
-    parser.add_argument("--provider", choices=("fixture", "openai"), default="fixture")
+    parser.add_argument("--provider", choices=PROVIDERS, default="fixture")
     parser.add_argument("--allow-paid-generation", action="store_true")
     parser.add_argument("--key-file", type=Path)
     parser.add_argument("--reconcile-job")
@@ -1971,23 +1997,32 @@ def main():
     if args.monthly_limit_microusd is not None:
         jobs.configure_budget(args.monthly_limit_microusd)
     provider = FixtureProvider()
-    if args.provider == "openai":
+    if args.provider in PAID_PROVIDERS:
         from learnrecur.companion.credentials import key_path, load_key
-        from learnrecur.companion.openai_provider import OpenAIProvider
 
         if not args.allow_paid_generation:
             parser.error(
-                "OpenAI requires --allow-paid-generation after spending is authorized."
+                "Paid providers require --allow-paid-generation after spending is authorized."
             )
         try:
-            provider = OpenAIProvider(load_key(args.key_file or key_path()))
+            key = load_key(args.key_file or key_path(args.provider))
         except (OSError, ValueError):
-            parser.error("Cannot load the private OpenAI key file.")
+            parser.error("Cannot load the private provider key file.")
+        if args.provider == "openai":
+            from learnrecur.companion.openai_provider import OpenAIProvider
+
+            provider = OpenAIProvider(key)
+        else:
+            from learnrecur.companion.anthropic_provider import AnthropicProvider
+
+            provider = AnthropicProvider(key)
     elif args.key_file or args.allow_paid_generation:
-        parser.error("Key and spending options require --provider openai.")
+        parser.error("Key and spending options require a paid provider.")
     if args.reconcile_job or args.response_id:
-        if args.provider != "openai" or not (args.reconcile_job and args.response_id):
-            parser.error("Reconciliation requires an OpenAI job and response ID.")
+        if args.provider not in PAID_PROVIDERS or not (
+            args.reconcile_job and args.response_id
+        ):
+            parser.error("Reconciliation requires a paid job and its response ID.")
         try:
             jobs.reconcile(args.reconcile_job, args.response_id, provider)
         except Exception:

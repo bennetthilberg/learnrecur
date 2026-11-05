@@ -227,6 +227,8 @@ class OpenAIProvider:
         self._key = key
         self._transport = transport or self._http
 
+    response_id = staticmethod(response_id)
+
     def _http(self, method, path, body=None, trace=None):
         connection = http.client.HTTPSConnection("api.openai.com", timeout=20)
         try:
