@@ -2006,4 +2006,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # `python -m` loads this file as `__main__`, a second copy of the module.
+    # The provider raises the real module's failures, which this copy's
+    # `except` clauses wouldn't match, so a rejected call would look
+    # uncertain and pause refills for every skill. Run the real module.
+    from learnrecur.companion import jobs as _jobs
+
+    _jobs.main()

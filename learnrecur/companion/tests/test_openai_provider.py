@@ -1123,3 +1123,52 @@ def test_largest_refill_waits_when_the_budget_cannot_hold_it(jobs):
     assert jobs.claim(provider) is None
     assert jobs.get(job["id"])["state"] == "waiting_budget"
     assert transport.calls == []
+
+
+@pytest.mark.parametrize("status, state", [(401, "failed"), (429, "retry_wait")])
+def test_worker_entry_point_treats_rejections_as_rejections(
+    jobs, payload, tmp_path, status, state
+):
+    """Run the worker the way the container does, through `python -m`.
+
+    That runs jobs.py as `__main__`, so the provider's `TerminalFailure` came
+    from a second copy of the module and no `except` matched it. An expired
+    key then left every job uncertain, pausing refills for every skill.
+    """
+    jobs.configure_budget(1_000_000)
+    job = openai_job(jobs, payload)
+    keys = tmp_path / "openai"
+    keys.mkdir(mode=0o700)
+    key = keys / "openai-api-key"
+    key.write_text(SYNTHETIC_KEY)
+    key.chmod(0o600)
+    script = f"""
+import http.client, runpy, sys
+
+class Response:
+    status = {status}
+    def read(self, *args):
+        return b"{{}}"
+
+class Connection:
+    def __init__(self, *args, **kwargs):
+        pass
+    def request(self, *args, **kwargs):
+        pass
+    def getresponse(self):
+        return Response()
+    def close(self):
+        pass
+
+http.client.HTTPSConnection = Connection
+sys.argv = ["jobs", "--data-dir", sys.argv[1], "--provider", "openai",
+            "--allow-paid-generation", "--key-file", sys.argv[2], "--once"]
+runpy.run_module("learnrecur.companion.jobs", run_name="__main__", alter_sys=True)
+"""
+    subprocess.run(
+        [sys.executable, "-c", script, str(jobs.store.path.parent), str(key)],
+        env={**os.environ, "PYTHONPATH": ".:pylib:out/pylib"},
+        check=True,
+    )
+    reopened = Jobs(Store(jobs.store.path.parent), clock=lambda: 1790888470)
+    assert reopened.get(job["id"])["state"] == state
