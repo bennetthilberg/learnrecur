@@ -143,7 +143,12 @@ class PricedFixture(FixtureProvider):
 
 
 def test_credit_adjusted_spend_and_old_unconfirmed_reservation_are_separate(jobs):
-    jobs.configure_budget(1000, credit_total=100, credit_expires=jobs.clock() + 1000)
+    jobs.configure_budget(
+        1000,
+        credit_total=100,
+        credit_expires=jobs.clock() + 1000,
+        credit_provider="fixture-spanish-v1",
+    )
     settled = enqueue(jobs)
     jobs.run_once(PricedFixture())
     pending = enqueue(jobs)

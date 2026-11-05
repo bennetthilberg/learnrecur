@@ -333,3 +333,29 @@ runpy.run_module("learnrecur.companion.jobs", run_name="__main__", alter_sys=Tru
     )
     reopened = Jobs(Store(jobs.store.path.parent), clock=lambda: NOW + 70)
     assert reopened.get(job["id"])["state"] == state
+
+
+def test_openai_credits_never_pay_for_claude(jobs, payload):
+    # No out-of-pocket allowance, but unexpired OpenAI credits.
+    jobs.configure_budget(0, 1_000_000, NOW + 86400)
+    job = openai_job(jobs, payload)
+    api = Batches()
+    jobs.run_once(AnthropicProvider(SYNTHETIC_KEY, transport=api))
+    assert jobs.get(job["id"])["context"]["provider"] == NAME
+    assert jobs.get(job["id"])["state"] == "waiting_budget"
+    assert api.calls == []
+    with jobs.store.connect() as db:
+        assert not db.execute(
+            "select 1 from generation_attempts where credit_reserved>0"
+        ).fetchone()
+
+
+def test_claude_credits_pay_for_claude(jobs, payload):
+    jobs.configure_budget(0, 1_000_000, NOW + 86400, credit_provider=NAME)
+    job = claude_job(jobs, payload)
+    finish(jobs, AnthropicProvider(SYNTHETIC_KEY, transport=Batches()))
+    assert jobs.get(job["id"])["state"] == "completed"
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select gross_actual,credit_actual,net_actual from generation_attempts"
+        ).fetchone() == (50, 50, 0)

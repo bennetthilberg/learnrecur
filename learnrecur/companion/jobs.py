@@ -88,7 +88,9 @@ def initialize(db):
     db.execute(
         "create table if not exists generation_budget (id integer primary key check(id=1), monthly_limit integer not null, credit_total integer not null, credit_expires real not null)"
     )
-    db.execute("insert or ignore into generation_budget values (1,5000000,0,0)")
+    db.execute(
+        "insert or ignore into generation_budget (id,monthly_limit,credit_total,credit_expires) values (1,5000000,0,0)"
+    )
     # One row per restored copy released after losing its original host.
     db.execute(
         "create table if not exists generation_recoveries (id text primary key, recorded_at real not null, backup_created_at text, month text not null, usage_microusd integer not null, settled text not null)"
@@ -109,6 +111,13 @@ def initialize(db):
     if "round_start" not in columns:
         db.execute(
             "alter table generation_jobs add column round_start integer not null default 0"
+        )
+    columns = {row[1] for row in db.execute("pragma table_info(generation_budget)")}
+    # Credits pay only the provider that issued them. Credits configured
+    # before Claude support could only have come from OpenAI.
+    if "credit_provider" not in columns:
+        db.execute(
+            "alter table generation_budget add column credit_provider text not null default 'openai-responses-v1'"
         )
     db.execute(
         "create unique index if not exists generation_response_ids on generation_attempts(response_id) where response_id is not null"
@@ -887,7 +896,13 @@ class Jobs:
         db.execute("delete from skill_drafts where id=?", (skill_id,))
         return True
 
-    def configure_budget(self, monthly_limit, credit_total=0, credit_expires=0):
+    def configure_budget(
+        self,
+        monthly_limit,
+        credit_total=0,
+        credit_expires=0,
+        credit_provider="openai-responses-v1",
+    ):
         # The monthly limit can move within the $5 cap at any time; recorded
         # spending and holds live in generation_attempts and stay unchanged.
         # Credits change only before the first attempt.
@@ -898,6 +913,7 @@ class Jobs:
             )
             or not isinstance(credit_expires, (int, float))
             or not 0 <= credit_expires <= 4102444800
+            or credit_provider not in {*PAID_NAMES, "fixture-spanish-v1"}
         ):
             raise SkillImportError(
                 "Use a budget of at most $5 and a valid credit expiry."
@@ -905,17 +921,19 @@ class Jobs:
         with self.store.connect() as db:
             db.execute("begin immediate")
             current = db.execute(
-                "select monthly_limit,credit_total,credit_expires from generation_budget where id=1"
+                "select monthly_limit,credit_total,credit_expires,credit_provider from generation_budget where id=1"
             ).fetchone()
-            if current == (monthly_limit, credit_total, credit_expires):
+            wanted = (monthly_limit, credit_total, credit_expires, credit_provider)
+            if current == wanted:
                 return
-            if (credit_total, credit_expires) != current[1:] and db.execute(
-                "select count(*) from generation_attempts"
-            ).fetchone()[0]:
+            if (
+                wanted[1:] != current[1:]
+                and db.execute("select count(*) from generation_attempts").fetchone()[0]
+            ):
                 raise JobConflict("Configure credits before the first attempt.")
             db.execute(
-                "update generation_budget set monthly_limit=?,credit_total=?,credit_expires=? where id=1",
-                (monthly_limit, credit_total, credit_expires),
+                "update generation_budget set monthly_limit=?,credit_total=?,credit_expires=?,credit_provider=? where id=1",
+                wanted,
             )
 
     @staticmethod
@@ -1054,15 +1072,15 @@ class Jobs:
                     continue
                 if type(estimate) is not int or not 0 <= estimate <= 5000000:
                     raise SkillImportError("Invalid provider cost estimate.")
-                limit, credit_total, credit_expires = db.execute(
-                    "select monthly_limit,credit_total,credit_expires from generation_budget"
+                limit, credit_total, credit_expires, credit_provider = db.execute(
+                    "select monthly_limit,credit_total,credit_expires,credit_provider from generation_budget"
                 ).fetchone()
                 credit_used = db.execute(
                     "select coalesce(sum(coalesce(credit_actual,credit_reserved)),0) from generation_attempts"
                 ).fetchone()[0]
                 credit = (
                     min(estimate, max(0, credit_total - credit_used))
-                    if credit_expires > now
+                    if credit_expires > now and context["provider"] == credit_provider
                     else 0
                 )
                 net = estimate - credit
@@ -1152,10 +1170,10 @@ class Jobs:
                 self._abandon_reserved(db, job_id, attempt)
                 return False
             stale = not self._current(db, context)
-            limit, expiry = db.execute(
-                "select monthly_limit,credit_expires from generation_budget"
+            limit, expiry, credit_provider = db.execute(
+                "select monthly_limit,credit_expires,credit_provider from generation_budget"
             ).fetchone()
-            if expiry <= now:
+            if expiry <= now or context["provider"] != credit_provider:
                 credit = 0
             committed = db.execute(
                 "select coalesce(sum(coalesce(net_actual,net_reserved)),0) from generation_attempts where month=? or net_actual is null",

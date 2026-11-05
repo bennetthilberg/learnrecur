@@ -227,7 +227,7 @@ class Priced(FixtureProvider):
 
 
 def test_budget_reservations_credits_expiry_and_actual_usage(jobs, payload):
-    jobs.configure_budget(50, 60, 1790888500)
+    jobs.configure_budget(50, 60, 1790888500, credit_provider="fixture-spanish-v1")
     first = jobs.enqueue(payload)
     claimed = jobs.claim(Priced())
     assert claimed is not None  # $0.000100 gross, $0.000060 credit, $0.000040 net.
@@ -314,7 +314,7 @@ def test_http_jobs_require_auth_and_retry_survives_restart(server, batch, payloa
 
 
 def test_expired_credit_is_rechecked_before_contacting_provider(jobs, payload):
-    jobs.configure_budget(50, 60, 1790888401)
+    jobs.configure_budget(50, 60, 1790888401, credit_provider="fixture-spanish-v1")
     job = jobs.enqueue(payload)
     claimed = jobs.claim(Priced())
     jobs.clock = lambda: 1790888402
