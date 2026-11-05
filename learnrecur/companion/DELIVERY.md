@@ -6,6 +6,10 @@ Network fetches run outside the collection queue, at most once a minute per open
 
 A batch update passes the existing snapshot, identity, content, and append-only history checks. It cannot create cards, change a description revision, remove exercises, or roll a bank back. It changes note content through a native transaction without changing the card, schedule, review records, or usage bitmap. Native operation hooks refresh the UI and sync status. Download or update failures log a fixed message and leave cached review available; manual import still shows actionable errors.
 
+Each skill is checked on its own. If one skill's card no longer matches what the companion sent, delivery skips that skill, logs its ID and the reason, and still updates every other skill. Manual import still stops at the first conflict. Before November 2026, one mismatched skill made every delivery fail, and no skill got new exercises.
+
+Saving a note in Anki's editor can rewrite its HTML, for example turning `Don&#x27;t` into `Don't`. Field checks ignore those differences, comparing text after HTML escapes are decoded and Unicode is normalized. An append keeps the card's text fields as saved and changes only the bank and link fields, since the backend refuses an append that changes them.
+
 ## Undo and interruptions
 
 The native cache transaction keeps the existing undo and redo queues and adds no background undo step. Rating undo restores its schedule and usage while retaining the downloaded bank. Rollback also preserves the queues.

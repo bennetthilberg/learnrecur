@@ -10,6 +10,7 @@ import html
 import json
 import re
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from typing import TYPE_CHECKING
 from unicodedata import normalize
 from uuid import UUID
@@ -18,6 +19,8 @@ from anki.learnrecur_limits import MAX_BANK_BYTES, MAX_BYTES, MAX_EXERCISES, MAX
 
 if TYPE_CHECKING:
     from anki.collection import Collection, OpChanges
+    from anki.models import NotetypeDict
+    from anki.notes import Note
 
 LINK_FIELD = "LearnRecurLink"
 MODEL_NAME = "LearnRecur Imported Skill"
@@ -351,6 +354,23 @@ class SkillImportResult:
     added: int
     existing: int
     updated: int = 0
+    # Background delivery skips skills it can't update safely, with the reason.
+    skipped: dict[str, str] = dataclass_field(default_factory=dict)
+
+
+def _equivalent(actual: list[str], expected: list[str]) -> bool:
+    """Fields match once HTML escapes and Unicode forms are ignored.
+
+    Anki's note editor rewrites a field it saves, so `Don&#x27;t` can come
+    back as `Don't`. That text is unchanged, and must not block updates.
+    """
+
+    def plain(value: str) -> str:
+        return normalize("NFC", html.unescape(value))
+
+    return len(actual) == len(expected) and all(
+        a == e or plain(a) == plain(e) for a, e in zip(actual, expected)
+    )
 
 
 def _matches_newer_cache(note, source: str, incoming: dict) -> bool:
@@ -368,7 +388,9 @@ def _matches_newer_cache(note, source: str, incoming: dict) -> bool:
         return (
             bank["revision"] > incoming["bank"]["revision"]
             and incoming in previous
-            and [note[field] for field in FIELDS] == _fields(source, current, previous)
+            and _equivalent(
+                [note[field] for field in FIELDS], _fields(source, current, previous)
+            )
         )
     except (ValueError, KeyError, TypeError, RecursionError):
         return False
@@ -402,7 +424,9 @@ def _cache_update_fields(
         )
         cached_batches = raw["bank_updates"]
         validate_batches({key: cached_batches}, [base], {key: cached_previous})
-        if actual != _fields(source, base, cached_previous, cached_batches):
+        if not _equivalent(
+            actual, _fields(source, base, cached_previous, cached_batches)
+        ):
             raise SkillImportError(
                 "A cached exercise batch changed. Restore it before importing."
             )
@@ -420,7 +444,7 @@ def _cache_update_fields(
             (
                 index
                 for index, version in enumerate(versions)
-                if actual == _fields(source, version, versions[:index])
+                if _equivalent(actual, _fields(source, version, versions[:index]))
             ),
             None,
         )
@@ -444,7 +468,11 @@ def _cache_update_fields(
         raise SkillImportError("Missing exercise batch history.")
     if not identities:
         raise SkillImportError("Update the companion before revising skills.")
-    return _fields(source, skill, previous, incoming_batches)
+    target = _fields(source, skill, previous, incoming_batches)
+    if cached_revision == incoming_revision:
+        # An append keeps the card's text as saved; only the bank and link change.
+        target[:5] = actual[:5]
+    return target
 
 
 def _deleted(col: Collection, nid: int, guid: str) -> bool:
@@ -471,6 +499,57 @@ def import_snapshot(
     pending = {skill["id"]: skill for skill in skills}
     seen = set()
     updates = []
+    skipped: dict[str, str] = {}
+
+    def target_for(model: NotetypeDict, note: Note, key: str) -> list[str] | None:
+        """The fields to save for one linked skill, or None to leave it."""
+        if (
+            model.get(MODEL_MARKER) != MODEL_KIND
+            or model["type"] != 0
+            or len(model["tmpls"]) != 1
+            or len(note.cards()) != 1
+            or any(field not in note for field in FIELDS)
+        ):
+            raise SkillImportError(
+                "A linked skill changed. Restore its imported content before updating."
+            )
+        if identities:
+            identity = identities[key]
+            if (
+                note.id != identity["native_id"]
+                or note.guid != identity["guid"]
+                or note.cards()[0].id != identity["native_id"]
+            ):
+                raise SkillImportError(
+                    "This skill has an older or conflicting card identity. Use a fresh test profile; the existing card was kept."
+                )
+            if not col.db.scalar(
+                "select exists(select 1 from learnrecur_skill_identities "
+                "where nid=? and cid=? and guid=?)",
+                note.id,
+                identity["native_id"],
+                identity["guid"],
+            ):
+                if cache_only:
+                    return None
+                raise SkillImportError(
+                    "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
+                )
+        if cache_only:
+            # New descriptions still need a preview and explicit import.
+            cached = decode(note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES)
+            if cached.get("revision") != pending[key]["bank"]["revision"]:
+                return None
+        return _cache_update_fields(
+            source,
+            key,
+            note,
+            pending[key],
+            history.get(key, []),
+            bank_updates.get(key, []),
+            identities,
+        )
+
     # Links survive note-type renames and copies. A removed marker is a conflict,
     # not permission to silently create another card.
     for model in col.models.all():
@@ -499,54 +578,15 @@ def import_snapshot(
             if _deleted(col, note.id, note.guid):
                 # Deleting only the skill's card leaves its note. The skill stays deleted.
                 continue
-            if (
-                model.get(MODEL_MARKER) != MODEL_KIND
-                or model["type"] != 0
-                or len(model["tmpls"]) != 1
-                or len(note.cards()) != 1
-                or any(field not in note for field in FIELDS)
-            ):
-                raise SkillImportError(
-                    "A linked skill changed. Restore its imported content before updating."
-                )
-            if identities:
-                identity = identities[key]
-                if (
-                    note.id != identity["native_id"]
-                    or note.guid != identity["guid"]
-                    or note.cards()[0].id != identity["native_id"]
-                ):
-                    raise SkillImportError(
-                        "This skill has an older or conflicting card identity. Use a fresh test profile; the existing card was kept."
-                    )
-                if not col.db.scalar(
-                    "select exists(select 1 from learnrecur_skill_identities "
-                    "where nid=? and cid=? and guid=?)",
-                    note.id,
-                    identity["native_id"],
-                    identity["guid"],
-                ):
-                    if cache_only:
-                        continue
-                    raise SkillImportError(
-                        "This card has no trusted import identity. Use a fresh test profile; the existing card was kept."
-                    )
-            if cache_only:
-                # New descriptions still need a preview and explicit import.
-                cached = decode(
-                    note["LearnRecurSkill"].encode(), max_bytes=MAX_BANK_BYTES
-                )
-                if cached.get("revision") != pending[key]["bank"]["revision"]:
-                    continue
-            target_fields = _cache_update_fields(
-                source,
-                key,
-                note,
-                pending[key],
-                history.get(key, []),
-                bank_updates.get(key, []),
-                identities,
-            )
+            try:
+                target_fields = target_for(model, note, key)
+            except SkillImportError as error:
+                if not cache_only:
+                    raise
+                # One conflicting skill must not hold back every other skill's
+                # exercises; manual import still stops at the first conflict.
+                skipped[key] = str(error)
+                continue
             if target_fields is None:
                 continue
             from anki.notes_pb2 import UpdateSkillNoteRequest
@@ -585,7 +625,9 @@ def import_snapshot(
             if updates
             else OpChanges()
         )
-        return SkillImportResult(changes, 0, len(seen) - len(updates), len(updates))
+        return SkillImportResult(
+            changes, 0, len(seen) - len(updates), len(updates), skipped
+        )
     if not missing and not updates:
         return SkillImportResult(OpChanges(), 0, len(seen))
     if identities:

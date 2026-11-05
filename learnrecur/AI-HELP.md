@@ -17,7 +17,7 @@ A chat belongs to one showing of one card. Esc or the panel's close button hides
 
 While the chat is empty, three buttons send a question right away: **Explain the rule here**, **Walk me through this step by step**, and **Is this exercise correct?** (**Is this card correct?** on ordinary cards). Cmd+1, Cmd+2, and Cmd+3 send them at any point while the panel has focus. The panel takes focus when it opens, so H then Cmd+1 works without the mouse. Outside the panel, Cmd+1–3 still set flags.
 
-Your questions appear in a shaded box on the right, and the replies below them span the panel's width.
+Your questions appear in a shaded box on the right, and the replies below them span the panel's width. Until a reply starts, "Thinking" shows under your question, with dots that count down from three to one and back.
 
 While the text box has focus, review shortcuts are off. Typing `1` or pressing Space doesn't rate the card, and Cmd+Backspace doesn't delete the note. Return sends the question and Shift+Return starts a new line.
 
