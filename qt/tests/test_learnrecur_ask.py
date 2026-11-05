@@ -731,3 +731,38 @@ def test_the_panel_builds_and_watches_window_state(app):
     ]
     panel._grown = (ask.PANEL_WIDTH, 0)
     assert not panel.eventFilter(window, QEvent(QEvent.Type.WindowStateChange))
+
+
+def test_thinking_dots_count_down_and_back_up():
+    assert [ask.thinking_text(step)[len("Thinking") :] for step in range(7)] == [
+        "...",
+        "..",
+        ".",
+        "..",
+        "...",
+        "..",
+        ".",
+    ]
+
+
+def test_thinking_sits_under_the_question_and_animates_in_place(app):
+    from aqt.qt import QMainWindow
+
+    panel = ask.AskPanel(QMainWindow())
+    panel._has_key = True
+    panel.chat = ask.Chat(showing=1, card_id=1, system="", is_skill=True)
+    panel.chat.messages.append({"role": "user", "content": "Why hablé?"})
+    panel.chat.pending = ""
+    panel._render()
+    text = panel.transcript.toPlainText()
+    assert text.index("Why hablé?") < text.index("Thinking...")
+    assert text.endswith("Thinking...")
+    assert panel.status.text() == ""
+    panel._tick_thinking()
+    assert panel.transcript.toPlainText().endswith("Thinking..")
+    assert panel.transcript.toPlainText().count("Thinking") == 1
+    panel.chat.pending = "Because"
+    panel._render()
+    assert "Thinking" not in panel.transcript.toPlainText()
+    panel._tick_thinking()
+    assert not panel._thinking_timer.isActive()

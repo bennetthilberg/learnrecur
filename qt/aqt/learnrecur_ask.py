@@ -368,6 +368,14 @@ PRESETS = (
 PRESET_KEYS = (Qt.Key.Key_1, Qt.Key.Key_2, Qt.Key.Key_3)
 
 
+# The dots count down and back up: 3, 2, 1, 2, 3, 2, 1…
+THINKING_DOTS = (3, 2, 1, 2)
+
+
+def thinking_text(step: int) -> str:
+    return "Thinking" + "." * THINKING_DOTS[step % len(THINKING_DOTS)]
+
+
 def preset_text(index: int, is_skill: bool) -> str:
     if index == 2 and not is_skill:
         return "Is this card correct?"
@@ -482,6 +490,7 @@ class AskPanel(QDockWidget):
         # How much the window grew to fit the panel, and how far it moved left.
         self._grown: tuple[int, int] | None = None
         self._bubble = QColor(128, 128, 128, 60)
+        self._muted = QColor(128, 128, 128)
         mw.installEventFilter(self)
 
         title = QWidget()
@@ -563,6 +572,12 @@ class AskPanel(QDockWidget):
         self._timer = QTimer(self)
         self._timer.setInterval(60)
         qconnect(self._timer.timeout, self._flush)
+        # "Thinking" sits under the question until the reply starts.
+        self._thinking_at: int | None = None
+        self._thinking_step = 0
+        self._thinking_timer = QTimer(self)
+        self._thinking_timer.setInterval(350)
+        qconnect(self._thinking_timer.timeout, self._tick_thinking)
 
     # Look
 
@@ -605,6 +620,7 @@ class AskPanel(QDockWidget):
         self.transcript.document().setDefaultFont(font)
         self.input.setFixedHeight(QFontMetrics(font).lineSpacing() * 4 + 16)
         self._bubble = QColor(64, 64, 70) if night else QColor(232, 232, 237)
+        self._muted = muted
 
     # Opening and closing
 
@@ -819,7 +835,9 @@ class AskPanel(QDockWidget):
         chat.messages.append({"role": "user", "content": question})
         chat.pending = ""
         chat.cancel = threading.Event()
-        self.status.setText("Thinking…")
+        self.status.clear()
+        self._thinking_step = 0
+        self._thinking_timer.start()
         self._render()
         self._timer.start()
         messages = list(chat.messages)
@@ -861,6 +879,7 @@ class AskPanel(QDockWidget):
         if self.chat is not chat:
             return
         self._timer.stop()
+        self._thinking_timer.stop()
         reply = chat.pending or ""
         chat.pending = None
         chat.cancel = None
@@ -902,6 +921,7 @@ class AskPanel(QDockWidget):
         bar = self.transcript.verticalScrollBar()
         at_bottom = bar.value() >= bar.maximum() - 4
         self.transcript.clear()
+        self._thinking_at = None
         cursor = QTextCursor(self.transcript.document())
         turns = list(chat.messages)
         if chat.pending:
@@ -914,8 +934,31 @@ class AskPanel(QDockWidget):
             else:
                 cursor.insertMarkdown(message["content"])
             cursor.movePosition(QTextCursor.MoveOperation.End)
+        if chat.pending == "":
+            cursor.insertBlock()
+            self._thinking_at = cursor.position()
+            cursor.insertText(thinking_text(self._thinking_step), self._muted_format())
         if at_bottom:
             bar.setValue(bar.maximum())
+
+    def _muted_format(self) -> QTextCharFormat:
+        muted = QTextCharFormat()
+        muted.setForeground(self._muted)
+        return muted
+
+    def _tick_thinking(self) -> None:
+        chat = self.chat
+        if chat is None or chat.pending != "" or self._thinking_at is None:
+            self._thinking_timer.stop()
+            return
+        self._thinking_step += 1
+        # Replace only the indicator, so a selection elsewhere survives.
+        cursor = QTextCursor(self.transcript.document())
+        cursor.setPosition(self._thinking_at)
+        cursor.movePosition(
+            QTextCursor.MoveOperation.End, QTextCursor.MoveMode.KeepAnchor
+        )
+        cursor.insertText(thinking_text(self._thinking_step), self._muted_format())
 
     def _insert_question(self, cursor: QTextCursor, text: str) -> None:
         """The learner's own messages sit in a shaded box on the right."""

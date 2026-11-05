@@ -126,12 +126,28 @@ class BatchDelivery:
         def finished(result):
             if result is not None:
                 self.snapshot = None
+                if result.skipped:
+                    print(
+                        f"LearnRecur skipped exercise updates for {len(result.skipped)} "
+                        "skill(s); cached review remains available."
+                    )
+                    for key, reason in sorted(result.skipped.items()):
+                        print(f"  {key}: {reason}")
             self.finish_apply(mw)
 
-        def failed(_):
+        def failed(error):
             self.snapshot = None
             self.finish_apply(mw)
-            print("LearnRecur batch update deferred; cached review remains available.")
+            # Import errors are fixed messages; others may quote card text.
+            reason = (
+                str(error)
+                if isinstance(error, SkillImportError)
+                else type(error).__name__
+            )
+            print(
+                f"LearnRecur batch update deferred ({reason}); "
+                "cached review remains available."
+            )
 
         # Native operation hooks receive an empty change set if review began
         # while the cache operation was queued.

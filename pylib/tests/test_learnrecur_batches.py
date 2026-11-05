@@ -465,3 +465,65 @@ def test_automatic_bank_remains_changed_for_backup_after_rating_undo(
     assert col.create_backup(
         backup_folder=str(backups), force=True, wait_for_completion=True
     )
+
+
+def appended_all(snapshot):
+    """Give every skill in the snapshot the same new batch."""
+    result = appended(snapshot)
+    batch = next(iter(result["bank_updates"].values()))
+    result["bank_updates"] = {
+        skill["id"]: copy.deepcopy(batch) for skill in result["skills"]
+    }
+    return result
+
+
+def test_automatic_append_ignores_escaping_the_editor_rewrote(col, revisions):
+    original, _ = revisions
+    original["skills"][0]["description"] += " Don't use vosotros."
+    import_snapshot(col, original)
+    cid = rate(col)
+    note = col.get_card(cid).note()
+    assert "Don&#x27;t" in note["Description"]
+    # Saving the note in the editor turns the escape back into an apostrophe.
+    note["Description"] = note["Description"].replace("&#x27;", "'")
+    col.update_note(note)
+    col.close()
+    col.reopen()
+    before = state(col)
+    result = import_snapshot(col, appended(original), cache_only=True)
+    assert (result.updated, result.skipped) == (1, {})
+    note = col.get_card(cid).note()
+    assert "Don't use vosotros." in note["Description"]
+    assert len(json.loads(note["LearnRecurSkill"])["exercises"]) == 5
+    assert state(col)[1:] == before[1:]
+    assert import_snapshot(col, appended(original)).existing == 1
+
+
+def test_one_changed_skill_does_not_block_another_skills_batch(col, revisions):
+    original, _ = revisions
+    second = copy.deepcopy(original["skills"][0])
+    second["id"] = second["bank"]["skill_id"] = "spanish-ar-preterite-yo-copy"
+    original["skills"].append(second)
+    original["identities"][second["id"]] = {
+        "native_id": 1800000000001,
+        "guid": "b" * 32,
+    }
+    import_snapshot(col, original)
+    edited = col.get_note(1800000000001)
+    edited["Description"] += " Edited by hand."
+    col.update_note(edited)
+    col.close()
+    col.reopen()
+    latest = appended_all(original)
+    result = import_snapshot(col, latest, cache_only=True)
+    assert result.updated == 1
+    assert list(result.skipped) == [second["id"]]
+    banks = {
+        nid: json.loads(col.get_note(nid)["LearnRecurSkill"])
+        for nid in (1800000000000, 1800000000001)
+    }
+    assert len(banks[1800000000000]["exercises"]) == 5
+    assert len(banks[1800000000001]["exercises"]) == 3
+    # A manual import still stops at the conflict instead of skipping it.
+    with pytest.raises(SkillImportError, match="changed"):
+        import_snapshot(col, latest)
