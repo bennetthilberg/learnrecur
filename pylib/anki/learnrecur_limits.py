@@ -12,6 +12,12 @@ MAX_BANK_BYTES = 6 * MAX_BYTES
 MAX_SKILLS = 5000
 MAX_EXERCISES = 256  # The usage bitmap must fit native card custom data.
 MAX_BATCHES = 5000
+# A linked skill asks for more exercises once this many unused ones remain.
+# That covers a new card's first-day learning steps while the next batch waits
+# for delivery at the deck list.
+REFILL_AT = 5
+# New skills, edits, and refills each generate this many exercises.
+BATCH_SIZE = 6
 
 
 @dataclass(frozen=True)

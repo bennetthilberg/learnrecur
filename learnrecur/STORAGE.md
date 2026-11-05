@@ -31,7 +31,7 @@ For Compose deployments, set `LEARNRECUR_MAX_EXERCISES`, `LEARNRECUR_MAX_JOBS`, 
 
 Reads and cached review use the format ceilings in the table, rather than the configured quotas. Lowering a quota never deletes data or makes an existing bank unreadable. Identical imports and generation-request retries still return their original records. A changed import rolls back if it exceeds a quota.
 
-Refills request up to three exercises, using a smaller batch near the exercise limit. A full bank stops new generation. Cached review can reuse eligible exercises; reported and retired exercises remain excluded. The native card, schedule, and review history stay intact.
+Refills request up to six exercises, using a smaller batch near the exercise limit. A full bank stops new generation. Cached review can reuse eligible exercises; reported and retired exercises remain excluded. The native card, schedule, and review history stay intact.
 
 Workers reserve room for the largest valid response before reserving cost. Concurrent claims include room already reserved by running jobs and saved results. They check capacity again before contacting the provider, so lowering a limit can release an unused cost reservation. A queued job that loses capacity waits without making a provider call. Raising the limit lets it resume. A saved result can wait too, then publish without another generation call. Generation history calls this state **Storage paused**.
 

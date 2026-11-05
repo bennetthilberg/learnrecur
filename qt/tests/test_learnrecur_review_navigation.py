@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from anki import learnrecur_skills
 from anki.collection import Collection
 from anki.learnrecur_skill_import import import_snapshot
 from anki.learnrecur_skills import SkillReviewError, select_skill_review
@@ -221,6 +222,9 @@ def test_departed_skill_refills_with_the_saved_usage(
 ):
     col = reviewer.mw.col
     server.refill_provider = "fixture"
+    # A three-exercise bank is low as soon as its question shows. Hold the
+    # request until the rating, so this checks the usage saved by that rating.
+    monkeypatch.setattr(learnrecur_skills, "REFILL_AT", 2)
     import_snapshot(col, server.store.snapshot())
     cid = col.db.scalar("select cid from learnrecur_skill_identities")
     deck = col.decks.name(col.get_card(cid).did)

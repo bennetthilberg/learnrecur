@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from anki.cards import Card, CardId
 from anki.collection import Collection
 from anki.collection_pb2 import OpChanges
-from anki.learnrecur_limits import MAX_BATCHES, MAX_EXERCISES
+from anki.learnrecur_limits import MAX_BATCHES, MAX_EXERCISES, REFILL_AT
 from anki.scheduler.v3 import CardAnswer
 from anki.template import TemplateRenderOutput
 
@@ -242,7 +242,7 @@ def skill_refill_request(card: Card) -> dict | None:
         for exercise in exercises
         if exercise.id not in reported
     )
-    if remaining > 2:
+    if remaining > REFILL_AT:
         return None
     raw = json.loads(card.note()[BANK_FIELD])
     sequence = raw.get("bank_sequence", 0)

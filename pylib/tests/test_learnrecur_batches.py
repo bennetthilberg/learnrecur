@@ -157,6 +157,32 @@ def test_wrapped_bank_prefers_new_batch_and_undo_restores_usage(col, revisions):
     assert skill_refill_request(col.get_card(cid))["remaining"] == 1
 
 
+def test_refill_starts_once_five_unused_exercises_remain(col, revisions):
+    from anki.learnrecur_limits import REFILL_AT
+    from anki.learnrecur_skills import skill_refill_request
+
+    assert REFILL_AT == 5
+    original, _ = revisions
+    snapshot = appended(original)
+    snapshot["bank_updates"][original["skills"][0]["id"]][0]["exercises"].append(
+        {
+            "id": "generated-tomar",
+            "prompt": "Esta mañana yo ___ un café. (tomar)",
+            "answer": "tomé",
+            "explanation": "Replace -ar with -é: tomar → tomé.",
+        }
+    )
+    import_snapshot(col, snapshot)
+    cid = col.find_cards('deck:"LearnRecur skills"')[0]
+    # Six unused: showing the first question asks for nothing.
+    assert skill_refill_request(col.get_card(cid)) is None
+    rate(col)
+    request = skill_refill_request(col.get_card(cid))
+    assert request["remaining"] == 5 and request["bank_sequence"] == 1
+    col.undo()
+    assert skill_refill_request(col.get_card(cid)) is None
+
+
 def test_legacy_counter_is_conservative_and_upgrade_uses_native_answer(col, revisions):
     from anki.learnrecur_skills import skill_refill_request
 

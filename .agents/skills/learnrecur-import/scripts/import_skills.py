@@ -385,12 +385,13 @@ def refresh(plans, companion, plan_id, plan, *, submit):
             **payload,
             "skill_id": "skill-" + payload["request_id"],
             "revision": 1,
-            "count": 3,
         }
         if (
             not isinstance(job, dict)
             or not isinstance(job.get("request"), dict)
             or any(job["request"].get(key) != value for key, value in expected.items())
+            # The server picks the batch size: 3 before November 2026, then 6.
+            or job["request"].get("count") not in (3, 6)
             or job.get("request_id") != payload["request_id"]
             or not isinstance(job.get("state"), str)
             or job["state"] not in STATES

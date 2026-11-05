@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from anki.learnrecur_limits import BATCH_SIZE, REFILL_AT
 from anki.learnrecur_skill_import import SkillImportError
 from learnrecur.companion.jobs import (
     FixtureProvider,
@@ -200,7 +201,7 @@ def test_concurrent_clients_and_restart_share_one_job(jobs):
     value["remaining"] = 0
     assert restored.request_refill(value, "openai") == replies[0]
     job = restored.get(replies[0]["job_id"])
-    assert job["request"]["count"] == 3
+    assert job["request"]["count"] == BATCH_SIZE
     assert job["context"]["provider"] == "fixture-spanish-v1"
     assert job["context"]["examples"][0]["answer"] == "hablé"
 
@@ -217,7 +218,7 @@ def test_completed_batch_requires_import_before_another_refill(jobs):
     assert jobs.run_once(FixtureProvider()) == second["job_id"]
     banks = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"]
     prompts = [e["prompt"] for batch in banks for e in batch["exercises"]]
-    assert len(prompts) == len(set(prompts)) == 6
+    assert len(prompts) == len(set(prompts)) == 2 * BATCH_SIZE
     assert count(jobs) == 2
 
 
@@ -286,7 +287,8 @@ def test_zero_budget_and_failed_checkpoint_do_not_get_new_jobs(jobs):
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("remaining", 3),
+        ("remaining", REFILL_AT + 1),
+        ("remaining", -1),
         ("remaining", True),
         ("bank_sequence", -1),
         ("bank_sequence", True),
@@ -552,3 +554,34 @@ def test_release_cli_is_separate_from_paid_options(jobs, payload, monkeypatch, c
     main()
     assert "resp_synthetic" in capsys.readouterr().out
     assert jobs.get(manual["id"])["state"] == "failed"
+
+
+def test_threshold_checkpoint_queues_a_full_batch(jobs):
+    value = checkpoint(jobs)
+    value["remaining"] = REFILL_AT
+    job = jobs.get(jobs.request_refill(value, "fixture")["job_id"])
+    assert job["request"]["count"] == BATCH_SIZE == 6
+    jobs.run_once(FixtureProvider())
+    batch = jobs.store.snapshot()["bank_updates"]["spanish-ar-preterite-yo"][0]
+    assert len(batch["exercises"]) == BATCH_SIZE
+
+
+def test_refill_shrinks_to_the_room_left_in_the_bank(jobs):
+    # The original bank has 3 exercises; 7 leaves room for only 4 more.
+    jobs.store.configure_limits(max_exercises=7)
+    job = jobs.get(jobs.request_refill(checkpoint(jobs), "fixture")["job_id"])
+    assert job["request"]["count"] == 4
+    jobs.run_once(FixtureProvider())
+    with pytest.raises(JobConflict, match="bank is full"):
+        jobs.request_refill(checkpoint(jobs, 1), "fixture")
+    assert count(jobs) == 1
+
+
+def test_storage_reservation_covers_the_larger_batch(jobs):
+    # Room for a worst-case batch of 3 is not room for a batch of 6.
+    snapshot = len(json.dumps(jobs.store.snapshot()).encode())
+    three = len(json.dumps(Store.reserved_exercises(3)).encode())
+    jobs.store.configure_limits(max_snapshot_bytes=snapshot + three + 64 * 1024)
+    with pytest.raises(JobConflict, match="no room"):
+        jobs.request_refill(checkpoint(jobs), "fixture")
+    assert count(jobs) == 0

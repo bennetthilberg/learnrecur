@@ -37,7 +37,7 @@ def test_authenticated_request_ignores_proxies_and_creates_one_job(server, monke
     with server.store.connect() as db:
         job_id = db.execute("select id from generation_jobs").fetchone()[0]
         assert db.execute("select count(*) from generation_jobs").fetchone()[0] == 1
-    assert Jobs(server.store).get(job_id)["request"]["count"] == 3
+    assert Jobs(server.store).get(job_id)["request"]["count"] == 6
     with pytest.raises(SkillImportError, match="could not accept"):
         ui.send_request(body(server), (ui.companion_connection()[0], TOKEN + "wrong"))
 
@@ -128,7 +128,8 @@ def test_full_refill_keeps_local_bank_until_manual_import(server, tmp_path):
         cid = col.find_cards("note:LearnRecur*")[0]
         card = col.get_card(cid)
         col.decks.select(card.did)
-        assert skill_refill_request(card) is None
+        # Three unused exercises already count as low.
+        assert skill_refill_request(card)["remaining"] == 3
         queued = col.sched.get_queued_cards().cards[0]
         card.start_timer()
         answer = col.sched.build_answer(
@@ -148,7 +149,7 @@ def test_full_refill_keeps_local_bank_until_manual_import(server, tmp_path):
         import_snapshot(col, server.store.snapshot())
         assert (
             len(json.loads(col.get_card(cid).note()["LearnRecurSkill"])["exercises"])
-            == 6
+            == 9
         )
         assert col.get_card(cid).custom_data == before
         assert skill_refill_request(col.get_card(cid)) is None

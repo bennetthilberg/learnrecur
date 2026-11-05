@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from anki.learnrecur_limits import MAX_BATCHES
+from anki.learnrecur_limits import BATCH_SIZE, MAX_BATCHES, REFILL_AT
 from anki.learnrecur_skill_import import (
     MAX_BYTES,
     SkillImportError,
@@ -317,9 +317,11 @@ class Jobs:
             type(value["revision"]) is not int
             or not 1 <= value["revision"] <= 100
             or type(value["count"]) is not int
-            or not 1 <= value["count"] <= 3
+            or not 1 <= value["count"] <= BATCH_SIZE
         ):
-            raise SkillImportError("Use a valid revision and request 1 to 3 exercises.")
+            raise SkillImportError(
+                f"Use a valid revision and request 1 to {BATCH_SIZE} exercises."
+            )
         examples = value.get("examples", [])
         provider_name = value.get("provider", "fixture")
         if provider_name not in ("fixture", "openai"):
@@ -516,7 +518,7 @@ class Jobs:
                 **value,
                 "skill_id": key,
                 "revision": revision,
-                "count": 3,
+                "count": BATCH_SIZE,
                 "provider": provider,
             }
             return self._enqueue(
@@ -707,7 +709,7 @@ class Jobs:
             or type(value["bank_sequence"]) is not int
             or not 0 <= value["bank_sequence"] <= MAX_BATCHES
             or type(value["remaining"]) is not int
-            or not 0 <= value["remaining"] <= 2
+            or not 0 <= value["remaining"] <= REFILL_AT
         ):
             raise SkillImportError("Supply a valid low-bank checkpoint.")
         if provider is None:
@@ -828,7 +830,7 @@ class Jobs:
                 "request_id": request_id,
                 "skill_id": key,
                 "revision": value["revision"],
-                "count": min(3, available),
+                "count": min(BATCH_SIZE, available),
                 "examples": examples,
                 "provider": provider,
             }
@@ -1779,7 +1781,7 @@ class FixtureProvider:
         matches = context["skill"]["description"] in descriptions
         if (
             context["provider"] != "fixture-spanish-v1"
-            or context["count"] > 3
+            or context["count"] > BATCH_SIZE
             or not matches
         ):
             raise TerminalFailure()
@@ -1813,6 +1815,36 @@ class FixtureProvider:
                 "Ayer yo ___ por el parque. (caminar)",
                 "caminé",
                 "For yo in the preterite, replace -ar with -é: caminar → caminé.",
+            ),
+            (
+                "Anoche yo ___ la radio. (escuchar)",
+                "escuché",
+                "For yo in the preterite, replace -ar with -é: escuchar → escuché.",
+            ),
+            (
+                "Ayer yo ___ una película. (mirar)",
+                "miré",
+                "For yo in the preterite, replace -ar with -é: mirar → miré.",
+            ),
+            (
+                "Esta mañana yo ___ los platos. (lavar)",
+                "lavé",
+                "For yo in the preterite, replace -ar with -é: lavar → lavé.",
+            ),
+            (
+                "Ayer yo ___ mi cuarto. (limpiar)",
+                "limpié",
+                "For yo in the preterite, replace -ar with -é: limpiar → limpié.",
+            ),
+            (
+                "El verano pasado yo ___ a México. (viajar)",
+                "viajé",
+                "For yo in the preterite, replace -ar with -é: viajar → viajé.",
+            ),
+            (
+                "Ayer yo ___ en la piscina. (nadar)",
+                "nadé",
+                "For yo in the preterite, replace -ar with -é: nadar → nadé.",
             ),
         ]
         excluded = set(context.get("existing_prompts", [])) | {

@@ -41,7 +41,7 @@ After completion, [automatic delivery](DELIVERY.md) adds batches at a safe bound
 
 ## Request format and examples
 
-A request contains `request_id`, `skill_id`, `revision`, and `count`. The skill must already exist and the revision must be current. This proof accepts 1–3 exercises per request. `provider` is optional: `fixture` is the default, and `openai` selects the separately enabled OpenAI worker. `examples` is optional and defaults to an empty list. Each example contains `prompt`, `answer`, and `explanation`; supply at most five. Text fields are limited to 8 KiB and the whole request to 64 KiB. OpenAI also limits the assembled model request to 32 KiB.
+A request contains `request_id`, `skill_id`, `revision`, and `count`. The skill must already exist and the revision must be current. This proof accepts 1–6 exercises per request. `provider` is optional: `fixture` is the default, and `openai` selects the separately enabled OpenAI worker. `examples` is optional and defaults to an empty list. Each example contains `prompt`, `answer`, and `explanation`; supply at most five. Text fields are limited to 8 KiB and the whole request to 64 KiB. OpenAI also limits the assembled model request to 32 KiB.
 
 Examples are saved with the job and passed separately to the provider as reference material. The OpenAI worker uses them to guide format and difficulty. They do not change the skill definition, override its boundaries, or become review exercises automatically. Exact copies of example prompts are refused during publication. The fixture uses predetermined output and excludes exact example prompts; tests confirm that the provider receives the saved examples.
 

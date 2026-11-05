@@ -170,7 +170,9 @@ def test_growth_revisions_reports_native_undo_export_and_backend_restore(tmp_pat
                 "select sum(gross_actual) from generation_attempts"
             ).fetchone()[0]
         snapshot_bytes = len(encode(final).encode())
-        assert count == 603 and max_sequence == 198 and gross == 0
+        # Each revision holds 6 initial exercises, 32 refills of 6, and a last
+        # refill of 2, so three revisions of three skills take 306 jobs.
+        assert count == 306 and max_sequence == 99 and gross == 0
         assert 1024 * 1024 < snapshot_bytes < 8 * 1024 * 1024
         assert col.card_count() == 3 and len(rows(col)[1]) == 325
         expected_rows = rows(col)
