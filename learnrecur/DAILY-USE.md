@@ -1,6 +1,6 @@
 # Daily use
 
-LearnRecur Daily is the Mac app the user studies with every day, backed by the hosted sync server and companion. Treat both as production. The app has five Spanish grammar skills, each with one native card and a locally cached exercise bank. Paid refills run under a $1 monthly ceiling, described below. [OPERATIONS.md](OPERATIONS.md) covers routine updates, backups, alerts, and access; this page has the app's setup and its history.
+LearnRecur Daily is the Mac app the user studies with every day, backed by the hosted sync server and companion. Treat both as production. The app has five Spanish grammar skills, each with one native card and a locally cached exercise bank. Paid refills run under a $20 monthly ceiling, described below. [OPERATIONS.md](OPERATIONS.md) covers routine updates, backups, alerts, and access; this page has the app's setup and its history.
 
 Daily use started as a trial on October 8, 2026 with three skills: regular -ar preterite, por versus para, and present perfect with regular -ar, -er, and -ir verbs. Two more grammar skills were added on October 18. Later sections keep the trial's records.
 
@@ -65,6 +65,8 @@ The collection normally needs no rollback, since reviews stay in the profile and
 ## Spending
 
 On October 20, the user made the backend's $1 monthly ceiling the permanent spending control and removed the October 31 cutoff. The ceiling resets at the start of each UTC month, which is 6 or 7 p.m. in Chicago on the last day of the month. Refills keep running across that reset with no manual step. The worker uses GPT-6 Luna with `xhigh` reasoning. No provider credits are assumed.
+
+On November 5, the server switched to Claude Sonnet 5.5 at `high` effort, and the user raised the ceiling to $20 a month, which their Anthropic plan credits cover. The ceiling isn't tied to those credits; if they run out, the $20 is real spending. See [companion/ANTHROPIC.md](companion/ANTHROPIC.md).
 
 October spending was $0.006244 on October 20, with no reservations held. Jobs reserve their maximum estimated cost before calling the provider. When the month's reservations and spending reach the ceiling, new jobs wait for the next month while cached review continues. A reservation for an attempt whose result or charge is unconfirmed is different: it counts against every month until an operator reconciles it, so the reset doesn't unblock those jobs. These estimates come from saved prices; they're not a provider-enforced billing cap. The prepaid OpenAI balance doesn't stop spending instantly either, since OpenAI may keep serving requests briefly after credits run out and let the balance go negative.
 

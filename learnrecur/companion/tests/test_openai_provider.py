@@ -283,7 +283,7 @@ def test_changing_budget_preserves_charges_holds_and_credits(jobs, payload):
             5000000,
         )
     with pytest.raises(SkillImportError):
-        jobs.configure_budget(5000001, 100, 1791000000)
+        jobs.configure_budget(20000001, 100, 1791000000)
     with pytest.raises(JobConflict):
         jobs.configure_budget(1000000, 200, 1791000000)
     with pytest.raises(JobConflict):

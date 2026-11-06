@@ -47,7 +47,7 @@ Rolling back hasn't been needed or tested. It means stopping the services, putti
 
 ## Spending
 
-The permanent control is the backend's $1 monthly ceiling. It resets at the start of each UTC month, which is 6 or 7 p.m. Chicago time on the last day of the month. Nothing needs doing at the reset. [DAILY-USE.md](DAILY-USE.md#spending) explains the decision.
+The permanent control is the backend's $20 monthly ceiling. It resets at the start of each UTC month, which is 6 or 7 p.m. Chicago time on the last day of the month. Nothing needs doing at the reset. [DAILY-USE.md](DAILY-USE.md#spending) explains the decision.
 
 - **Estimates aren't a provider cap.** Each job reserves its maximum estimated cost from saved prices before it calls the provider. A prepaid provider balance doesn't stop spending instantly either; it can briefly go negative.
 - **Unconfirmed reservations carry over.** A reservation whose result or charge is uncertain counts against every month until someone reconciles it. The monthly reset doesn't clear it.
@@ -55,7 +55,7 @@ The permanent control is the backend's $1 monthly ceiling. It resets at the star
 - **Stuck jobs.** A job in `needs_attention` pauses refills for every skill. Run the manager's `inspect-generation` to see it. With a saved response ID, stop the services and run `reconcile-openai` or `reconcile-anthropic`. Without one, find the request in the provider's dashboard and record its charge with `release-generation`, which can run while services are up. If a result was saved but not published, stop the services and run `publish-ready`. Afterward, run `start-worker`. The commands are in [Restore on another host](deploy/LINUX.md#restore-on-another-host), and [Recovery and charges](companion/OPENAI.md#recovery-and-charges) explains them.
 - **Stop paid generation.** Run the manager's `stop`, move the provider key (`secrets/openai/openai-api-key` or `secrets/anthropic/anthropic-api-key`) out of its folder, then run `start`. That brings back sync and companion only, and `start-worker` refuses to run without the key. Refill requests wait in the queue, and cached review keeps working.
 
-Don't reset accounting or remove restore markers to get around the ceiling. Raising it, up to the $5 maximum, needs the user's approval.
+Don't reset accounting or remove restore markers to get around the ceiling. Raising it, up to the $20 maximum, needs the user's approval.
 
 ## Backups and alerts
 

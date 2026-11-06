@@ -129,10 +129,10 @@ def test_one_batch_request_with_frozen_settings_and_no_stored_key(jobs, payload)
     assert request["custom_id"] == identity(job["id"], 1)["learnrecur_request_id"]
     assert trace == request["custom_id"]
     params = request["params"]
-    assert params["model"] == "claude-haiku-5-5"
-    assert params["output_config"]["effort"] == "max"
+    assert params["model"] == "claude-sonnet-5-5"
+    assert params["output_config"]["effort"] == "high"
     assert params["thinking"] == {"type": "adaptive"}
-    assert params["max_tokens"] == 32000
+    assert params["max_tokens"] == 300000
     assert "Return exactly count exercises" in params["system"]
     schema = params["output_config"]["format"]["schema"]
     # Claude rejects array length limits; the count is checked on import.
@@ -161,11 +161,11 @@ def test_a_finished_batch_publishes_and_records_the_batch_price(jobs, payload):
     api = Batches(polls=2)
     finish(jobs, AnthropicProvider(SYNTHETIC_KEY, transport=api))
     assert jobs.get(job["id"])["state"] == "completed"
-    # 500 input tokens at $0.05/M and 100 output tokens at $0.25/M.
+    # 500 input tokens at $1/M and 100 output tokens at $5/M.
     with jobs.store.connect() as db:
         assert db.execute(
             "select gross_actual,net_actual from generation_attempts"
-        ).fetchone() == (50, 50)
+        ).fetchone() == (1000, 1000)
     paths = [path for _, path, _, _ in api.calls]
     assert paths.count("/v1/messages/batches/msgbatch_test") == 2
     assert paths[-1] == "/v1/messages/batches/msgbatch_test/results"
@@ -205,7 +205,7 @@ def test_unfinished_output_is_charged_but_not_published(jobs, payload, stop_reas
     assert jobs.get(job["id"])["state"] == "failed"
     with jobs.store.connect() as db:
         assert db.execute("select net_actual from generation_attempts").fetchone() == (
-            50,
+            1000,
         )
         assert not db.execute("select 1 from exercise_batches").fetchone()
 
@@ -269,6 +269,87 @@ def test_switching_providers_moves_only_jobs_that_never_called_the_old_one(
     assert [path for _, path, _, _ in api.calls] == ["/v1/messages/batches"]
 
 
+def test_a_job_saved_with_old_settings_runs_with_the_current_ones(jobs, payload):
+    # The first deployment saved Haiku at max effort with a 32K cap, which spent
+    # every token thinking. A job that hasn't called Claude yet picks up the
+    # current model, effort, and cap instead of repeating that.
+    job = claude_job(jobs, payload)
+    old = {
+        **CONFIG,
+        "model": "claude-haiku-5-5",
+        "max_tokens": 32000,
+        "effort": "max",
+        "input_usd_per_million": "0.05",
+        "cache_write_usd_per_million": "0.0625",
+        "cache_read_usd_per_million": "0.005",
+        "output_usd_per_million": "0.25",
+    }
+    del old["beta"]
+    with jobs.store.connect() as db:
+        context = json.loads(
+            db.execute(
+                "select context from generation_jobs where id=?", (job["id"],)
+            ).fetchone()[0]
+        )
+        context["provider_config"] = old
+        db.execute(
+            "update generation_jobs set context=? where id=?",
+            (json.dumps(context), job["id"]),
+        )
+    api = Batches()
+    jobs.run_once(AnthropicProvider(SYNTHETIC_KEY, transport=api))
+    params = api.calls[0][2]["requests"][0]["params"]
+    assert params["model"] == "claude-sonnet-5-5"
+    assert params["output_config"]["effort"] == "high"
+    assert params["max_tokens"] == 300000
+    saved = jobs.get(job["id"])
+    assert saved["context"]["provider_config"] == CONFIG
+    assert saved["state"] == "provider_pending"
+
+
+def test_a_batch_submitted_with_old_settings_is_read_and_charged(jobs, payload):
+    # A Haiku batch still pending across the upgrade keeps its saved settings,
+    # because it's billed at them, and settles instead of needing attention.
+    job = claude_job(jobs, payload)
+    api = Batches(model="claude-haiku-5-5")
+    provider = AnthropicProvider(SYNTHETIC_KEY, transport=api)
+    jobs.run_once(provider)
+    old = {
+        key: value
+        for key, value in {
+            **CONFIG,
+            "model": "claude-haiku-5-5",
+            "max_tokens": 32000,
+            "effort": "max",
+            "input_usd_per_million": "0.05",
+            "cache_write_usd_per_million": "0.0625",
+            "cache_read_usd_per_million": "0.005",
+            "output_usd_per_million": "0.25",
+        }.items()
+        if key != "beta"
+    }
+    with jobs.store.connect() as db:
+        context = json.loads(
+            db.execute(
+                "select context from generation_jobs where id=?", (job["id"],)
+            ).fetchone()[0]
+        )
+        context["provider_config"] = old
+        db.execute(
+            "update generation_jobs set context=? where id=?",
+            (json.dumps(context), job["id"]),
+        )
+    finish(jobs, provider)
+    saved = jobs.get(job["id"])
+    assert saved["state"] == "completed"
+    assert saved["context"]["provider_config"] == old
+    # 500 input tokens at $0.05/M and 100 output tokens at $0.25/M.
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select gross_actual,net_actual from generation_attempts"
+        ).fetchone() == (50, 50)
+
+
 def test_reconcile_reads_a_known_batch_without_resubmitting(jobs, payload):
     job = claude_job(jobs, payload)
     api = Batches()
@@ -296,7 +377,7 @@ def test_request_size_and_saved_settings_are_checked(jobs, payload):
 def test_worker_entry_point_treats_rejections_as_rejections(
     jobs, payload, tmp_path, status, state
 ):
-    jobs.configure_budget(1_000_000)
+    jobs.configure_budget(2_000_000)
     job = claude_job(jobs, payload)
     keys = tmp_path / "anthropic"
     keys.mkdir(mode=0o700)
@@ -351,11 +432,11 @@ def test_openai_credits_never_pay_for_claude(jobs, payload):
 
 
 def test_claude_credits_pay_for_claude(jobs, payload):
-    jobs.configure_budget(0, 1_000_000, NOW + 86400, credit_provider=NAME)
+    jobs.configure_budget(0, 2_000_000, NOW + 86400, credit_provider=NAME)
     job = claude_job(jobs, payload)
     finish(jobs, AnthropicProvider(SYNTHETIC_KEY, transport=Batches()))
     assert jobs.get(job["id"])["state"] == "completed"
     with jobs.store.connect() as db:
         assert db.execute(
             "select gross_actual,credit_actual,net_actual from generation_attempts"
-        ).fetchone() == (50, 50, 0)
+        ).fetchone() == (1000, 1000, 0)

@@ -20,6 +20,8 @@ from typing import Any
 
 # Bounds for one reply. Reasoning tokens count toward these too.
 MAX_OUTPUT_TOKENS = 16000
+# Current Claude models can write up to 128K tokens in one reply.
+CLAUDE_MAX_OUTPUT_TOKENS = 128000
 TIMEOUT_SECONDS = 180.0
 CONNECT_TIMEOUT_SECONDS = 10.0
 OPENROUTER_URL = "https://openrouter.ai/api/v1"
@@ -39,7 +41,7 @@ class Provider:
 PROVIDERS = {
     p.id: p
     for p in (
-        Provider("claude", "Claude API", "claude-haiku-5-5", "high", "sk-ant-"),
+        Provider("claude", "Claude API", "claude-sonnet-5-5", "high", "sk-ant-"),
         Provider("openai", "OpenAI", "gpt-6-luna", "xhigh", "sk-"),
         Provider("openrouter", "OpenRouter", "openai/gpt-6-luna", "xhigh", "sk-or-"),
     )
@@ -71,7 +73,7 @@ def _prices(inp: str, out: str, read: str, write: str) -> Prices:
 # doubles every rate. OpenRouter reports each reply's cost itself.
 PRICES: dict[tuple[str, str, bool], Prices] = {
     ("claude", "claude-haiku-5-5", False): _prices("0.10", "0.50", "0.01", "0.125"),
-    ("claude", "claude-sonnet-5-5", False): _prices("2", "10", "0.10", "2.50"),
+    ("claude", "claude-sonnet-5-5", False): _prices("2", "10", "0.20", "2.50"),
     ("claude", "claude-opus-5-5", False): _prices("4", "20", "0.20", "5"),
     ("claude", "claude-opus-5-5", True): _prices("8", "40", "0.40", "10"),
     ("openai", "gpt-6-luna", False): _prices("0.10", "0.50", "0.01", "0.125"),
@@ -330,7 +332,7 @@ def _claude_once(
 ) -> Usage | None:
     kwargs: dict = dict(
         model=settings.model,
-        max_tokens=MAX_OUTPUT_TOKENS,
+        max_tokens=CLAUDE_MAX_OUTPUT_TOKENS,
         system=system,
         messages=messages,
         output_config={"effort": settings.effort},

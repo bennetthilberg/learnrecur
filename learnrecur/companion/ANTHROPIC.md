@@ -4,11 +4,13 @@ The worker can generate exercises with Claude instead of OpenAI. If you use Clau
 
 ## What it sends
 
-Each attempt is one [Message Batches](https://platform.claude.com/docs/en/build-with-claude/batch-processing) request to `claude-haiku-5-5` with adaptive thinking at `max` effort and at most 32,000 output tokens, thinking included. The request has the same exercise rules, skill fields, examples, and existing prompts as an OpenAI job. A JSON schema separates the instruction, prompt, context, answer, explanation, and blank fills. Claude's schemas can't set an array's length, so the count is in the instructions instead. The worker trims extra exercises, and a short batch fails on import and retries later, like any other bad batch.
+Each attempt is one [Message Batches](https://platform.claude.com/docs/en/build-with-claude/batch-processing) request to `claude-sonnet-5-5` with adaptive thinking at `high` effort and at most 300,000 output tokens, thinking included. Above 128,000 tokens, batches need the `output-300k-2026-03-24` beta header, which every request sends. Thinking text isn't returned, so a long think doesn't enlarge the results file. The request has the same exercise rules, skill fields, examples, and existing prompts as an OpenAI job. A JSON schema separates the instruction, prompt, context, answer, explanation, and blank fills. Claude's schemas can't set an array's length, so the count is in the instructions instead. The worker trims extra exercises, and a short batch fails on import and retries later, like any other bad batch.
 
-Batches cost half the normal price: $0.05 per million input tokens and $0.25 per million output tokens for Haiku 5.5, as of November 5, 2026. Most finish within an hour; the limit is 24 hours. That's fine for refills, which start well before the bank runs out, but a new skill's first exercises can take a while to arrive. The worker checks a pending batch every 30 seconds.
+Batches cost half the normal price: $1 per million input tokens and $5 per million output tokens for Sonnet 5.5, as of November 5, 2026. Most finish within an hour; the limit is 24 hours. That's fine for refills, which start well before the bank runs out, but a new skill's first exercises can take a while to arrive. The worker checks a pending batch every 30 seconds.
 
-A job saves its model settings and prices. If the prices in the code change, older queued jobs refuse to run until they're requested again, which keeps a reservation from using stale numbers. The reservation covers the request size plus 4,096 tokens of slack for the schema's system prompt, and the full output limit, about $0.0085 per job.
+A job saves its model settings and prices. When the worker picks up a job that hasn't called Claude yet and its saved settings differ from the current ones, it switches the job to the current model, effort, limit, prices, and guidance first. A job already waiting on a batch keeps its settings, since that batch is billed at them. The reservation covers the request size plus 4,096 tokens of slack for the schema's system prompt, and the full output limit: about $1.50 per job. Most jobs use a small part of that, and the rest returns to the budget when the batch settles. The monthly limit must be above $1.50, or nothing runs; $20 holds about 13 jobs at once.
+
+The first deployment, on November 5, 2026, used Haiku 5.5 at `max` effort with a 32,000-token limit. All eight of its batches spent every token thinking and returned no exercises, at about $0.008 each. At `max`, Haiku doesn't bound its thinking, so a fixed limit can't make room for the answer. High effort on Sonnet does.
 
 ## Set up on the server
 
@@ -22,12 +24,12 @@ A job saves its model settings and prices. If the prices in the code change, old
       sudo install -o learnrecur -g learnrecur -m 600 /dev/stdin /srv/learnrecur/secrets/anthropic/anthropic-api-key'
    ```
 
-3. As the `learnrecur` user in `/srv/learnrecur/repo`, stop the services, switch the provider with the same monthly limit, and start the worker. `IMAGE` is the running image from `/srv/learnrecur/backup.json`:
+3. As the `learnrecur` user in `/srv/learnrecur/repo`, stop the services, switch the provider with a monthly limit in microusd, and start the worker. `IMAGE` is the running image from `/srv/learnrecur/backup.json`:
 
    ```sh
    M="python3 -m learnrecur.deploy.manage --state /srv/learnrecur/state --secrets /srv/learnrecur/secrets --image IMAGE --project learnrecur"
    $M stop
-   $M configure-anthropic --monthly-limit-microusd 1000000
+   $M configure-anthropic --monthly-limit-microusd 20000000
    $M start-worker
    ```
 

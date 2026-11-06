@@ -66,7 +66,7 @@ class Deployment:
             or set(value) != {"provider", "monthly_limit_microusd"}
             or value["provider"] not in PAID
             or type(value["monthly_limit_microusd"]) is not int
-            or not 0 <= value["monthly_limit_microusd"] <= 5000000
+            or not 0 <= value["monthly_limit_microusd"] <= 20000000
         ):
             raise ValueError("Invalid generation configuration.")
         return value
@@ -87,8 +87,8 @@ class Deployment:
         self.verify_containers()
         if self.running():
             raise ValueError("Stop the deployment before changing providers.")
-        if type(limit) is not int or not 0 <= limit <= 5000000:
-            raise ValueError("Specify an authorized allowance of at most $5.")
+        if type(limit) is not int or not 0 <= limit <= 20000000:
+            raise ValueError("Specify an authorized allowance of at most $20.")
         if any(
             (self.state / "companion" / name).exists()
             for name in (".restore-pending", ".paid-restore-pending")
@@ -462,7 +462,7 @@ class Deployment:
         """Close a needs_attention job with the charge read from provider records."""
         validate_root(self.state)
         self.verify_containers()
-        if type(charge) is not int or not 0 <= charge <= 5000000:
+        if type(charge) is not int or not 0 <= charge <= 20000000:
             raise ValueError("Supply the confirmed charge in microusd.")
         # No key or network: this only records what the operator confirmed.
         subprocess.run(

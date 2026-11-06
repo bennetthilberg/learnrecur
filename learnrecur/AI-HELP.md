@@ -31,17 +31,17 @@ While the text box has focus, review shortcuts are off. Typing `1` or pressing S
 
   | Provider   | Default model       | Default reasoning |
   | ---------- | ------------------- | ----------------- |
-  | Claude API | `claude-haiku-5-5`  | high              |
+  | Claude API | `claude-sonnet-5-5` | high              |
   | OpenAI     | `gpt-6-luna`        | xhigh             |
   | OpenRouter | `openai/gpt-6-luna` | xhigh             |
 
-  Haiku 5.5's own default is medium. High costs very little more and gives it room to check its explanation. `gpt-6-luna` matches the setting the exercise generator uses.
+  Sonnet 5.5 at high reasoning matches the exercise generator. `gpt-6-luna` matches the setting the OpenAI generator uses. A provider you've already used keeps the model you saved for it.
 - **Fast mode:** off by default. For Claude it's sent only to models that support it (`claude-opus-5-5` today), since asking any other model for fast mode is an error. If Claude rate-limits fast mode, the app retries at standard speed. OpenAI and OpenRouter get `service_tier: "fast"`, which costs twice as much. If OpenAI serves the request at standard speed anyway, it bills, and the app counts, standard rates.
 - **Monthly limit:** $1.00 by default. Set it to zero for no limit.
 
 ## Spending
 
-Each reply's cost is added to a running total for the current UTC month, saved in the profile. Claude and OpenAI costs come from the token counts each reply reports and a price table in `qt/aqt/learnrecur_ask_client.py` (checked November 3, 2026). OpenRouter reports each reply's cost itself. The app checks the total before every question and refuses once it reaches the limit, so the last reply can go a little over. A reply cut off by rating the card isn't counted, though the provider still bills the part it generated. A reply is capped at 16,000 output tokens, including reasoning; with the default models that's under a cent.
+Each reply's cost is added to a running total for the current UTC month, saved in the profile. Claude and OpenAI costs come from the token counts each reply reports and a price table in `qt/aqt/learnrecur_ask_client.py` (checked November 3, 2026). OpenRouter reports each reply's cost itself. The app checks the total before every question and refuses once it reaches the limit, so the last reply can go a little over. A reply cut off by rating the card isn't counted, though the provider still bills the part it generated. A Claude reply is capped at 128,000 output tokens, the most current Claude models allow, including reasoning. At Sonnet's $10 per million output tokens, a reply that used it all would cost about $1.28; most use a small part of it. OpenAI and OpenRouter replies are capped at 16,000.
 
 If a limit is set and the chosen model isn't in the price table, the app won't send anything. It says so and suggests removing the limit. With no limit, any model works and unpriced replies just aren't counted.
 

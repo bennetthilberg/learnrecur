@@ -73,8 +73,8 @@ def main():
                 raise ValueError(
                     "Specify an authorized generation allowance."
                 ) from None
-            if not 0 <= limit <= 5000000:
-                raise ValueError("Specify an authorized allowance of at most $5.")
+            if not 0 <= limit <= 20000000:
+                raise ValueError("Specify an authorized allowance of at most $20.")
             options = [
                 "--provider",
                 provider,
