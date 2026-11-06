@@ -43,6 +43,8 @@ PAID_PROVIDERS = {
 }
 PAID_NAMES = {"openai-responses-v1": "openai", "anthropic-batches-v1": "anthropic"}
 PROVIDERS = ("fixture", *PAID_PROVIDERS)
+# The monthly allowance and any single charge stay under $20.
+MAX_MICROUSD = 20000000
 PROVIDER_ERROR = "Choose fixture, openai, or anthropic as the provider."
 
 
@@ -903,12 +905,12 @@ class Jobs:
         credit_expires=0,
         credit_provider="openai-responses-v1",
     ):
-        # The monthly limit can move within the $5 cap at any time; recorded
+        # The monthly limit can move within the $20 cap at any time; recorded
         # spending and holds live in generation_attempts and stay unchanged.
         # Credits change only before the first attempt.
         if (
             any(
-                type(n) is not int or not 0 <= n <= 5000000
+                type(n) is not int or not 0 <= n <= MAX_MICROUSD
                 for n in (monthly_limit, credit_total)
             )
             or not isinstance(credit_expires, (int, float))
@@ -916,7 +918,7 @@ class Jobs:
             or credit_provider not in {*PAID_NAMES, "fixture-spanish-v1"}
         ):
             raise SkillImportError(
-                "Use a budget of at most $5 and a valid credit expiry."
+                "Use a budget of at most $20 and a valid credit expiry."
             )
         with self.store.connect() as db:
             db.execute("begin immediate")
@@ -1033,9 +1035,14 @@ class Jobs:
             for job_id, encoded, attempts, round_start in rows:
                 context = decode(encoded.encode())
                 name = getattr(provider, "name", "fixture-spanish-v1")
-                if context["provider"] != name:
-                    # After the operator switches paid providers, a job that
-                    # hasn't called the old one runs on the new one instead.
+                if context["provider"] != name or (
+                    name in PAID_NAMES
+                    and context.get("provider_config")
+                    != paid_provider(PAID_NAMES[name]).CONFIG
+                ):
+                    # A job that hasn't called a provider yet runs with the
+                    # current one's settings: after the operator switches
+                    # providers, and after a model or price change.
                     if context["provider"] not in PAID_NAMES or name not in PAID_NAMES:
                         continue
                     try:
@@ -1070,7 +1077,7 @@ class Jobs:
                         (now, job_id),
                     )
                     continue
-                if type(estimate) is not int or not 0 <= estimate <= 5000000:
+                if type(estimate) is not int or not 0 <= estimate <= MAX_MICROUSD:
                     raise SkillImportError("Invalid provider cost estimate.")
                 limit, credit_total, credit_expires, credit_provider = db.execute(
                     "select monthly_limit,credit_total,credit_expires,credit_provider from generation_budget"
@@ -1392,8 +1399,8 @@ class Jobs:
         Use this only after checking the provider's records, when the response
         failed, was cancelled, or never started, so reconcile() can't settle it.
         """
-        if type(gross_microusd) is not int or not 0 <= gross_microusd <= 5000000:
-            raise SkillImportError("Use a confirmed charge of at most $5.")
+        if type(gross_microusd) is not int or not 0 <= gross_microusd <= MAX_MICROUSD:
+            raise SkillImportError("Use a confirmed charge of at most $20.")
         folder = self.store.path.parent
         if any(
             (folder / name).exists()
@@ -1461,8 +1468,8 @@ class Jobs:
         full reservation and never publish. Repeating with the same ID and
         amount changes nothing.
         """
-        if type(usage_microusd) is not int or not 0 <= usage_microusd <= 5000000:
-            raise SkillImportError("State the provider usage in microusd, up to $5.")
+        if type(usage_microusd) is not int or not 0 <= usage_microusd <= MAX_MICROUSD:
+            raise SkillImportError("State the provider usage in microusd, up to $20.")
         if not isinstance(recovery_id, str) or not re.fullmatch(
             r"[a-f0-9]{32}", recovery_id
         ):

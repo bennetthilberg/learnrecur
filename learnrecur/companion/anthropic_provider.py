@@ -23,18 +23,22 @@ from learnrecur.companion.jobs import RetryableFailure, TerminalFailure
 from learnrecur.companion.openai_provider import ReadFailure, UncertainResponse
 
 NAME = "anthropic-batches-v1"
-MODEL = "claude-haiku-5-5"
+MODEL = "claude-sonnet-5-5"
 API_VERSION = "2026-10-21"
-# Batch prices for prompts up to 100,000 tokens. Requests stay far below that.
+# Batches can return up to 300K output tokens with this beta; the plain API stops
+# at 128K. High effort leaves room for the answer after thinking.
+BETA = "output-300k-2026-03-24"
+# Sonnet 5.5 batch prices, half the standard rates.
 CONFIG = {
     "model": MODEL,
     "api_version": API_VERSION,
-    "max_tokens": 32000,
-    "effort": "max",
-    "input_usd_per_million": "0.05",
-    "cache_write_usd_per_million": "0.0625",
-    "cache_read_usd_per_million": "0.005",
-    "output_usd_per_million": "0.25",
+    "beta": BETA,
+    "max_tokens": 300000,
+    "effort": "high",
+    "input_usd_per_million": "1",
+    "cache_write_usd_per_million": "1.25",
+    "cache_read_usd_per_million": "0.10",
+    "output_usd_per_million": "5",
     "prices_checked": "2026-11-05",
 }
 CONFIG_FIELDS = frozenset(CONFIG)
@@ -75,9 +79,10 @@ def saved_config(context):
         or set(config) != CONFIG_FIELDS
         or config["model"] != MODEL
         or config["api_version"] != API_VERSION
+        or config["beta"] != BETA
         or config["effort"] not in {"low", "medium", "high", "xhigh", "max"}
         or type(config["max_tokens"]) is not int
-        or not 1 <= config["max_tokens"] <= 64000
+        or not 1 <= config["max_tokens"] <= 300000
     ):
         raise SkillImportError(
             "This worker does not support the saved provider settings."
@@ -186,6 +191,7 @@ class AnthropicProvider:
                 headers={
                     "x-api-key": self._key,
                     "anthropic-version": API_VERSION,
+                    "anthropic-beta": BETA,
                     "content-type": "application/json",
                 },
             )

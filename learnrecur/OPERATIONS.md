@@ -55,7 +55,7 @@ The permanent control is the backend's $1 monthly ceiling. It resets at the star
 - **Stuck jobs.** A job in `needs_attention` pauses refills for every skill. Run the manager's `inspect-generation` to see it. With a saved response ID, stop the services and run `reconcile-openai` or `reconcile-anthropic`. Without one, find the request in the provider's dashboard and record its charge with `release-generation`, which can run while services are up. If a result was saved but not published, stop the services and run `publish-ready`. Afterward, run `start-worker`. The commands are in [Restore on another host](deploy/LINUX.md#restore-on-another-host), and [Recovery and charges](companion/OPENAI.md#recovery-and-charges) explains them.
 - **Stop paid generation.** Run the manager's `stop`, move the provider key (`secrets/openai/openai-api-key` or `secrets/anthropic/anthropic-api-key`) out of its folder, then run `start`. That brings back sync and companion only, and `start-worker` refuses to run without the key. Refill requests wait in the queue, and cached review keeps working.
 
-Don't reset accounting or remove restore markers to get around the ceiling. Raising it, up to the $5 maximum, needs the user's approval.
+Don't reset accounting or remove restore markers to get around the ceiling. Raising it, up to the $20 maximum, needs the user's approval.
 
 ## Backups and alerts
 

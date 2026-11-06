@@ -221,10 +221,10 @@ def check_loss_release(usage_microusd, confirm_original_host_lost, unretrievable
             "Confirm that the original host is gone for good with "
             "--confirm-original-host-lost. If it still runs, use a final handoff."
         )
-    if type(usage_microusd) is not int or not 0 <= usage_microusd <= 5000000:
+    if type(usage_microusd) is not int or not 0 <= usage_microusd <= 20000000:
         raise RecoveryRefused(
             "Supply --post-backup-usage-microusd: the provider usage since the "
-            "backup, from 0 to 5000000."
+            "backup, from 0 to 20000000."
         )
 
 

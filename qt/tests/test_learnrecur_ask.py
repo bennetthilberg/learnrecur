@@ -165,6 +165,7 @@ def test_claude_streams_text_and_sends_effort_without_fast_mode_on_haiku():
     assert body["system"] == SYSTEM
     assert body["messages"] == MESSAGES
     assert body["output_config"] == {"effort": "high"}
+    assert body["max_tokens"] == 128000
     # Haiku doesn't support fast mode, and asking for it is an error.
     assert "speed" not in body
     assert usage.input_tokens == 1000 and usage.output_tokens == 2000
@@ -399,11 +400,11 @@ def mw():
     return SimpleNamespace(pm=SimpleNamespace(profile=profile, save=MagicMock()))
 
 
-def test_settings_default_to_claude_haiku_without_fast_mode(mw):
+def test_settings_default_to_claude_sonnet_without_fast_mode(mw):
     settings = ask.load_settings(mw)
     assert (settings.provider, settings.model, settings.effort, settings.fast) == (
         "claude",
-        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
         "high",
         False,
     )
