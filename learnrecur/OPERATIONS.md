@@ -47,7 +47,7 @@ Rolling back hasn't been needed or tested. It means stopping the services, putti
 
 ## Spending
 
-The permanent control is the backend's $1 monthly ceiling. It resets at the start of each UTC month, which is 6 or 7 p.m. Chicago time on the last day of the month. Nothing needs doing at the reset. [DAILY-USE.md](DAILY-USE.md#spending) explains the decision.
+The permanent control is the backend's $20 monthly ceiling. It resets at the start of each UTC month, which is 6 or 7 p.m. Chicago time on the last day of the month. Nothing needs doing at the reset. [DAILY-USE.md](DAILY-USE.md#spending) explains the decision.
 
 - **Estimates aren't a provider cap.** Each job reserves its maximum estimated cost from saved prices before it calls the provider. A prepaid provider balance doesn't stop spending instantly either; it can briefly go negative.
 - **Unconfirmed reservations carry over.** A reservation whose result or charge is uncertain counts against every month until someone reconciles it. The monthly reset doesn't clear it.
