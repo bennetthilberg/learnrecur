@@ -741,7 +741,7 @@ def test_late_worker_cannot_attach_or_settle_an_expired_claim(jobs, payload):
     jobs.calling(claimed[0], claimed[1])
     jobs.clock = lambda: 1790888470
     with pytest.raises(JobConflict):
-        jobs.submitted(claimed[0], claimed[1], reply(identity(job["id"], 1)))
+        jobs.submitted(claimed[0], claimed[1], "resp_test")
     jobs.run_once(provider)
     assert jobs.get(job["id"])["state"] == "needs_attention"
 
@@ -959,7 +959,7 @@ def test_a_call_after_midnight_uses_the_new_month_budget(jobs, payload):
     assert jobs.calling(job_id, token)
     meta = identity(job_id, 1)
     response = provider.submit(context, meta)
-    jobs.submitted(job_id, token, response)
+    jobs.submitted(job_id, token, response["id"])
     jobs.save_result(job_id, token, provider.result(response, context, meta))
     jobs.publish(job_id)
     another = jobs.enqueue({**payload, "request_id": "october", "provider": "openai"})

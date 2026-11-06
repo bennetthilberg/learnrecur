@@ -45,7 +45,7 @@ services:
     environment: *storage_limits
     volumes:
       - ${LEARNRECUR_STATE}/companion:/state/companion
-    # OpenAI needs the explicit override; fixtures need no provider key.
+    # Paid providers need their own override; fixtures need no provider key.
 secrets:
   sync_account:
     file: ${LEARNRECUR_SECRETS:?Set a private secrets directory}/sync-account

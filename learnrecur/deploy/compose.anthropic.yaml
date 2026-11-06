@@ -1,0 +1,11 @@
+# Loaded only after configure-anthropic records an authorized allowance.
+services:
+  companion:
+    environment:
+      LEARNRECUR_GENERATION_PROVIDER: anthropic
+  worker:
+    environment:
+      LEARNRECUR_GENERATION_PROVIDER: anthropic
+      LEARNRECUR_GENERATION_LIMIT: ${LEARNRECUR_GENERATION_LIMIT:?Set the authorized allowance}
+    volumes:
+      - ${LEARNRECUR_SECRETS}/anthropic:/run/learnrecur-anthropic:ro

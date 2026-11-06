@@ -439,8 +439,10 @@ class Server(ThreadingHTTPServer):
                 "Set LEARNRECUR_COMPANION_TOKEN to at least 32 ASCII characters without spaces."
             )
         self.store = store
-        if refill_provider not in (None, "fixture", "openai"):
-            raise ValueError("Choose fixture or openai as the refill provider.")
+        if refill_provider not in (None, "fixture", "openai", "anthropic"):
+            raise ValueError(
+                "Choose fixture, openai, or anthropic as the refill provider."
+            )
         self.refill_provider = refill_provider
         self.authorization = ("Bearer " + token).encode()
         if host not in ("127.0.0.1", "0.0.0.0"):
@@ -605,7 +607,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-dir", type=Path, required=True)
     parser.add_argument("--port", type=int, default=45321)
-    parser.add_argument("--refill-provider", choices=("fixture", "openai"))
+    parser.add_argument("--refill-provider", choices=("fixture", "openai", "anthropic"))
     for name in asdict(StorageLimits()):
         parser.add_argument("--" + name.replace("_", "-"), type=int)
     args = parser.parse_args()
