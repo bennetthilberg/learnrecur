@@ -504,7 +504,7 @@ def test_operator_release_records_the_charge_and_unblocks_refills(jobs, payload)
         "status": "needs_attention",
         "job_id": manual["id"],
     }
-    for charge in (-1, 5000001, True, None):
+    for charge in (-1, 20000001, True, None):
         with pytest.raises(SkillImportError):
             jobs.release(manual["id"], charge)
     marker = jobs.store.path.parent / ".paid-restore-pending"

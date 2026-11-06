@@ -1036,13 +1036,13 @@ class Jobs:
                 context = decode(encoded.encode())
                 name = getattr(provider, "name", "fixture-spanish-v1")
                 if context["provider"] != name or (
-                    name in PAID_NAMES
+                    getattr(provider, "refresh_settings", False)
                     and context.get("provider_config")
                     != paid_provider(PAID_NAMES[name]).CONFIG
                 ):
-                    # A job that hasn't called a provider yet runs with the
-                    # current one's settings: after the operator switches
-                    # providers, and after a model or price change.
+                    # A job that hasn't called a provider yet runs on the
+                    # current one after the operator switches providers, and
+                    # with current settings if its provider asks for that.
                     if context["provider"] not in PAID_NAMES or name not in PAID_NAMES:
                         continue
                     try:

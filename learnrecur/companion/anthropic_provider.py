@@ -42,6 +42,9 @@ CONFIG = {
     "prices_checked": "2026-11-05",
 }
 CONFIG_FIELDS = frozenset(CONFIG)
+# The first release saved Haiku settings without a beta. A batch submitted with
+# them can still be read and charged; new submissions get the current settings.
+EARLIER = {"claude-haiku-5-5": CONFIG_FIELDS - {"beta"}}
 PRICE_FIELDS = (
     "input_usd_per_million",
     "cache_write_usd_per_million",
@@ -76,10 +79,9 @@ def saved_config(context):
     if (
         context.get("provider") != NAME
         or not isinstance(config, dict)
-        or set(config) != CONFIG_FIELDS
-        or config["model"] != MODEL
+        or set(config) != {MODEL: CONFIG_FIELDS, **EARLIER}.get(config.get("model"))
         or config["api_version"] != API_VERSION
-        or config["beta"] != BETA
+        or config.get("beta", BETA) != BETA
         or config["effort"] not in {"low", "medium", "high", "xhigh", "max"}
         or type(config["max_tokens"]) is not int
         or not 1 <= config["max_tokens"] <= 300000
@@ -174,6 +176,9 @@ def _input_bound(context):
 class AnthropicProvider:
     name = NAME
     poll_seconds = POLL_SECONDS
+    # Unsubmitted jobs pick up the current model, effort, limit, and prices,
+    # so a bad setting is fixed by a release instead of failing every retry.
+    refresh_settings = True
 
     def __init__(self, key, *, transport=None):
         self._key = key

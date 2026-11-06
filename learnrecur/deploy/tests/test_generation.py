@@ -68,7 +68,7 @@ def test_unsafe_enablement_leaves_configuration_absent(deployment, reason):
     elif reason == "public_key":
         deployment.openai_key().chmod(0o644)
     elif reason == "over_budget":
-        limit = 5000001
+        limit = 20000001
     else:
         limit = None
     deployment.compose = Mock()
@@ -122,7 +122,7 @@ def test_release_records_a_confirmed_charge_without_key_or_network(
     ]
     assert "openai" not in str(args) and "worker" not in args
     run.reset_mock()
-    for charge in (None, -1, 5000001):
+    for charge in (None, -1, 20000001):
         with pytest.raises(ValueError):
             deployment.release_generation("synthetic-job", charge)
     run.assert_not_called()

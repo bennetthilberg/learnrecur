@@ -307,6 +307,49 @@ def test_a_job_saved_with_old_settings_runs_with_the_current_ones(jobs, payload)
     assert saved["state"] == "provider_pending"
 
 
+def test_a_batch_submitted_with_old_settings_is_read_and_charged(jobs, payload):
+    # A Haiku batch still pending across the upgrade keeps its saved settings,
+    # because it's billed at them, and settles instead of needing attention.
+    job = claude_job(jobs, payload)
+    api = Batches(model="claude-haiku-5-5")
+    provider = AnthropicProvider(SYNTHETIC_KEY, transport=api)
+    jobs.run_once(provider)
+    old = {
+        key: value
+        for key, value in {
+            **CONFIG,
+            "model": "claude-haiku-5-5",
+            "max_tokens": 32000,
+            "effort": "max",
+            "input_usd_per_million": "0.05",
+            "cache_write_usd_per_million": "0.0625",
+            "cache_read_usd_per_million": "0.005",
+            "output_usd_per_million": "0.25",
+        }.items()
+        if key != "beta"
+    }
+    with jobs.store.connect() as db:
+        context = json.loads(
+            db.execute(
+                "select context from generation_jobs where id=?", (job["id"],)
+            ).fetchone()[0]
+        )
+        context["provider_config"] = old
+        db.execute(
+            "update generation_jobs set context=? where id=?",
+            (json.dumps(context), job["id"]),
+        )
+    finish(jobs, provider)
+    saved = jobs.get(job["id"])
+    assert saved["state"] == "completed"
+    assert saved["context"]["provider_config"] == old
+    # 500 input tokens at $0.05/M and 100 output tokens at $0.25/M.
+    with jobs.store.connect() as db:
+        assert db.execute(
+            "select gross_actual,net_actual from generation_attempts"
+        ).fetchone() == (50, 50)
+
+
 def test_reconcile_reads_a_known_batch_without_resubmitting(jobs, payload):
     job = claude_job(jobs, payload)
     api = Batches()
