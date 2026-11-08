@@ -35,7 +35,7 @@ While the text box has focus, review shortcuts are off. Typing `1` or pressing S
   | OpenAI     | `gpt-6-luna`        | xhigh             |
   | OpenRouter | `openai/gpt-6-luna` | xhigh             |
 
-  Sonnet 5.5 at high reasoning matches the exercise generator. `gpt-6-luna` matches the setting the OpenAI generator uses. A provider you've already used keeps the model you saved for it.
+  Sonnet 5.5 at high reasoning is one step below the exercise generator, which uses xhigh so it checks its work before writing. `gpt-6-luna` matches the setting the OpenAI generator uses. A provider you've already used keeps the model you saved for it.
 - **Fast mode:** off by default. For Claude it's sent only to models that support it (`claude-opus-5-5` today), since asking any other model for fast mode is an error. If Claude rate-limits fast mode, the app retries at standard speed. OpenAI and OpenRouter get `service_tier: "fast"`, which costs twice as much. If OpenAI serves the request at standard speed anyway, it bills, and the app counts, standard rates.
 - **Monthly limit:** $1.00 by default. Set it to zero for no limit.
 
