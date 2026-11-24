@@ -13,6 +13,7 @@ from learnrecur.companion.anthropic_provider import (
     MODEL,
     NAME,
     POLL_SECONDS,
+    THINK_FIRST,
     AnthropicProvider,
     request_body,
 )
@@ -130,10 +131,11 @@ def test_one_batch_request_with_frozen_settings_and_no_stored_key(jobs, payload)
     assert trace == request["custom_id"]
     params = request["params"]
     assert params["model"] == "claude-sonnet-5-5"
-    assert params["output_config"]["effort"] == "high"
+    assert params["output_config"]["effort"] == "xhigh"
     assert params["thinking"] == {"type": "adaptive"}
     assert params["max_tokens"] == 300000
     assert "Return exactly count exercises" in params["system"]
+    assert params["system"].endswith(THINK_FIRST)
     schema = params["output_config"]["format"]["schema"]
     # Claude rejects array length limits; the count is checked on import.
     assert "minItems" not in json.dumps(schema)
@@ -300,7 +302,7 @@ def test_a_job_saved_with_old_settings_runs_with_the_current_ones(jobs, payload)
     jobs.run_once(AnthropicProvider(SYNTHETIC_KEY, transport=api))
     params = api.calls[0][2]["requests"][0]["params"]
     assert params["model"] == "claude-sonnet-5-5"
-    assert params["output_config"]["effort"] == "high"
+    assert params["output_config"]["effort"] == "xhigh"
     assert params["max_tokens"] == 300000
     saved = jobs.get(job["id"])
     assert saved["context"]["provider_config"] == CONFIG

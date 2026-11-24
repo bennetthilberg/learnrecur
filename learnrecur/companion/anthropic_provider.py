@@ -26,7 +26,7 @@ NAME = "anthropic-batches-v1"
 MODEL = "claude-sonnet-5-5"
 API_VERSION = "2026-10-21"
 # Batches can return up to 300K output tokens with this beta; the plain API stops
-# at 128K. High effort leaves room for the answer after thinking.
+# at 128K. Extra-high effort leaves room for the answer after thinking.
 BETA = "output-300k-2026-03-24"
 # Sonnet 5.5 batch prices, half the standard rates.
 CONFIG = {
@@ -34,7 +34,7 @@ CONFIG = {
     "api_version": API_VERSION,
     "beta": BETA,
     "max_tokens": 300000,
-    "effort": "high",
+    "effort": "xhigh",
     "input_usd_per_million": "1",
     "cache_write_usd_per_million": "1.25",
     "cache_read_usd_per_million": "0.10",
@@ -54,6 +54,15 @@ PRICE_FIELDS = (
 MAX_REQUEST_BYTES = 32768
 # Structured output adds its own system prompt; leave room for it in the bound.
 INPUT_SLACK = 4096
+# Adaptive thinking lets Claude skip thinking on requests that look easy. At high
+# effort, Sonnet skipped it on most exercise batches, then fixed mistakes inside
+# the schema-bound JSON ("No: ...") or returned too few exercises.
+THINK_FIRST = (
+    "Before you write the JSON, think through every exercise: solve it yourself, "
+    "confirm that exactly one answer fits, and check that the context, answer, and "
+    "explanation all match the exercise. Fix any problem before you write the JSON; "
+    "never correct yourself inside it."
+)
 # Batches take minutes, not seconds, so poll gently.
 POLL_SECONDS = 30
 # Both providers share one set of exercise rules. Claude's schemas can't fix an
@@ -138,7 +147,7 @@ def request_body(context):
                 },
             },
         },
-        "system": context["instructions"],
+        "system": context["instructions"] + "\n\n" + THINK_FIRST,
         "messages": [
             {
                 "role": "user",
